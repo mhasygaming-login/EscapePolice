@@ -9,7 +9,20 @@ const app = express();
 const server = http.createServer(app);
 const PORT = 3000;
 
-app.use(express.json());
+// Security headers, CORS & body parsing
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+app.use(express.json({ limit: '1mb' }));
 
 // Ensure data directory exists
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -105,76 +118,10 @@ interface DB {
   }[];
 }
 
-// Initial default database state
+// Initial default database state (empty scores for clean registered player leaderboard)
 let db: DB = {
   users: {},
-  scores: [
-    {
-      id: 'score-1',
-      userId: 'bot-1',
-      username: 'NeonRider_99',
-      avatar: '🏎️',
-      title: 'CYBER ACE',
-      carColor: '#00f0ff',
-      score: 4820,
-      distance: 3840,
-      bestCombo: 34,
-      difficulty: 'MAXXX',
-      timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-    },
-    {
-      id: 'score-2',
-      userId: 'bot-2',
-      username: 'ViperShadow',
-      avatar: '⚡',
-      title: 'OUTLAW KING',
-      carColor: '#ff2d6b',
-      score: 3950,
-      distance: 3120,
-      bestCombo: 28,
-      difficulty: 'HARD',
-      timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
-    },
-    {
-      id: 'score-3',
-      userId: 'bot-3',
-      username: 'GhostPursuit',
-      avatar: '👻',
-      title: 'DRIFT MASTER',
-      carColor: '#7c5cff',
-      score: 3400,
-      distance: 2750,
-      bestCombo: 22,
-      difficulty: 'NORMAL',
-      timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
-    },
-    {
-      id: 'score-4',
-      userId: 'bot-4',
-      username: 'BountyHunterX',
-      avatar: '🤖',
-      title: 'ROAD WARRIOR',
-      carColor: '#ffb703',
-      score: 2890,
-      distance: 2190,
-      bestCombo: 19,
-      difficulty: 'NORMAL',
-      timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
-    },
-    {
-      id: 'score-5',
-      userId: 'bot-5',
-      username: 'CyberBlade',
-      avatar: '🔥',
-      title: 'SPEED DEMON',
-      carColor: '#06ffa5',
-      score: 2150,
-      distance: 1800,
-      bestCombo: 15,
-      difficulty: 'EASY',
-      timestamp: new Date(Date.now() - 3600000 * 30).toISOString(),
-    }
-  ],
+  scores: [],
   notifications: [],
   tournaments: [
     {
@@ -185,7 +132,7 @@ let db: DB = {
       startTime: new Date(Date.now() + 3600000 * 2).toISOString(),
       endTime: new Date(Date.now() + 3600000 * 26).toISOString(),
       prizeBounty: 25000,
-      participants: ['bot-1', 'bot-2', 'bot-3']
+      participants: []
     },
     {
       id: 'tourney-2',
@@ -195,7 +142,7 @@ let db: DB = {
       startTime: new Date(Date.now() + 3600000 * 14).toISOString(),
       endTime: new Date(Date.now() + 3600000 * 38).toISOString(),
       prizeBounty: 10000,
-      participants: ['bot-4', 'bot-5']
+      participants: []
     },
     {
       id: 'tourney-3',
@@ -205,7 +152,7 @@ let db: DB = {
       startTime: new Date(Date.now() + 3600000 * 1).toISOString(),
       endTime: new Date(Date.now() + 3600000 * 8).toISOString(),
       prizeBounty: 5000,
-      participants: ['bot-5']
+      participants: []
     }
   ]
 };
@@ -216,21 +163,124 @@ if (fs.existsSync(DB_FILE)) {
     const raw = fs.readFileSync(DB_FILE, 'utf-8');
     const parsed = JSON.parse(raw);
     db = { ...db, ...parsed };
+    // Filter out any obsolete bot scores so only registered players appear
+    if (Array.isArray(db.scores)) {
+      db.scores = db.scores.filter(s => s.userId && !s.userId.startsWith('bot-') && !s.userId.startsWith('guest_') && !s.userId.startsWith('anon'));
+    }
   } catch (err) {
     console.error('Failed to parse db.json, using fallback defaults', err);
   }
 }
 
-function saveDB() {
+// ----------------------------------------------------
+// HIGH-PERFORMANCE IN-MEMORY INDICES & CACHING
+// ----------------------------------------------------
+const userByUsernameLower = new Map<string, StoredUser>();
+function rebuildUserIndices() {
+  userByUsernameLower.clear();
+  for (const user of Object.values(db.users)) {
+    if (user && user.username) {
+      userByUsernameLower.set(user.username.trim().toLowerCase(), user);
+    }
+  }
+}
+rebuildUserIndices();
+
+// Leaderboard in-memory sorted cache
+let cachedLeaderboard: StoredScore[] | null = null;
+function invalidateLeaderboardCache() {
+  cachedLeaderboard = null;
+}
+
+// ----------------------------------------------------
+// ASYNCHRONOUS NON-BLOCKING ATOMIC PERSISTENCE ENGINE
+// ----------------------------------------------------
+let isPersisting = false;
+let pendingSaveRequested = false;
+let saveDebounceTimer: NodeJS.Timeout | null = null;
+
+async function flushDBToDisk(): Promise<void> {
+  if (isPersisting) {
+    pendingSaveRequested = true;
+    return;
+  }
+  isPersisting = true;
+  pendingSaveRequested = false;
+
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf-8');
+    const tempFile = `${DB_FILE}.tmp.${Date.now()}`;
+    const payload = JSON.stringify(db, null, 2);
+    await fs.promises.writeFile(tempFile, payload, 'utf-8');
+    await fs.promises.rename(tempFile, DB_FILE);
   } catch (err) {
-    console.error('Failed to save db.json', err);
+    console.error('Async saveDB failed:', err);
+  } finally {
+    isPersisting = false;
+    if (pendingSaveRequested) {
+      setImmediate(() => {
+        flushDBToDisk().catch(() => {});
+      });
+    }
   }
 }
 
+// Debounced asynchronous non-blocking save
+function saveDB(immediate = false) {
+  invalidateLeaderboardCache();
+
+  if (immediate) {
+    if (saveDebounceTimer) {
+      clearTimeout(saveDebounceTimer);
+      saveDebounceTimer = null;
+    }
+    flushDBToDisk().catch(() => {});
+    return;
+  }
+
+  if (saveDebounceTimer) return;
+  saveDebounceTimer = setTimeout(() => {
+    saveDebounceTimer = null;
+    flushDBToDisk().catch(() => {});
+  }, 60);
+}
+
+// Emergency sync flush on process exit
+function saveDBSync() {
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Emergency sync save failed:', err);
+  }
+}
+
+process.on('SIGINT', () => {
+  saveDBSync();
+  process.exit(0);
+});
+process.on('SIGTERM', () => {
+  saveDBSync();
+  process.exit(0);
+});
+
 // Global active WebSocket connections map for user push notifications
 const connectedClients = new Map<string, WebSocket>();
+const allWsClients = new Set<WebSocket>();
+
+// Broadcast real-time leaderboard update to all connected clients
+function broadcastLeaderboardUpdate(newEntry?: StoredScore) {
+  const payload = JSON.stringify({
+    type: 'leaderboard_update',
+    score: newEntry,
+    timestamp: new Date().toISOString(),
+  });
+  for (const ws of allWsClients) {
+    if (ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(payload);
+      } catch {}
+    }
+  }
+}
 
 // Multiplayer Rooms in memory
 interface PlayerConnection {
@@ -284,6 +334,7 @@ activeRooms.set('RACE-01', {
 const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws: WebSocket) => {
+  allWsClients.add(ws);
   let currentUserId: string | null = null;
   let currentRoomCode: string | null = null;
 
@@ -617,12 +668,31 @@ wss.on('connection', (ws: WebSocket) => {
   }
 
   ws.on('close', () => {
+    allWsClients.delete(ws);
     leaveCurrentRoom();
     if (currentUserId) {
       connectedClients.delete(currentUserId);
     }
   });
 });
+
+// Heartbeat keep-alive to keep connection alive through reverse proxies and cloud containers
+const heartbeatInterval = setInterval(() => {
+  const pingPayload = JSON.stringify({ type: 'ping', timestamp: Date.now() });
+  for (const ws of allWsClients) {
+    if (ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(pingPayload);
+      } catch {
+        allWsClients.delete(ws);
+      }
+    } else if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+      allWsClients.delete(ws);
+    }
+  }
+}, 25000);
+
+heartbeatInterval.unref();
 
 function broadcastRoomState(room: Room) {
   const playersObj: Record<string, any> = {};
@@ -711,35 +781,44 @@ app.get('/api/profile', (req, res) => {
   res.json({ success: true, user });
 });
 
-// Authentication: Register
+// Authentication: Register (Simpel Nama & Password saja)
 app.post('/api/auth/register', (req, res) => {
-  const { username, email, password } = req.body;
-  if (!username || !email) {
-    return res.status(400).json({ error: 'Username dan email wajib diisi!' });
+  const { username, password } = req.body;
+  const cleanUsername = typeof username === 'string' ? username.trim().slice(0, 24) : '';
+  const cleanPassword = typeof password === 'string' ? password.trim().slice(0, 64) : '';
+
+  if (!cleanUsername) {
+    return res.status(400).json({ error: 'Nama pemain wajib diisi!' });
+  }
+  if (cleanUsername.length < 2) {
+    return res.status(400).json({ error: 'Nama pemain minimal 2 karakter!' });
+  }
+  if (!cleanPassword || cleanPassword.length < 3) {
+    return res.status(400).json({ error: 'Password minimal 3 karakter!' });
   }
 
-  const existing = Object.values(db.users).find(
-    u => u.username.toLowerCase() === username.toLowerCase() || u.email.toLowerCase() === email.toLowerCase()
-  );
-  if (existing) {
-    return res.status(400).json({ error: 'Username atau email sudah terdaftar!' });
+  // Fast O(1) index check
+  const usernameKey = cleanUsername.toLowerCase();
+  if (userByUsernameLower.has(usernameKey)) {
+    return res.status(400).json({ error: 'Nama pemain sudah terdaftar! Silakan pilih nama lain atau langsung masuk.' });
   }
 
   const userId = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+  // Data baru mendaftar: pastikan semuanya masih baru dengan data awal kosong
   const newUser: StoredUser = {
     id: userId,
-    username,
-    email,
-    passwordHash: password || 'cyberpass',
-    avatar: '🏎️',
+    username: cleanUsername,
+    email: `${cleanUsername.toLowerCase()}@cyberpursuit.local`,
+    passwordHash: cleanPassword,
+    avatar: '🏎️', // Avatar default yang bisa diganti nanti
     title: 'ROOKIE RACER',
-    carColor: '#f8fafc',
+    carColor: '#00f0ff',
     carModel: 'civic_fl5',
     trailEffect: 'cyan_plasma',
     twoFactorEnabled: false,
     twoFactorSecret: undefined,
-    biometricEnabled: true,
-    achievements: ['first'],
+    biometricEnabled: false,
+    achievements: [], // Data awal kosong
     stats: {
       highScore: 0,
       gamesPlayed: 0,
@@ -747,7 +826,7 @@ app.post('/api/auth/register', (req, res) => {
       obstaclesDodged: 0,
       powerUpsCollected: 0,
       bestCombo: 0,
-      totalBounty: 100,
+      totalBounty: 0, // Awal 0
       maxLevel: 1,
       bossKills: 0,
       nearMisses: 0,
@@ -773,14 +852,15 @@ app.post('/api/auth/register', (req, res) => {
   };
 
   db.users[userId] = newUser;
-  saveDB();
+  userByUsernameLower.set(usernameKey, newUser);
+  saveDB(true);
 
   sendUserNotification(userId, {
     id: 'notif-' + Date.now(),
     userId,
     type: 'system',
-    title: 'Selamat Datang di Escape the Police!',
-    message: 'Akun Anda berhasil dibuat. Dapatkan bounty pertamamu di jalanan cyber!',
+    title: 'Selamat Datang di Escape Police!',
+    message: `Halo ${cleanUsername}, akun barumu siap! Pacu mobilmu dan capai puncak leaderboard.`,
     timestamp: new Date().toISOString(),
     read: false,
   });
@@ -788,34 +868,100 @@ app.post('/api/auth/register', (req, res) => {
   res.json({ success: true, user: newUser });
 });
 
-// Authentication: Login
+// Authentication: Login (Simpel Nama & Password)
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
-  if (!username) {
-    return res.status(400).json({ error: 'Username atau email diperlukan!' });
+  const cleanUsername = typeof username === 'string' ? username.trim() : '';
+  const cleanPassword = typeof password === 'string' ? password.trim() : '';
+
+  if (!cleanUsername) {
+    return res.status(400).json({ error: 'Nama pengguna wajib diisi!' });
   }
 
-  const user = Object.values(db.users).find(
-    u => u.username.toLowerCase() === username.toLowerCase() || u.email.toLowerCase() === username.toLowerCase()
-  );
+  // Fast O(1) index lookup
+  const user = userByUsernameLower.get(cleanUsername.toLowerCase());
 
   if (!user) {
-    return res.status(401).json({ error: 'Pengguna tidak ditemukan. Silakan daftar akun baru.' });
+    return res.status(401).json({ error: 'Nama pemain belum terdaftar. Silakan buat akun baru terlebih dahulu.' });
   }
 
-  // Check if 2FA is required
-  if (user.twoFactorEnabled) {
-    return res.json({
-      require2FA: true,
-      userId: user.id,
-      message: 'Kode autentikasi 2FA diperlukan.',
-    });
+  if (user.passwordHash && cleanPassword && user.passwordHash !== cleanPassword) {
+    return res.status(401).json({ error: 'Password yang Anda masukkan salah!' });
   }
 
   user.lastActive = new Date().toISOString();
   saveDB();
 
   res.json({ success: true, user });
+});
+
+// Verifikasi Kata Sandi untuk Logout dan Operasi Keamanan
+app.post('/api/auth/verify-password', (req, res) => {
+  const { userId, password } = req.body;
+  const cleanPassword = (password || '').trim();
+
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID diperlukan!' });
+  }
+
+  const user = db.users[userId];
+  if (!user) {
+    return res.status(404).json({ error: 'Pengguna tidak ditemukan.' });
+  }
+
+  // Jika akun memiliki password terdaftar
+  if (user.passwordHash) {
+    if (!cleanPassword) {
+      return res.status(400).json({ error: 'Masukkan kata sandi untuk verifikasi keluar akun!' });
+    }
+    if (user.passwordHash !== cleanPassword) {
+      return res.status(401).json({ error: 'Kata sandi salah! Pastikan kata sandi Anda benar.' });
+    }
+  }
+
+  res.json({ success: true, message: 'Kata sandi terverifikasi.' });
+});
+
+// Logout & Hapus Data / Cloud Lama Secara Permanen
+app.post('/api/auth/logout-delete', (req, res) => {
+  const { userId } = req.body;
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID diperlukan' });
+  }
+
+  let deleted = false;
+  const targetUser = db.users[userId];
+  if (targetUser) {
+    if (targetUser.username) {
+      userByUsernameLower.delete(targetUser.username.toLowerCase());
+    }
+    delete db.users[userId];
+    deleted = true;
+  }
+
+  // Hapus semua skor leaderboard milik user ini secara permanen
+  const initialScoresLength = db.scores.length;
+  db.scores = db.scores.filter(s => s.userId !== userId);
+  if (db.scores.length !== initialScoresLength) {
+    deleted = true;
+  }
+
+  // Hapus notifikasi milik user ini (db.notifications adalah array StoredNotification[])
+  if (Array.isArray(db.notifications)) {
+    const initialNotifsLength = db.notifications.length;
+    db.notifications = db.notifications.filter(n => n.userId !== userId);
+    if (db.notifications.length !== initialNotifsLength) {
+      deleted = true;
+    }
+  }
+
+  if (deleted) {
+    saveDB(true);
+    // Kirim pembaruan real-time ke semua client bahwa leaderboard diperbarui
+    broadcastLeaderboardUpdate();
+  }
+
+  res.json({ success: true, message: 'Data dan cloud lama berhasil dihapus secara permanen.' });
 });
 
 // Verify 2FA code
@@ -917,26 +1063,71 @@ app.post('/api/auth/guest', (req, res) => {
 // Update Profile & Customization
 app.put('/api/profile', (req, res) => {
   const { userId, updates } = req.body;
+  if (!userId || typeof userId !== 'string') {
+    return res.status(400).json({ error: 'userId diperlukan' });
+  }
+
   const user = db.users[userId];
   if (!user) {
     return res.status(404).json({ error: 'User tidak ditemukan' });
   }
 
-  if (updates.username) user.username = updates.username;
-  if (updates.avatar) user.avatar = updates.avatar;
-  if (updates.title) user.title = updates.title;
-  if (updates.carColor) user.carColor = updates.carColor;
-  if (updates.carModel) user.carModel = updates.carModel;
-  if (updates.trailEffect) user.trailEffect = updates.trailEffect;
-  if (typeof updates.twoFactorEnabled === 'boolean') {
-    user.twoFactorEnabled = updates.twoFactorEnabled;
-    if (updates.twoFactorEnabled && !user.twoFactorSecret) {
-      user.twoFactorSecret = '123456';
+  if (updates && typeof updates === 'object') {
+    // If updating username, check uniqueness and update index
+    if (typeof updates.username === 'string') {
+      const cleanNewName = updates.username.trim().slice(0, 24);
+      if (cleanNewName && cleanNewName.toLowerCase() !== user.username.toLowerCase()) {
+        if (userByUsernameLower.has(cleanNewName.toLowerCase())) {
+          return res.status(400).json({ error: 'Nama pemain ini sudah dipakai oleh racer lain!' });
+        }
+        userByUsernameLower.delete(user.username.toLowerCase());
+        user.username = cleanNewName;
+        userByUsernameLower.set(cleanNewName.toLowerCase(), user);
+
+        // Synchronize on existing scores
+        for (const s of db.scores) {
+          if (s.userId === userId) {
+            s.username = cleanNewName;
+          }
+        }
+        invalidateLeaderboardCache();
+      }
+    }
+
+    if (typeof updates.avatar === 'string') {
+      user.avatar = updates.avatar.slice(0, 8);
+      for (const s of db.scores) {
+        if (s.userId === userId) s.avatar = user.avatar;
+      }
+    }
+    if (typeof updates.title === 'string') {
+      user.title = updates.title.slice(0, 32);
+      for (const s of db.scores) {
+        if (s.userId === userId) s.title = user.title;
+      }
+    }
+    if (typeof updates.carColor === 'string') {
+      user.carColor = updates.carColor;
+      for (const s of db.scores) {
+        if (s.userId === userId) s.carColor = user.carColor;
+      }
+    }
+    if (typeof updates.carModel === 'string') user.carModel = updates.carModel;
+    if (typeof updates.trailEffect === 'string') user.trailEffect = updates.trailEffect;
+    if (typeof updates.twoFactorEnabled === 'boolean') {
+      user.twoFactorEnabled = updates.twoFactorEnabled;
+      if (updates.twoFactorEnabled && !user.twoFactorSecret) {
+        user.twoFactorSecret = '123456';
+      }
+    }
+    if (typeof updates.biometricEnabled === 'boolean') user.biometricEnabled = updates.biometricEnabled;
+    if (updates.layoutSettings && typeof updates.layoutSettings === 'object') {
+      user.layoutSettings = { ...user.layoutSettings, ...updates.layoutSettings };
+    }
+    if (updates.notificationSettings && typeof updates.notificationSettings === 'object') {
+      user.notificationSettings = { ...user.notificationSettings, ...updates.notificationSettings };
     }
   }
-  if (typeof updates.biometricEnabled === 'boolean') user.biometricEnabled = updates.biometricEnabled;
-  if (updates.layoutSettings) user.layoutSettings = { ...user.layoutSettings, ...updates.layoutSettings };
-  if (updates.notificationSettings) user.notificationSettings = { ...user.notificationSettings, ...updates.notificationSettings };
 
   user.lastActive = new Date().toISOString();
   saveDB();
@@ -948,8 +1139,11 @@ app.put('/api/profile', (req, res) => {
 app.post('/api/scores', (req, res) => {
   const { userId, score, distance, bestCombo, difficulty, obstaclesDodged, powerUpsCollected, bossKilled, empUsed, nearMisses } = req.body;
 
-  const scoreNum = Math.floor(score || 0);
-  const user = db.users[userId];
+  // Sanitize score input: ensure non-negative safe integer
+  const scoreNum = Math.max(0, Math.min(100000000, Math.floor(Number(score) || 0)));
+  const user = typeof userId === 'string' ? db.users[userId] : undefined;
+  const isRegistered = !!user && !userId.startsWith('guest_') && !userId.startsWith('anon') && !userId.startsWith('offline_');
+
   const username = user?.username || 'Guest Driver';
   const avatar = user?.avatar || '🏎️';
   const title = user?.title || 'RACER';
@@ -963,27 +1157,27 @@ app.post('/api/scores', (req, res) => {
     title,
     carColor,
     score: scoreNum,
-    distance: Math.floor(distance || 0),
-    bestCombo: bestCombo || 0,
-    difficulty: difficulty || 'NORMAL',
+    distance: Math.max(0, Math.floor(Number(distance) || 0)),
+    bestCombo: Math.max(0, Math.floor(Number(bestCombo) || 0)),
+    difficulty: typeof difficulty === 'string' ? difficulty : 'NORMAL',
     timestamp: new Date().toISOString(),
   };
 
-  db.scores.push(newScore);
+  // Hanya simpan ke database leaderboard resmi jika pemain SUDAH MENDAFTAR
+  if (isRegistered && user) {
+    db.scores.push(newScore);
 
-  // Update user stats if user exists
-  if (user) {
+    // Update user stats
     user.stats.gamesPlayed += 1;
-    user.stats.totalDistance += Math.floor(distance || 0);
-    user.stats.obstaclesDodged += obstaclesDodged || 0;
-    user.stats.powerUpsCollected += powerUpsCollected || 0;
-    user.stats.nearMisses += nearMisses || 0;
-    user.stats.empUsed += empUsed || 0;
+    user.stats.totalDistance += newScore.distance;
+    user.stats.obstaclesDodged += Math.max(0, Math.floor(Number(obstaclesDodged) || 0));
+    user.stats.powerUpsCollected += Math.max(0, Math.floor(Number(powerUpsCollected) || 0));
+    user.stats.nearMisses += Math.max(0, Math.floor(Number(nearMisses) || 0));
+    user.stats.empUsed += Math.max(0, Math.floor(Number(empUsed) || 0));
     if (bossKilled) user.stats.bossKills += 1;
-    if (bestCombo > user.stats.bestCombo) user.stats.bestCombo = bestCombo;
+    if (newScore.bestCombo > user.stats.bestCombo) user.stats.bestCombo = newScore.bestCombo;
     if (scoreNum > user.stats.highScore) {
       user.stats.highScore = scoreNum;
-      // Send High Score achievement notification
       sendUserNotification(userId, {
         id: 'notif_' + Date.now(),
         userId,
@@ -998,34 +1192,108 @@ app.post('/api/scores', (req, res) => {
     const earnedBounty = Math.floor(scoreNum / 10) + (bossKilled ? 500 : 0);
     user.stats.totalBounty += earnedBounty;
     user.lastActive = new Date().toISOString();
+
+    // Sort scores and keep top 250
+    db.scores.sort((a, b) => b.score - a.score);
+    if (db.scores.length > 250) {
+      db.scores = db.scores.slice(0, 250);
+    }
+
+    saveDB();
+
+    // Broadcast update real-time ke semua client WebSocket yang aktif
+    broadcastLeaderboardUpdate(newScore);
+
+    const rank = db.scores.findIndex(s => s.id === newScore.id) + 1;
+    if (rank <= 3 && scoreNum > 1000) {
+      broadcastGlobalAlert(
+        `🚨 Papan Peringkat Global Bergetar!`,
+        `[#${rank}] ${username} baru saja mencetak skor fantastis ${scoreNum.toLocaleString()} di mode ${newScore.difficulty}!`,
+        'score_beaten'
+      );
+    }
+
+    return res.json({ success: true, rank, score: newScore, userStats: user.stats, isRegistered: true });
   }
 
-  // Sort scores and keep top 200
-  db.scores.sort((a, b) => b.score - a.score);
-  if (db.scores.length > 200) {
-    db.scores = db.scores.slice(0, 200);
-  }
-
-  saveDB();
-
-  // If this score entered top 3, broadcast real-time alert to all players!
-  const rank = db.scores.findIndex(s => s.id === newScore.id) + 1;
-  if (rank <= 3 && scoreNum > 1000) {
-    broadcastGlobalAlert(
-      `🚨 Papan Peringkat Global Bergetar!`,
-      `[#${rank}] ${username} baru saja mencetak skor fantastis ${scoreNum.toLocaleString()} di mode ${difficulty}!`,
-      'score_beaten'
-    );
-  }
-
-  res.json({ success: true, rank, score: newScore, userStats: user?.stats });
+  // Jika belum mendaftar, kembalikan skor saja tanpa dicantumkan di papan peringkat
+  res.json({ success: true, rank: null, score: newScore, userStats: user?.stats, isRegistered: false });
 });
 
-// Leaderboard with filters
+// Batch Offline Scores Sync Endpoint
+app.post('/api/scores/batch', (req, res) => {
+  const { userId, scores } = req.body;
+  if (!Array.isArray(scores) || scores.length === 0) {
+    return res.json({ success: true, syncedCount: 0 });
+  }
+
+  const user = typeof userId === 'string' ? db.users[userId] : undefined;
+  const isRegistered = !!user && !userId.startsWith('guest_') && !userId.startsWith('anon') && !userId.startsWith('offline_');
+
+  let syncedCount = 0;
+  for (const item of scores) {
+    if (!item) continue;
+    const scoreNum = Math.max(0, Math.min(100000000, Math.floor(Number(item.score) || 0)));
+    const entry: StoredScore = {
+      id: 'score_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      userId: userId || 'anon',
+      username: user?.username || 'Racer',
+      avatar: user?.avatar || '🏎️',
+      title: user?.title || 'RACER',
+      carColor: user?.carColor || '#00f0ff',
+      score: scoreNum,
+      distance: Math.max(0, Math.floor(Number(item.distance) || 0)),
+      bestCombo: Math.max(0, Math.floor(Number(item.bestCombo) || 0)),
+      difficulty: typeof item.difficulty === 'string' ? item.difficulty : 'NORMAL',
+      timestamp: item.timestamp || new Date().toISOString(),
+    };
+
+    if (isRegistered && user) {
+      db.scores.push(entry);
+      user.stats.gamesPlayed += 1;
+      user.stats.totalDistance += entry.distance;
+      user.stats.obstaclesDodged += Math.max(0, Math.floor(Number(item.obstaclesDodged) || 0));
+      user.stats.powerUpsCollected += Math.max(0, Math.floor(Number(item.powerUpsCollected) || 0));
+      if (entry.bestCombo > user.stats.bestCombo) user.stats.bestCombo = entry.bestCombo;
+      if (scoreNum > user.stats.highScore) user.stats.highScore = scoreNum;
+      user.stats.totalBounty += Math.floor(scoreNum / 10);
+    }
+    syncedCount++;
+  }
+
+  if (isRegistered && user && syncedCount > 0) {
+    user.lastActive = new Date().toISOString();
+    db.scores.sort((a, b) => b.score - a.score);
+    if (db.scores.length > 250) {
+      db.scores = db.scores.slice(0, 250);
+    }
+    saveDB();
+    broadcastLeaderboardUpdate();
+  }
+
+  res.json({ success: true, syncedCount, userStats: user?.stats });
+});
+
+// Leaderboard with filters and fast search (HANYA PEMAIN TERDAFTAR)
 app.get('/api/leaderboard', (req, res) => {
   const { period = 'all', difficulty, search } = req.query;
 
-  let list = [...db.scores];
+  // Use cached sorted leaderboard of registered users for ultra-fast response time
+  if (!cachedLeaderboard) {
+    cachedLeaderboard = db.scores.filter(s => {
+      const user = db.users[s.userId];
+      return !!user && !s.userId.startsWith('guest_') && !s.userId.startsWith('bot-') && !s.userId.startsWith('anon') && !s.userId.startsWith('offline_');
+    });
+    cachedLeaderboard.sort((a, b) => b.score - a.score);
+  }
+
+  let list = cachedLeaderboard;
+
+  // Search filter by player name
+  if (typeof search === 'string' && search.trim()) {
+    const q = search.trim().toLowerCase();
+    list = list.filter(s => s.username.toLowerCase().includes(q));
+  }
 
   const now = Date.now();
   if (period === 'daily') {
@@ -1040,18 +1308,11 @@ app.get('/api/leaderboard', (req, res) => {
     list = list.filter(s => s.difficulty === difficulty);
   }
 
-  if (search && typeof search === 'string') {
-    const query = search.toLowerCase();
-    list = list.filter(s => s.username.toLowerCase().includes(query) || s.title.toLowerCase().includes(query));
-  }
-
-  list.sort((a, b) => b.score - a.score);
-
   res.json({
     period,
     difficulty,
     total: list.length,
-    leaderboard: list.slice(0, 50),
+    leaderboard: list.slice(0, 100),
   });
 });
 
@@ -1211,7 +1472,10 @@ app.get('/api/export-data', (req, res) => {
 async function setupVite() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

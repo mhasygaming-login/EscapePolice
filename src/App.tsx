@@ -18,13 +18,18 @@ import { AnalyticsModal } from './components/AnalyticsModal';
 import { AuthModal } from './components/AuthModal';
 import { SettingsModal } from './components/SettingsModal';
 import { NotificationsDrawer } from './components/NotificationsDrawer';
+import { AuthScreen } from './components/AuthScreen';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { ShareModal } from './components/ShareModal';
 
 export default function App() {
   // Navigation
   const [activeTab, setActiveTab] = useState<'game' | 'multiplayer' | 'leaderboard' | 'garage' | 'tournaments' | 'analytics'>('game');
 
-  // User State
+  // User State & Auth Flow
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [authScreenTab, setAuthScreenTab] = useState<'login' | 'register'>('login');
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('NORMAL');
 
   // Multiplayer Game Room State
@@ -52,6 +57,7 @@ export default function App() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
 
   // Notifications
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -64,16 +70,14 @@ export default function App() {
   // Initialize user & session
   useEffect(() => {
     const initApp = async () => {
-      // Auto-load profile or initialize guest
+      // Auto-load profile if valid registered session exists
       const profile = await api.getProfile();
-      if (profile) {
+      if (profile && !profile.id.startsWith('guest_') && !profile.id.startsWith('offline_') && !profile.id.startsWith('anon')) {
         setCurrentUser(profile);
       } else {
-        const guest = await api.guestLogin();
-        if (guest.user) {
-          setCurrentUser(guest.user);
-        }
+        setCurrentUser(null);
       }
+      setIsAuthChecking(false);
 
       // Check offline queue sync
       if (navigator.onLine) {
@@ -181,6 +185,46 @@ export default function App() {
     if (!next) sound.play('click');
   };
 
+  const handleLogout = async () => {
+    if (currentUser?.id) {
+      await api.logout(currentUser.id);
+    } else {
+      await api.logout();
+    }
+    socket.disconnect();
+    setCurrentUser(null);
+    setAuthScreenTab('register'); // Otomatis kembali ke halaman pendaftaran ulang
+    setIsAuthOpen(false);
+    setIsSettingsOpen(false);
+  };
+
+  // Loading indicator saat inisialisasi sesi
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-[#070814] flex items-center justify-center text-cyan-400">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-display font-bold uppercase tracking-wider text-gray-400">
+            Memuat Sistem Balap...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Jika player baru atau sudah log out: halaman pertama yang muncul adalah halaman login/register
+  if (!currentUser) {
+    return (
+      <AuthScreen
+        initialTab={authScreenTab}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setAuthScreenTab('login');
+        }}
+      />
+    );
+  }
+
   return (
     <div
       className={`min-h-screen bg-[#070814] text-white flex flex-col selection:bg-cyan-500 selection:text-black ${
@@ -208,6 +252,7 @@ export default function App() {
         unreadNotifCount={unreadCount}
         onOpenNotifications={() => setIsNotifOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenShare={() => setIsShareOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         cloudStatus={cloudSyncStatus}
         isOnline={cloudSyncStatus !== 'offline'}
@@ -224,49 +269,56 @@ export default function App() {
 
       {/* Main Screen Container */}
       <main className="flex-1 flex flex-col items-center justify-start w-full relative">
-        {activeTab === 'game' && (
-          <GameCanvas
-            user={currentUser}
-            difficulty={difficulty}
-            onChangeDifficulty={setDifficulty}
-            multiplayerRoom={activeRoom}
-            onLeaveMultiplayer={handleLeaveMultiplayer}
-            onRematchMultiplayer={handleRematchMultiplayer}
-            onReturnToLobby={handleReturnToLobby}
-            onOpenMultiplayer={() => setActiveTab('multiplayer')}
-            onOpenGarage={() => setActiveTab('garage')}
-            onOpenLeaderboard={() => setActiveTab('leaderboard')}
-            onScoreSubmitted={async () => {
-              const updated = await api.getProfile();
-              if (updated) setCurrentUser(updated);
-            }}
-          />
-        )}
+        <ErrorBoundary>
+          {activeTab === 'game' && (
+            <GameCanvas
+              user={currentUser}
+              difficulty={difficulty}
+              onChangeDifficulty={setDifficulty}
+              multiplayerRoom={activeRoom}
+              onLeaveMultiplayer={handleLeaveMultiplayer}
+              onRematchMultiplayer={handleRematchMultiplayer}
+              onReturnToLobby={handleReturnToLobby}
+              onOpenMultiplayer={() => setActiveTab('multiplayer')}
+              onOpenGarage={() => setActiveTab('garage')}
+              onOpenLeaderboard={() => setActiveTab('leaderboard')}
+              onScoreSubmitted={async () => {
+                const updated = await api.getProfile();
+                if (updated) setCurrentUser(updated);
+              }}
+            />
+          )}
 
-        {activeTab === 'multiplayer' && (
-          <MultiplayerLobby
-            user={currentUser}
-            initialRoomCode={initialInviteRoom}
-            onStartMatch={handleStartMultiplayerMatch}
-            onBackToSolo={() => {
-              setActiveRoom(null);
-              setActiveTab('game');
-            }}
-          />
-        )}
+          {activeTab === 'multiplayer' && (
+            <MultiplayerLobby
+              user={currentUser}
+              initialRoomCode={initialInviteRoom}
+              onStartMatch={handleStartMultiplayerMatch}
+              onBackToSolo={() => {
+                setActiveRoom(null);
+                setActiveTab('game');
+              }}
+            />
+          )}
 
-        {activeTab === 'leaderboard' && <LeaderboardModal user={currentUser} />}
+          {activeTab === 'leaderboard' && (
+            <LeaderboardModal
+              user={currentUser}
+              onOpenAuth={() => setIsAuthOpen(true)}
+            />
+          )}
 
-        {activeTab === 'garage' && (
-          <GarageModal
-            user={currentUser}
-            onUpdateUser={updated => setCurrentUser(updated)}
-          />
-        )}
+          {activeTab === 'garage' && (
+            <GarageModal
+              user={currentUser}
+              onUpdateUser={updated => setCurrentUser(updated)}
+            />
+          )}
 
-        {activeTab === 'tournaments' && <TournamentsModal user={currentUser} />}
+          {activeTab === 'tournaments' && <TournamentsModal user={currentUser} />}
 
-        {activeTab === 'analytics' && <AnalyticsModal user={currentUser} />}
+          {activeTab === 'analytics' && <AnalyticsModal user={currentUser} />}
+        </ErrorBoundary>
       </main>
 
       {/* Modals & Slide-overs */}
@@ -275,14 +327,7 @@ export default function App() {
         onClose={() => setIsAuthOpen(false)}
         currentUser={currentUser}
         onLoginSuccess={user => setCurrentUser(user)}
-        onLogout={async () => {
-          await api.logout();
-          setCurrentUser(null);
-          // auto re-init guest
-          const guest = await api.guestLogin();
-          if (guest.user) setCurrentUser(guest.user);
-          setIsAuthOpen(false);
-        }}
+        onLogout={handleLogout}
       />
 
       <SettingsModal
@@ -290,6 +335,11 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         user={currentUser}
         onUpdateUser={updated => setCurrentUser(updated)}
+        onLogout={handleLogout}
+        onOpenAuth={() => {
+          setIsSettingsOpen(false);
+          setIsAuthOpen(true);
+        }}
       />
 
       <NotificationsDrawer
@@ -298,6 +348,12 @@ export default function App() {
         notifications={notifications}
         onMarkAllRead={handleMarkAllNotifRead}
         user={currentUser}
+      />
+
+      <ShareModal
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
+        roomCode={activeRoom?.code}
       />
     </div>
   );

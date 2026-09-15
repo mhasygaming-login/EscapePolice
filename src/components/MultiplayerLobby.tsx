@@ -3,6 +3,8 @@ import { UserProfile, MultiplayerRoom, DifficultyLevel, MultiplayerPlayerState }
 import { socket } from '../services/socket';
 import { sound } from '../services/audio';
 import { getCarModel } from '../services/cars';
+import { BrandLogo } from './BrandLogo';
+import { getPublicGameUrl, copyTextToClipboard } from '../utils/share';
 import {
   Users,
   Plus,
@@ -19,6 +21,12 @@ import {
   LogOut,
   Car,
   Flame,
+  Globe,
+  MessageCircle,
+  Send,
+  Smartphone,
+  Laptop,
+  ExternalLink,
 } from 'lucide-react';
 
 interface MultiplayerLobbyProps {
@@ -43,6 +51,7 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
   const [newRoomDiff, setNewRoomDiff] = useState<DifficultyLevel>('NORMAL');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedPublicLink, setCopiedPublicLink] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lobbyMessages, setLobbyMessages] = useState<{ sender: string; text: string }[]>([]);
@@ -158,34 +167,30 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
     setLobbyMessages(prev => [...prev.slice(-3), { sender: 'Kamu', text: msg }]);
   };
 
-  const handleCopyInviteLink = () => {
+  const handleCopyInviteLink = async () => {
     if (!currentRoom) return;
-    try {
-      const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoom.code}`;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(inviteUrl).catch(() => {});
-      }
-    } catch {}
-    setCopiedLink(true);
-    sound.play('coin');
-    setTimeout(() => setCopiedLink(false), 2000);
+    const inviteUrl = getPublicGameUrl(currentRoom.code);
+    const success = await copyTextToClipboard(inviteUrl);
+    if (success) {
+      setCopiedLink(true);
+      sound.play('coin');
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
   };
 
-  const handleCopyRoomCode = () => {
+  const handleCopyRoomCode = async () => {
     if (!currentRoom) return;
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(currentRoom.code).catch(() => {});
-      }
-    } catch {}
-    setCopiedCode(true);
-    sound.play('coin');
-    setTimeout(() => setCopiedCode(false), 2000);
+    const success = await copyTextToClipboard(currentRoom.code);
+    if (success) {
+      setCopiedCode(true);
+      sound.play('coin');
+      setTimeout(() => setCopiedCode(false), 2000);
+    }
   };
 
   const handleShareNative = async () => {
     if (!currentRoom) return;
-    const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoom.code}`;
+    const inviteUrl = getPublicGameUrl(currentRoom.code);
     if (navigator.share) {
       try {
         await navigator.share({
@@ -193,10 +198,10 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
           text: `Ayo gabung balapan real-time denganku! Kode Room: ${currentRoom.code}`,
           url: inviteUrl,
         });
+        return;
       } catch {}
-    } else {
-      handleCopyInviteLink();
     }
+    handleCopyInviteLink();
   };
 
   const isHost = currentRoom && user ? currentRoom.players[user.id]?.isHost : false;
@@ -353,8 +358,8 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
                 </div>
 
                 {/* Car Badge */}
-                <div className="text-[11px] text-gray-400 flex items-center gap-1 mt-0.5">
-                  <Car className="w-3 h-3 text-gray-500" />
+                <div className="text-[11px] text-gray-400 flex items-center gap-1.5 mt-1">
+                  <BrandLogo brand={getCarModel(p.carModel).brand} size={15} />
                   <span className="truncate max-w-[110px]">{getCarModel(p.carModel).name}</span>
                 </div>
 
@@ -454,6 +459,68 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Main Solo</span>
             </button>
+          </div>
+
+          {/* Public Sharing & Multi-Device Bar */}
+          <div className="bg-gradient-to-r from-cyan-950/40 via-[#0b0c1a] to-fuchsia-950/40 border border-cyan-500/30 rounded-2xl p-4 sm:p-4.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-cyan-400" />
+                <span className="text-[11px] font-display font-bold uppercase tracking-wider text-cyan-300">
+                  Link Publik Game (Multi-Perangkat)
+                </span>
+                <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  ONLINE REAL-TIME
+                </span>
+              </div>
+              <p className="text-xs text-gray-300">
+                Bagikan link ini ke teman Anda agar bisa langsung membuka dan main balap bareng dari browser HP atau PC:
+              </p>
+              <div className="text-[11px] text-cyan-400/90 font-mono select-all break-all pt-0.5">
+                {getPublicGameUrl()}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto">
+              <button
+                type="button"
+                onClick={async () => {
+                  const success = await copyTextToClipboard(getPublicGameUrl());
+                  if (success) {
+                    setCopiedPublicLink(true);
+                    sound.play('coin');
+                    setTimeout(() => setCopiedPublicLink(false), 2000);
+                  }
+                }}
+                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md shadow-cyan-500/20"
+              >
+                {copiedPublicLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedPublicLink ? 'Link Tersalin!' : 'Salin Link Game'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const text = `Ayo main game balap liar Escape Police bareng aku secara real-time!\nKlik link: ${getPublicGameUrl()}`;
+                  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+                }}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-display font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                title="Kirim ke WhatsApp"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">WhatsApp</span>
+              </button>
+
+              <a
+                href={getPublicGameUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs transition-colors cursor-pointer"
+                title="Buka di Tab Baru"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
 
           {/* 2-Column Auto-Layout */}

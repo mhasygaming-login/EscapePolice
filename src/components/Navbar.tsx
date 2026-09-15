@@ -15,7 +15,8 @@ import {
   Settings,
   ShieldCheck,
   User,
-  Flame
+  Flame,
+  Share2
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -26,6 +27,7 @@ interface NavbarProps {
   onOpenAuth: () => void;
   onOpenNotifications: () => void;
   onOpenSettings: () => void;
+  onOpenShare?: () => void;
   unreadNotifsCount?: number;
   unreadNotifCount?: number;
   isOnline?: boolean;
@@ -45,6 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAuth,
   onOpenNotifications,
   onOpenSettings,
+  onOpenShare,
   unreadNotifsCount,
   unreadNotifCount,
   isOnline: propIsOnline,
@@ -203,6 +206,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500" />
             )}
           </button>
+
+          {/* Share Public Link */}
+          {onOpenShare && (
+            <button
+              onClick={onOpenShare}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:text-cyan-300 text-xs font-display font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm"
+              title="Bagikan Link Game ke Teman"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Bagikan</span>
+            </button>
+          )}
 
           {/* Settings */}
           <button

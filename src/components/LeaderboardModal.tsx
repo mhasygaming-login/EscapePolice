@@ -2,28 +2,43 @@ import React, { useState, useEffect } from 'react';
 import { LeaderboardEntry, UserProfile } from '../types/game';
 import { api } from '../services/api';
 import { sound } from '../services/audio';
-import { Trophy, Medal, Search, RefreshCw, Flame, ArrowUpRight } from 'lucide-react';
+import { socket } from '../services/socket';
+import { Trophy, Medal, Search, RefreshCw, Flame, ShieldCheck, Radio, UserPlus } from 'lucide-react';
 
 interface LeaderboardModalProps {
   user: UserProfile | null;
+  onOpenAuth?: () => void;
 }
 
-export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user }) => {
+export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user, onOpenAuth }) => {
   const [period, setPeriod] = useState<'all' | 'daily' | 'weekly'>('all');
   const [difficultyFilter, setDifficultyFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [scores, setScores] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+
+  const isUserRegistered = user && !user.id.startsWith('guest_') && !user.id.startsWith('offline_') && !user.id.startsWith('anon');
 
   const fetchLeaderboard = async () => {
     setLoading(true);
     const data = await api.getLeaderboard(period, difficultyFilter, searchQuery);
-    setScores(data.leaderboard);
+    setScores(data.leaderboard || []);
     setLoading(false);
+    setLastUpdated(new Date());
   };
 
   useEffect(() => {
     fetchLeaderboard();
+
+    // Dengarkan pembaruan papan peringkat secara real-time via WebSocket
+    const unsubscribe = socket.on('leaderboard_update', () => {
+      fetchLeaderboard();
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [period, difficultyFilter]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -32,13 +47,24 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user }) => {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto py-4 px-3 sm:px-6 space-y-6">
+    <div className="w-full max-w-5xl mx-auto py-4 px-3 sm:px-6 space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 pb-3 border-b border-white/10">
-        <h1 className="text-xl sm:text-2xl font-display font-black text-white tracking-wider flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-amber-400" />
-          Peringkat
-        </h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-display font-black text-white tracking-wider flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-amber-400" />
+              Papan Peringkat Resmi
+            </h1>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Real-Time Live
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">
+            Hanya menampilkan pemain terdaftar. Skor dan peringkat diperbarui secara langsung saat rekor baru tercetak.
+          </p>
+        </div>
 
         <button
           onClick={() => {
@@ -46,12 +72,36 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user }) => {
             fetchLeaderboard();
           }}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300 hover:text-white transition-colors cursor-pointer"
+          className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300 hover:text-white transition-colors cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-amber-400' : ''}`} />
           Segarkan
         </button>
       </div>
+
+      {/* Guest warning banner if player is not registered */}
+      {!isUserRegistered && (
+        <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-2.5">
+            <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+            <div className="text-xs">
+              <strong className="text-white block sm:inline">Anda belum terdaftar.</strong> Pemain yang belum mendaftar tidak akan dicantumkan di papan peringkat. Daftarkan nama Anda agar skor tercatat di sini!
+            </div>
+          </div>
+          {onOpenAuth && (
+            <button
+              onClick={() => {
+                sound.play('click');
+                onOpenAuth();
+              }}
+              className="shrink-0 px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-display font-black uppercase tracking-wider shadow-md shadow-amber-400/20 transition-transform active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              Daftar / Masuk Sekarang
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Filters Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#0b0c19] border border-white/10 p-3 rounded-2xl">

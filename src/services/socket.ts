@@ -44,6 +44,10 @@ class SocketClient {
       this.ws.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data);
+          if (payload.type === 'ping') {
+            this.send({ type: 'pong', timestamp: Date.now() });
+            return;
+          }
           this.trigger(payload.type, payload);
         } catch (e) {
           console.error('Failed to parse WS incoming message:', e);
@@ -85,6 +89,18 @@ class SocketClient {
       if (this.sendQueue.length < 50) {
         this.sendQueue.push(payload);
       }
+    }
+  }
+
+  public disconnect() {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.currentUserId = null;
+    this.isConnected = false;
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch {}
+      this.ws = null;
     }
   }
 

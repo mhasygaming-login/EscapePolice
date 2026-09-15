@@ -14,6 +14,7 @@ import {
   Sliders,
 } from 'lucide-react';
 import { CAR_CATALOG, getCarModel, drawCar2D, CarModelData } from '../services/cars';
+import { BrandLogo } from './BrandLogo';
 
 interface GarageModalProps {
   user: UserProfile | null;
@@ -53,7 +54,7 @@ const TRAIL_EFFECTS = [
   { id: 'none', name: 'Standar Polos', color: '#64748b' },
 ];
 
-const BRAND_TABS = ['SEMUA', 'HONDA', 'TOYOTA', 'NISSAN', 'BMW', 'LAMBORGHINI', 'LAINNYA'];
+const BRAND_TABS = ['SEMUA', 'HONDA', 'TOYOTA', 'NISSAN', 'BMW', 'PORSCHE', 'LAMBORGHINI', 'MAZDA', 'FORD'];
 
 export const GarageModal: React.FC<GarageModalProps> = ({ user, onUpdateUser }) => {
   const [selectedAvatar, setSelectedAvatar] = useState(user?.avatar || '🏎️');
@@ -203,17 +204,7 @@ export const GarageModal: React.FC<GarageModalProps> = ({ user, onUpdateUser }) 
   // Filter cars by brand tab
   const filteredCars = CAR_CATALOG.filter(c => {
     if (activeBrandFilter === 'SEMUA') return true;
-    if (activeBrandFilter === 'HONDA') return c.brand.toLowerCase().includes('honda');
-    if (activeBrandFilter === 'TOYOTA') return c.brand.toLowerCase().includes('toyota');
-    if (activeBrandFilter === 'NISSAN') return c.brand.toLowerCase().includes('nissan');
-    if (activeBrandFilter === 'BMW') return c.brand.toLowerCase().includes('bmw');
-    if (activeBrandFilter === 'LAMBORGHINI') return c.brand.toLowerCase().includes('lamborghini');
-    if (activeBrandFilter === 'LAINNYA') {
-      return !['honda', 'toyota', 'nissan', 'bmw', 'lamborghini'].some(b =>
-        c.brand.toLowerCase().includes(b)
-      );
-    }
-    return true;
+    return c.brand.toUpperCase() === activeBrandFilter.toUpperCase();
   });
 
   return (
@@ -246,20 +237,22 @@ export const GarageModal: React.FC<GarageModalProps> = ({ user, onUpdateUser }) 
         {/* Left Column: Live 2D Vehicle Canvas & Performance Radar */}
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-[#0b0c19] border border-white/10 rounded-2xl p-4 flex flex-col items-center text-center relative overflow-hidden">
-            {/* Top Car Identity Tag */}
-            <div className="w-full flex items-start justify-between mb-2 text-left">
-              <div>
-                <span className="text-[10px] font-bold text-cyan-400 tracking-wider uppercase block">
-                  {currentCar.brand} • {currentCar.country}
-                </span>
-                <span className="font-display font-black text-white text-base leading-tight block">
-                  {currentCar.name}
-                </span>
-                <span className="text-[11px] text-gray-400 font-mono">
-                  {currentCar.engine} ({currentCar.hp} HP)
-                </span>
+            {/* Top Car Identity Tag with Brand Logo */}
+            <div className="w-full flex items-center justify-between mb-3 text-left">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-xl bg-black/60 border border-white/10 flex items-center justify-center p-1.5 shrink-0 shadow-inner">
+                  <BrandLogo brand={currentCar.brand} size={34} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-cyan-400 tracking-wider uppercase block">
+                    {currentCar.brand}
+                  </span>
+                  <div className="font-display font-black text-white text-base leading-tight truncate">
+                    {currentCar.name}
+                  </div>
+                </div>
               </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-white/10 text-gray-300 border border-white/10">
+              <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase bg-white/10 text-gray-300 border border-white/10 shrink-0 ml-2">
                 {currentCar.category}
               </span>
             </div>
@@ -356,23 +349,6 @@ export const GarageModal: React.FC<GarageModalProps> = ({ user, onUpdateUser }) 
                 />
               </div>
             </div>
-
-            {/* Key 2D Features List */}
-            <div className="w-full mt-3 pt-3 border-t border-white/10 text-left">
-              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-1.5">
-                Fitur Khas Desain 2D:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {currentCar.features.map((feat, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-gray-300 font-medium"
-                  >
-                    • {feat}
-                  </span>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
 
@@ -392,18 +368,21 @@ export const GarageModal: React.FC<GarageModalProps> = ({ user, onUpdateUser }) 
                 <button
                   key={brand}
                   onClick={() => setActiveBrandFilter(brand)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-display font-bold tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-display font-bold tracking-wider transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
                     activeBrandFilter === brand
                       ? 'bg-cyan-500 text-black shadow-sm'
                       : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
                   }`}
                 >
-                  {brand}
+                  {brand !== 'SEMUA' && (
+                    <BrandLogo brand={brand} size={14} className="opacity-90 shrink-0" />
+                  )}
+                  <span>{brand}</span>
                 </button>
               ))}
             </div>
 
-            {/* Car Model Cards Grid */}
+            {/* Car Model Cards Grid - Clean Auto Layout */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               {filteredCars.map(car => {
                 const isSelected = selectedModel === car.id;
@@ -414,40 +393,44 @@ export const GarageModal: React.FC<GarageModalProps> = ({ user, onUpdateUser }) 
                       setSelectedModel(car.id);
                       sound.play('click');
                     }}
-                    className={`p-3.5 rounded-xl text-left border transition-all cursor-pointer relative overflow-hidden ${
+                    className={`group p-3.5 rounded-2xl text-left border transition-all cursor-pointer relative overflow-hidden flex items-center justify-between gap-3 ${
                       isSelected
-                        ? 'bg-cyan-500/10 border-cyan-400 shadow-md shadow-cyan-500/20'
+                        ? 'bg-cyan-500/10 border-cyan-400 shadow-md shadow-cyan-500/20 ring-1 ring-cyan-400/40'
                         : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">
-                          {car.brand} • {car.country}
-                        </div>
-                        <div className="font-display font-bold text-sm text-white flex items-center gap-1.5">
-                          {car.shortName}
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      {/* Logo Brand Container */}
+                      <div
+                        className={`w-12 h-12 rounded-xl flex items-center justify-center p-2 shrink-0 transition-all ${
+                          isSelected
+                            ? 'bg-cyan-950/70 border border-cyan-400/50 shadow-inner'
+                            : 'bg-black/60 border border-white/10 group-hover:border-white/20'
+                        }`}
+                      >
+                        <BrandLogo brand={car.brand} size={34} />
+                      </div>
+
+                      {/* Merek & Nama Mobil */}
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block truncate">
+                          {car.brand}
+                        </span>
+                        <div className="font-display font-bold text-sm text-white leading-tight truncate">
+                          {car.name}
                         </div>
                       </div>
-                      {isSelected && (
-                        <span className="w-5 h-5 rounded-full bg-cyan-400 text-black flex items-center justify-center text-xs font-bold">
-                          <Check className="w-3.5 h-3.5" />
-                        </span>
-                      )}
                     </div>
 
-                    <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed line-clamp-2">
-                      {car.desc}
-                    </p>
-
-                    <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-white/5 text-[10px] font-mono text-gray-300">
-                      <span className="text-amber-400 font-bold">{car.hp} HP</span>
-                      <span>•</span>
-                      <span>Spd {car.stats.speed}</span>
-                      <span>•</span>
-                      <span>Hnd {car.stats.handling}</span>
-                      <span>•</span>
-                      <span>Arm {car.stats.armor}</span>
+                    {/* Active Checkmark Pill */}
+                    <div className="shrink-0 pl-1">
+                      {isSelected ? (
+                        <span className="w-6 h-6 rounded-full bg-cyan-400 text-black flex items-center justify-center text-xs font-black shadow-md shadow-cyan-400/40">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        </span>
+                      ) : (
+                        <span className="w-6 h-6 rounded-full border border-white/15 group-hover:border-white/30 block" />
+                      )}
                     </div>
                   </button>
                 );

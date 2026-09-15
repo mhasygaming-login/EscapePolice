@@ -1,6 +1,8 @@
 import { UserProfile, LeaderboardEntry, Tournament, NotificationItem, AnalyticsData, DifficultyLevel } from '../types/game';
+import { encryptedActivityService } from './encryptedActivity';
 
 const LOCAL_STORAGE_USER_KEY = 'cyber_pursuit_cached_user';
+const LOCAL_STORAGE_ACTIVE_SESSION = 'cyber_pursuit_active_session';
 const LOCAL_STORAGE_PENDING_SCORES = 'cyber_pursuit_pending_scores';
 
 export const api = {
@@ -21,16 +23,34 @@ export const api = {
   saveLocalUser(user: UserProfile) {
     try {
       localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(user));
+      // Mengingat status login pengguna agar tidak perlu masuk kembali
+      if (user.id && !user.id.startsWith('guest_') && !user.id.startsWith('offline_')) {
+        localStorage.setItem(LOCAL_STORAGE_ACTIVE_SESSION, user.id);
+      }
     } catch (e) {
       console.error(e);
     }
   },
 
+  getActiveSessionUserId(): string | null {
+    try {
+      return localStorage.getItem(LOCAL_STORAGE_ACTIVE_SESSION);
+    } catch {
+      return null;
+    }
+  },
+
   async getProfile(): Promise<UserProfile | null> {
     const local = this.getLocalUser();
-    if (!local) return null;
+    const activeUserId = this.getActiveSessionUserId() || local?.id;
+
+    // Hanya pengguna yang terdaftar secara valid
+    if (!activeUserId || activeUserId.startsWith('guest_') || activeUserId.startsWith('offline_') || activeUserId.startsWith('anon')) {
+      return null;
+    }
+
     try {
-      const res = await fetch(`/api/profile?userId=${local.id}`);
+      const res = await fetch(`/api/profile?userId=${activeUserId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.user) {
@@ -44,10 +64,32 @@ export const api = {
     return local;
   },
 
-  async logout(): Promise<void> {
+  async logout(userId?: string): Promise<{ success: boolean; message?: string }> {
     try {
+      const targetUserId = userId || this.getActiveSessionUserId() || this.getLocalUser()?.id;
+
+      if (targetUserId) {
+        // Hapus data cloud secara permanen di server
+        await fetch('/api/auth/logout-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: targetUserId }),
+        });
+
+        // Hapus vault riwayat aktivitas lokal terenkripsi
+        await encryptedActivityService.clearActivities(targetUserId);
+      }
+
+      // Bersihkan seluruh sesi dan data cache lokal
       localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
-    } catch (e) {}
+      localStorage.removeItem(LOCAL_STORAGE_ACTIVE_SESSION);
+      localStorage.removeItem('cyber_pursuit_enc_activity_vault');
+      localStorage.removeItem('cyber_pursuit_pending_scores');
+      return { success: true };
+    } catch (e) {
+      console.error('Logout error:', e);
+      return { success: false };
+    }
   },
 
   async syncOfflineQueue(): Promise<void> {
@@ -64,32 +106,67 @@ export const api = {
       const data = await res.json();
       if (data.user) {
         this.saveLocalUser(data.user);
+        // Catat aktivitas login terenkripsi
+        encryptedActivityService.addActivity(data.user.id, {
+          type: 'account_registered',
+          title: 'Sesi Masuk Berhasil',
+          score: data.user.stats?.highScore || 0,
+          distance: data.user.stats?.totalDistance || 0,
+          obstaclesDodged: data.user.stats?.obstaclesDodged || 0,
+          bountyEarned: 0,
+          difficulty: 'NORMAL',
+          details: `Pengemudi ${data.user.username} login ke sistem`,
+        });
       }
       return data;
     } catch (err) {
       // Fallback to local user if matching
       const local = this.getLocalUser();
-      if (local && (local.username.toLowerCase() === username.toLowerCase() || local.email.toLowerCase() === username.toLowerCase())) {
+      if (local && (local.username.toLowerCase() === username.toLowerCase())) {
         return { success: true, user: local };
       }
       return { error: 'Gagal terhubung ke server. Periksa koneksi internet.' };
     }
   },
 
-  async register(username: string, email: string, password?: string): Promise<{ success?: boolean; user?: UserProfile; error?: string }> {
+  async register(username: string, password?: string): Promise<{ success?: boolean; user?: UserProfile; error?: string }> {
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
       if (data.user) {
         this.saveLocalUser(data.user);
+        // Catat aktivitas pendaftaran terenkripsi
+        encryptedActivityService.addActivity(data.user.id, {
+          type: 'account_registered',
+          title: 'Pendaftaran Akun Baru',
+          score: 0,
+          distance: 0,
+          obstaclesDodged: 0,
+          bountyEarned: 0,
+          difficulty: 'NORMAL',
+          details: `Akun baru ${data.user.username} berhasil didaftarkan`,
+        });
       }
       return data;
     } catch (err) {
       return { error: 'Koneksi gagal. Silakan coba lagi.' };
+    }
+  },
+
+  async verifyPassword(userId: string, password: string): Promise<{ success?: boolean; error?: string }> {
+    try {
+      const res = await fetch('/api/auth/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, password }),
+      });
+      return await res.json();
+    } catch (err) {
+      return { error: 'Gagal memverifikasi kata sandi. Periksa koneksi Anda.' };
     }
   },
 
@@ -227,6 +304,18 @@ export const api = {
     empUsed?: number;
     nearMisses?: number;
   }): Promise<{ success?: boolean; rank?: number; score?: LeaderboardEntry; userStats?: any }> {
+    // Simpan riwayat balapan ke dalam penyimpanan lokal terenkripsi
+    encryptedActivityService.addActivity(payload.userId, {
+      type: 'game_run',
+      title: `Pengejaran Polisi (${payload.difficulty})`,
+      score: payload.score,
+      distance: payload.distance,
+      obstaclesDodged: payload.obstaclesDodged,
+      bountyEarned: Math.floor(payload.score / 10) + (payload.bossKilled ? 500 : 0),
+      difficulty: payload.difficulty,
+      details: `Combo x${payload.bestCombo}, PowerUp: ${payload.powerUpsCollected}${payload.bossKilled ? ', Boss Kalah!' : ''}`,
+    });
+
     try {
       const res = await fetch('/api/scores', {
         method: 'POST',
@@ -260,16 +349,23 @@ export const api = {
       const list = JSON.parse(raw);
       if (!Array.isArray(list) || list.length === 0) return;
 
-      for (const item of list) {
-        await fetch('/api/scores', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(item),
-        });
+      const user = this.getLocalUser();
+      const res = await fetch('/api/scores/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user?.id, scores: list }),
+      });
+
+      if (res.ok) {
+        localStorage.removeItem(LOCAL_STORAGE_PENDING_SCORES);
+        const data = await res.json();
+        if (user && data.userStats) {
+          user.stats = data.userStats;
+          this.saveLocalUser(user);
+        }
       }
-      localStorage.removeItem(LOCAL_STORAGE_PENDING_SCORES);
     } catch (e) {
-      console.warn('Pending score sync failed, will retry later');
+      console.warn('Pending score batch sync failed, will retry later');
     }
   },
 
