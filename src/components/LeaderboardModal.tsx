@@ -3,14 +3,15 @@ import { LeaderboardEntry, UserProfile } from '../types/game';
 import { api } from '../services/api';
 import { sound } from '../services/audio';
 import { socket } from '../services/socket';
-import { Trophy, Medal, Search, RefreshCw, Flame, ShieldCheck, Radio, UserPlus } from 'lucide-react';
+import { Trophy, Medal, Search, RefreshCw, Flame, ShieldCheck, Radio, UserPlus, Gamepad2 } from 'lucide-react';
 
 interface LeaderboardModalProps {
   user: UserProfile | null;
   onOpenAuth?: () => void;
+  onBackToGame?: () => void;
 }
 
-export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user, onOpenAuth }) => {
+export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user, onOpenAuth, onBackToGame }) => {
   const [period, setPeriod] = useState<'all' | 'daily' | 'weekly'>('all');
   const [difficultyFilter, setDifficultyFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,15 +32,24 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user, onOpen
   useEffect(() => {
     fetchLeaderboard();
 
+    // Pastikan koneksi WebSocket aktif untuk real-time update
+    socket.connect(user?.id);
+
     // Dengarkan pembaruan papan peringkat secara real-time via WebSocket
     const unsubscribe = socket.on('leaderboard_update', () => {
       fetchLeaderboard();
     });
 
+    // Sinkronisasi otomatis periodik setiap 4 detik untuk keandalan maksimal
+    const syncInterval = setInterval(() => {
+      fetchLeaderboard();
+    }, 4000);
+
     return () => {
       if (unsubscribe) unsubscribe();
+      clearInterval(syncInterval);
     };
-  }, [period, difficultyFilter]);
+  }, [period, difficultyFilter, user?.id]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,34 +59,50 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user, onOpen
   return (
     <div className="w-full max-w-5xl mx-auto py-4 px-3 sm:px-6 space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             <h1 className="text-xl sm:text-2xl font-display font-black text-white tracking-wider flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-amber-400" />
-              Papan Peringkat Resmi
+              <Trophy className="w-5 h-5 text-amber-400 shrink-0" />
+              <span>Papan Peringkat Resmi</span>
             </h1>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+            <span className="inline-flex items-center gap-1.5 text-emerald-400 text-xs font-mono font-bold uppercase tracking-wider shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Real-Time Live
             </span>
           </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Hanya menampilkan pemain terdaftar. Skor dan peringkat diperbarui secara langsung saat rekor baru tercetak.
+          <p className="text-xs text-gray-400 mt-1 max-w-2xl leading-relaxed">
+            Hanya menampilkan pemain terdaftar yang sudah bermain. Tercantum nama dan skor terakhir dari balapan masing-masing pemain dengan pembaruan instan (Real-Time).
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            sound.play('click');
-            fetchLeaderboard();
-          }}
-          disabled={loading}
-          className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300 hover:text-white transition-colors cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-amber-400' : ''}`} />
-          Segarkan
-        </button>
+        <div className="flex items-center gap-2 shrink-0 self-start md:self-center flex-wrap">
+          {onBackToGame && (
+            <button
+              type="button"
+              onClick={() => {
+                sound.play('click');
+                onBackToGame();
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-display font-black uppercase tracking-wider shadow-md shadow-cyan-500/25 active:scale-95 cursor-pointer transition-transform whitespace-nowrap"
+            >
+              <Gamepad2 className="w-3.5 h-3.5" />
+              <span>Main Balapan (Solo)</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              sound.play('click');
+              fetchLeaderboard();
+            }}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-amber-400' : ''}`} />
+            <span>Segarkan</span>
+          </button>
+        </div>
       </div>
 
       {/* Guest warning banner if player is not registered */}
@@ -103,61 +129,64 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user, onOpen
         </div>
       )}
 
-      {/* Filters Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#0b0c19] border border-white/10 p-3 rounded-2xl">
-        {/* Period Selector */}
-        <div className="flex bg-black/50 p-1 rounded-xl border border-white/5">
-          {[
-            { id: 'all', label: 'Semua Waktu' },
-            { id: 'weekly', label: 'Minggu Ini' },
-            { id: 'daily', label: 'Hari Ini' },
-          ].map(p => (
-            <button
-              key={p.id}
-              onClick={() => {
-                sound.play('click');
-                setPeriod(p.id as any);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider transition-all ${
-                period === p.id
-                  ? 'bg-amber-400 text-black shadow-md shadow-amber-400/30'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+      {/* Filters Bar: Professional Responsive Auto-Layout */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-[#0b0c19] border border-white/10 p-3 rounded-2xl">
+        {/* Filter Groups with auto-wrap */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {/* Period Selector */}
+          <div className="inline-flex bg-black/60 p-1 rounded-xl border border-white/10 shrink-0">
+            {[
+              { id: 'all', label: 'Semua Waktu' },
+              { id: 'weekly', label: 'Minggu Ini' },
+              { id: 'daily', label: 'Hari Ini' },
+            ].map(p => (
+              <button
+                key={p.id}
+                onClick={() => {
+                  sound.play('click');
+                  setPeriod(p.id as any);
+                }}
+                className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                  period === p.id
+                    ? 'bg-amber-400 text-black shadow-md shadow-amber-400/30'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
 
-        {/* Difficulty Filter */}
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {['ALL', 'MAXXX', 'HARD', 'NORMAL', 'EASY'].map(d => (
-            <button
-              key={d}
-              onClick={() => {
-                sound.play('click');
-                setDifficultyFilter(d);
-              }}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold font-display uppercase tracking-wider transition-all ${
-                difficultyFilter === d
-                  ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
-                  : 'text-gray-400 hover:text-white border border-transparent'
-              }`}
-            >
-              {d}
-            </button>
-          ))}
+          {/* Difficulty Filter */}
+          <div className="inline-flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 shrink-0 overflow-x-auto max-w-full">
+            {['ALL', 'MAXXX', 'HARD', 'NORMAL', 'EASY'].map(d => (
+              <button
+                key={d}
+                onClick={() => {
+                  sound.play('click');
+                  setDifficultyFilter(d);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold font-display uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                  difficultyFilter === d
+                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm shadow-cyan-500/10'
+                    : 'text-gray-400 hover:text-white border border-transparent'
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Search Field */}
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 sm:max-w-xs">
+        <form onSubmit={handleSearchSubmit} className="relative w-full lg:w-64 shrink-0">
           <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Cari pembalap..."
-            className="w-full bg-black/60 border border-white/15 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400"
+            className="w-full bg-black/60 border border-white/15 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400 transition-colors"
           />
         </form>
       </div>
@@ -165,16 +194,16 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user, onOpen
       {/* Leaderboard Table */}
       <div className="bg-[#0b0c19] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[640px] text-left border-collapse">
             <thead>
               <tr className="bg-black/40 text-[10px] uppercase font-bold tracking-widest text-gray-400 border-b border-white/10">
                 <th className="py-3 px-4 text-center w-14">Rank</th>
                 <th className="py-3 px-4">Pembalap</th>
-                <th className="py-3 px-4 text-right">Skor Tertinggi</th>
+                <th className="py-3 px-4 text-right">Skor Terakhir</th>
                 <th className="py-2.5 px-3 text-right w-24 text-[9.5px]">Jarak (m)</th>
                 <th className="py-3 px-4 text-right">Combo</th>
                 <th className="py-3 px-4 text-center">Tingkat</th>
-                <th className="py-3 px-4 text-right">Waktu</th>
+                <th className="py-3 px-4 text-right">Waktu Main</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-xs font-medium">

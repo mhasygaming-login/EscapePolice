@@ -1,5 +1,7 @@
 export type DifficultyLevel = 'EASY' | 'NORMAL' | 'HARD' | 'MAXXX';
 
+export type ActiveTab = 'game' | 'multiplayer' | 'leaderboard' | 'garage' | 'tournaments' | 'analytics' | 'achievements' | 'maps';
+
 export interface UserStats {
   highScore: number;
   gamesPlayed: number;
@@ -104,19 +106,29 @@ export interface MultiplayerPlayerState {
   carModel: string;
   x: number;
   y: number;
+  speed?: number;
+  distance?: number;
+  lap?: number;
+  steer?: number; // -1: kiri, 0: lurus, 1: kanan
+  gas?: boolean;
+  brake?: boolean;
+  nitro?: boolean;
   score: number;
   hp: number;
   combo: number;
-  status: 'ready' | 'playing' | 'crashed' | 'finished';
+  ping?: number;
+  status: 'ready' | 'waiting' | 'countdown' | 'playing' | 'crashed' | 'finished';
   isHost: boolean;
 }
 
 export interface MultiplayerRoom {
   code: string;
   name: string;
-  status: 'waiting' | 'starting' | 'in_game' | 'finished';
+  status: 'waiting' | 'starting' | 'countdown' | 'in_game' | 'finished';
   difficulty: DifficultyLevel;
   players: Record<string, MultiplayerPlayerState>;
+  countdownSeconds?: number;
+  targetDistance?: number;
   winnerId?: string;
   createdAt: number;
 }

@@ -86,7 +86,7 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
 
     const unbindRoomState = socket.on('room_state', (data: any) => {
       setCurrentRoom(data.room);
-      if (data.room.status === 'in_game') {
+      if (data.room.status === 'in_game' || data.room.status === 'countdown') {
         sound.play('win');
         onStartMatch(data.room);
       }
@@ -227,10 +227,10 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
       {/* ========================================================================= */}
       {currentRoom ? (
         <div className="bg-[#0b0c18] border border-white/10 rounded-2xl p-4 sm:p-6 shadow-2xl space-y-5">
-          {/* Header Bar */}
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-white/10">
-            {/* Room info */}
-            <div className="space-y-1.5">
+          {/* Header Bar: Standardized Responsive CSS Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start md:items-center pb-4 border-b border-white/10">
+            {/* Room info (7 cols) */}
+            <div className="md:col-span-7 space-y-1.5">
               <div className="flex items-center gap-2">
                 <span className="flex h-2 w-2 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -247,19 +247,16 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
               <h2 className="text-xl sm:text-2xl font-display font-extrabold text-white tracking-wide">
                 {currentRoom.name}
               </h2>
-              <div className="flex items-center gap-2 pt-0.5">
-                <span className="px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[11px] font-bold text-gray-300">
-                  Mode: <span className="text-cyan-400">{currentRoom.difficulty}</span>
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/30 text-[11px] font-bold text-fuchsia-300">
-                  {readyCount} / {playerList.length} Siap
-                </span>
+              <div className="flex items-center gap-2 pt-0.5 text-xs text-gray-400 font-medium">
+                <span>Mode: <strong className="text-cyan-400 font-bold">{currentRoom.difficulty}</strong></span>
+                <span className="text-gray-600">·</span>
+                <span>Status: <strong className="text-fuchsia-400 font-bold">{readyCount} / {playerList.length} Siap</strong></span>
               </div>
             </div>
 
-            {/* Room Code & Quick Share Box */}
-            <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl p-2 w-full md:w-auto justify-between md:justify-start">
-              <div className="px-2.5 py-1">
+            {/* Room Code & Quick Share Box (5 cols) */}
+            <div className="md:col-span-5 flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl p-2 w-full justify-between md:justify-end">
+              <div className="px-2.5 py-1 text-left">
                 <div className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider">Kode Room</div>
                 <div className="text-lg font-display font-black text-cyan-400 tracking-wider select-all leading-tight">
                   {currentRoom.code}
@@ -269,7 +266,7 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
                 <button
                   type="button"
                   onClick={handleCopyRoomCode}
-                  className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-2.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer min-h-[38px]"
                   title="Salin Kode Room"
                 >
                   {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -278,16 +275,16 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
                 <button
                   type="button"
                   onClick={handleCopyInviteLink}
-                  className="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-3 py-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer min-h-[38px]"
                   title="Salin Tautan Undangan Langsung"
                 >
                   {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link className="w-3.5 h-3.5" />}
-                  <span>{copiedLink ? 'Tautan Disalin!' : 'Salin Link'}</span>
+                  <span>{copiedLink ? 'Tersalin!' : 'Salin Link'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleShareNative}
-                  className="p-1.5 rounded-lg bg-fuchsia-500/20 hover:bg-fuchsia-500/30 border border-fuchsia-500/30 text-fuchsia-300 transition-colors cursor-pointer"
+                  className="p-2 rounded-lg bg-fuchsia-500/20 hover:bg-fuchsia-500/30 border border-fuchsia-500/30 text-fuchsia-300 transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
                   title="Bagikan ke Teman"
                 >
                   <Share2 className="w-4 h-4" />
@@ -308,7 +305,7 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
                   key={taunt}
                   type="button"
                   onClick={() => handleSendTaunt(taunt)}
-                  className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-semibold text-gray-300 hover:text-white transition-colors cursor-pointer active:scale-95"
+                  className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-semibold text-gray-300 hover:text-white transition-colors cursor-pointer active:scale-95 min-h-[36px]"
                 >
                   {taunt}
                 </button>
@@ -326,12 +323,12 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
             )}
           </div>
 
-          {/* Player Cards Grid (Auto-Layout 4 slots) */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+          {/* Player Cards Grid: Standardized Responsive 4-Slot Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {playerList.map((p, idx) => (
               <div
                 key={p.id || idx}
-                className="bg-white/5 rounded-xl p-3.5 border border-white/10 flex flex-col items-center text-center relative overflow-hidden transition-all hover:border-white/20"
+                className="bg-white/5 rounded-xl p-4 border border-white/10 flex flex-col items-center text-center relative overflow-hidden transition-all hover:border-white/20"
               >
                 {/* Host Crown */}
                 {p.isHost && (
@@ -366,7 +363,7 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
                 {/* Status Pill */}
                 <div className="mt-3 w-full">
                   <span
-                    className={`block w-full py-1 rounded-lg text-[10.5px] font-bold tracking-wider font-display uppercase border ${
+                    className={`block w-full py-1.5 rounded-lg text-[10.5px] font-bold tracking-wider font-display uppercase border ${
                       p.status === 'ready'
                         ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
                         : 'bg-amber-500/15 text-amber-400 border-amber-500/40'
@@ -382,7 +379,7 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
             {Array.from({ length: Math.max(0, 4 - playerList.length) }).map((_, i) => (
               <div
                 key={`empty-${i}`}
-                className="border border-dashed border-white/10 rounded-xl p-3.5 flex flex-col items-center justify-center text-center min-h-[160px] bg-white/[0.02]"
+                className="border border-dashed border-white/10 rounded-xl p-4 flex flex-col items-center justify-center text-center min-h-[160px] bg-white/[0.02]"
               >
                 <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-600 mb-2">
                   <Users className="w-4 h-4" />
@@ -393,21 +390,23 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
             ))}
           </div>
 
-          {/* Bottom Action Footer */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3.5 pt-4 border-t border-white/10">
-            <button
-              type="button"
-              onClick={handleLeaveRoom}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-bold font-display uppercase tracking-wider transition-colors cursor-pointer border border-white/5"
-            >
-              <LogOut className="w-3.5 h-3.5" /> Keluar Room
-            </button>
+          {/* Bottom Action Footer: Standardized Grid Alignment */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5 pt-4 border-t border-white/10 items-center">
+            <div className="sm:col-span-4">
+              <button
+                type="button"
+                onClick={handleLeaveRoom}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-bold font-display uppercase tracking-wider transition-colors cursor-pointer border border-white/5 min-h-[44px]"
+              >
+                <LogOut className="w-3.5 h-3.5" /> Keluar Room
+              </button>
+            </div>
 
-            <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <div className="sm:col-span-8 flex items-center justify-end gap-2.5 w-full">
               <button
                 type="button"
                 onClick={handleToggleReady}
-                className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-xs font-bold font-display uppercase tracking-wider transition-all cursor-pointer ${
+                className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-xs font-bold font-display uppercase tracking-wider transition-all cursor-pointer min-h-[44px] ${
                   myPlayerState?.status === 'ready'
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
                     : 'bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-md shadow-emerald-500/20'
@@ -421,7 +420,7 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
                   type="button"
                   onClick={handleStartGame}
                   disabled={!canStart}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-display font-extrabold text-xs uppercase tracking-wider transition-all ${
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-display font-extrabold text-xs uppercase tracking-wider transition-all min-h-[44px] ${
                     canStart
                       ? 'bg-gradient-to-r from-fuchsia-500 to-cyan-500 text-white shadow-lg shadow-fuchsia-500/25 hover:scale-105 active:scale-95 cursor-pointer'
                       : 'bg-white/10 text-gray-500 cursor-not-allowed opacity-50'
@@ -440,30 +439,32 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
         /* 2. LOBBY BROWSER VIEW (When not in any room)                             */
         /* ========================================================================= */
         <div className="space-y-4">
-          {/* Top Bar Navigation */}
-          <div className="flex items-center justify-between pb-3 border-b border-white/10">
-            <div>
+          {/* Top Bar Navigation: Standardized Grid Banner */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start sm:items-center pb-3 border-b border-white/10">
+            <div className="sm:col-span-9">
               <h1 className="text-xl font-display font-black text-white tracking-wide flex items-center gap-2">
-                <Users className="w-5 h-5 text-cyan-400" />
-                Multiplayer Arena
+                <Users className="w-5 h-5 text-cyan-400 shrink-0" />
+                <span>Multiplayer Arena</span>
               </h1>
               <p className="text-xs text-gray-400 mt-0.5">
                 Balapan real-time bersama teman lewat kode room atau gabung ke room publik.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onBackToSolo}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300 hover:text-white transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Main Solo</span>
-            </button>
+            <div className="sm:col-span-3 flex sm:justify-end">
+              <button
+                type="button"
+                onClick={onBackToSolo}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300 hover:text-white transition-colors cursor-pointer min-h-[40px]"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Main Solo</span>
+              </button>
+            </div>
           </div>
 
-          {/* Public Sharing & Multi-Device Bar */}
-          <div className="bg-gradient-to-r from-cyan-950/40 via-[#0b0c1a] to-fuchsia-950/40 border border-cyan-500/30 rounded-2xl p-4 sm:p-4.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
-            <div className="space-y-1">
+          {/* Public Sharing & Multi-Device Bar: Standardized CSS Grid */}
+          <div className="bg-gradient-to-r from-cyan-950/40 via-[#0b0c1a] to-fuchsia-950/40 border border-cyan-500/30 rounded-2xl p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-4 items-start lg:items-center shadow-xl">
+            <div className="lg:col-span-7 space-y-1">
               <div className="flex items-center gap-2">
                 <Globe className="w-4 h-4 text-cyan-400" />
                 <span className="text-[11px] font-display font-bold uppercase tracking-wider text-cyan-300">
@@ -481,7 +482,7 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto">
+            <div className="lg:col-span-5 flex flex-wrap items-center justify-start lg:justify-end gap-2 w-full">
               <button
                 type="button"
                 onClick={async () => {
@@ -492,30 +493,30 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
                     setTimeout(() => setCopiedPublicLink(false), 2000);
                   }
                 }}
-                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md shadow-cyan-500/20"
+                className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md shadow-cyan-500/20 min-h-[44px]"
               >
                 {copiedPublicLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copiedPublicLink ? 'Link Tersalin!' : 'Salin Link Game'}</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  const text = `Ayo main game balap liar Escape Police bareng aku secara real-time!\nKlik link: ${getPublicGameUrl()}`;
-                  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
-                }}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-display font-bold uppercase tracking-wider transition-colors cursor-pointer"
+              <a
+                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                  `Ayo main game balap liar Escape Police bareng aku secara real-time!\nKlik link: ${getPublicGameUrl()}`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-display font-bold uppercase tracking-wider transition-colors cursor-pointer min-h-[44px]"
                 title="Kirim ke WhatsApp"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">WhatsApp</span>
-              </button>
+              </a>
 
               <a
                 href={getPublicGameUrl()}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs transition-colors cursor-pointer"
+                className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs transition-colors cursor-pointer min-h-[44px]"
                 title="Buka di Tab Baru"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -523,8 +524,8 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
             </div>
           </div>
 
-          {/* 2-Column Auto-Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Standardized 2-Column Responsive CSS Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
             {/* Left Column (5 cols): Join & Create */}
             <div className="lg:col-span-5 space-y-4">
               {/* Card 1: Gabung via Kode */}

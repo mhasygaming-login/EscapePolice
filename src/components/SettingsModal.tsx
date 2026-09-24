@@ -156,12 +156,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div className="text-sm font-display font-extrabold text-white flex items-center gap-1.5">
                           {user.username}
                           {isRegisteredUser ? (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-bold uppercase">
-                              Terdaftar
+                            <span className="text-[10px] text-cyan-400 font-mono font-bold uppercase">
+                              · Terdaftar
                             </span>
                           ) : (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-500/20 text-gray-400 border border-gray-500/30 font-bold uppercase">
-                              Tamu
+                            <span className="text-[10px] text-gray-400 font-mono font-bold uppercase">
+                              · Tamu
                             </span>
                           )}
                         </div>

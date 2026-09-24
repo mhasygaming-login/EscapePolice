@@ -12,10 +12,11 @@ export interface CarModelData {
   engine: string;
   hp: number;
   stats: {
-    speed: number; // 0 - 100
-    accel: number; // 0 - 100
-    handling: number; // 0 - 100
-    armor: number; // 0 - 100
+    speed: number;      // Kecepatan Maksimum (0 - 100)
+    horsepower: number; // Horse Power rating (0 - 100)
+    handling: number;   // Manuver & Handling (0 - 100)
+    accel?: number;     // Backward compatibility
+    armor?: number;     // Backward compatibility
   };
   desc: string;
   features: string[];
@@ -32,7 +33,7 @@ export const CAR_CATALOG: CarModelData[] = [
     defaultColor: '#f3f4f6',
     engine: '2.0L VTEC Turbo K20C1',
     hp: 315,
-    stats: { speed: 85, accel: 89, handling: 93, armor: 78 },
+    stats: { speed: 85, horsepower: 75, handling: 94, accel: 89, armor: 78 },
     desc: 'Raja hot-hatch sirkuit dengan handling presisi, kap berventilasi, dan wing aerodinamis khas Type R.',
     features: ['Kap Mesin Vented', 'Wing Belakang Lengkung', '3 Knalpot Tengah', 'Badge Merah Type R'],
   },
@@ -46,7 +47,7 @@ export const CAR_CATALOG: CarModelData[] = [
     defaultColor: '#f8fafc',
     engine: '3.0L Twin-Scroll Turbo B58',
     hp: 382,
-    stats: { speed: 90, accel: 91, handling: 88, armor: 80 },
+    stats: { speed: 89, horsepower: 80, handling: 88, accel: 91, armor: 80 },
     desc: 'Coupe legendaris dengan atap double-bubble, kap mesin panjang memahat angin, dan ducktail spoiler.',
     features: ['Atap Double-Bubble', 'Ducktail Spoiler', 'Lampu Teardrop LED', 'Dual Exhaust Diffuser'],
   },
@@ -60,7 +61,7 @@ export const CAR_CATALOG: CarModelData[] = [
     defaultColor: '#ffffff',
     engine: '3.8L Twin-Turbo V6 VR38DETT',
     hp: 600,
-    stats: { speed: 96, accel: 97, handling: 91, armor: 86 },
+    stats: { speed: 96, horsepower: 92, handling: 91, accel: 97, armor: 86 },
     desc: 'Godzilla versi Nismo dengan dual NACA duct pada kap karbon, swan-neck GT wing, dan 4 lampu bulat ikonik.',
     features: ['Dual NACA Hood Ducts', '4 Lampu Bulat Ikonik', 'Swan-Neck Carbon Wing', 'Garis Merah Nismo'],
   },
@@ -74,7 +75,7 @@ export const CAR_CATALOG: CarModelData[] = [
     defaultColor: '#f1f5f9',
     engine: '3.0L M TwinPower Turbo P58',
     hp: 590,
-    stats: { speed: 94, accel: 93, handling: 98, armor: 83 },
+    stats: { speed: 94, horsepower: 90, handling: 98, accel: 93, armor: 83 },
     desc: 'Monster balap FIA GT3 berfender widebody ekstrim, double kidney grille raksasa, dan sirip aero atap.',
     features: ['Grille Twin-Kidney Raksasa', 'Widebody Flared Fenders', 'Sayap GT3 Endplate', 'Ventilasi Kap Ekstrim'],
   },
@@ -88,7 +89,7 @@ export const CAR_CATALOG: CarModelData[] = [
     defaultColor: '#00b4d8',
     engine: '6.5L Naturally Aspirated V12',
     hp: 770,
-    stats: { speed: 99, accel: 98, handling: 90, armor: 84 },
+    stats: { speed: 99, horsepower: 99, handling: 87, accel: 98, armor: 84 },
     desc: 'Siluet wedge razor-sharp agresif berdesain Y-signature, louvers penutup mesin V12, dan knalpot meriam tengah.',
     features: ['Bodi Wedge Ekstrim', 'Lampu Y-Signature', 'Louvers Kaca Mesin V12', 'Dual Central Cannon Exhaust'],
   },
@@ -102,7 +103,7 @@ export const CAR_CATALOG: CarModelData[] = [
     defaultColor: '#ffffff',
     engine: '4.0L Naturally Aspirated Boxer-6',
     hp: 518,
-    stats: { speed: 93, accel: 94, handling: 99, armor: 80 },
+    stats: { speed: 92, horsepower: 85, handling: 99, accel: 94, armor: 80 },
     desc: 'Mesin presisi sirkuit dengan sayap swan-neck aktif DRS, kisi-kisi fender depan, dan siluet khas 911.',
     features: ['Lampu Bulat Matrix', 'Fender Top Louvers', 'Active DRS Swan Wing', 'Bodi Belakang Lebar'],
   },
@@ -116,7 +117,7 @@ export const CAR_CATALOG: CarModelData[] = [
     defaultColor: '#cbd5e1',
     engine: '1.3L Twin-Turbo 13B-REW Rotary',
     hp: 276,
-    stats: { speed: 87, accel: 92, handling: 96, armor: 74 },
+    stats: { speed: 86, horsepower: 70, handling: 96, accel: 92, armor: 74 },
     desc: 'Ikon JDM legendaris berlekuk organik aerodinamis, lampu pop-up mulus, dan bobot ultra-lincah.',
     features: ['Garis Bodi Organik', 'Pop-Up Headlights', 'Smoked Lightbar Belakang', 'Handling Gesit'],
   },
@@ -130,7 +131,7 @@ export const CAR_CATALOG: CarModelData[] = [
     defaultColor: '#0284c7',
     engine: '5.2L Supercharged Predator V8',
     hp: 760,
-    stats: { speed: 96, accel: 95, handling: 84, armor: 91 },
+    stats: { speed: 95, horsepower: 97, handling: 82, accel: 95, armor: 91 },
     desc: 'Kekuatan muscle car murni dengan kap berventilasi agresif, garis balap ganda, dan bodi kokoh perkasa.',
     features: ['Kap Mesin Vented Raksasa', 'Twin Racing Stripes', 'Bodi Kokoh Berotot', 'Quad Exhaust Pipes'],
   },

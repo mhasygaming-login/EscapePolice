@@ -63,6 +63,7 @@ class SoundEngine {
       emp: ['square', 140, 1300, 0.32, 0.38],
       achievement: ['triangle', 600, 1200, 0.22, 0.3],
       win: ['sine', 523, 1046, 0.25, 0.5],
+      success: ['sine', 523, 1046, 0.25, 0.5],
     };
 
     const cfg = configs[type];

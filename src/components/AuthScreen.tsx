@@ -85,6 +85,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       <div className="w-full max-w-md relative z-10 animate-fadeIn">
         {/* Game Title & Branding Header */}
         <div className="text-center mb-6">
+          <div className="relative group mb-3.5 inline-block">
+            <div className="absolute -inset-1 bg-cyan-500/30 rounded-2xl blur-md group-hover:bg-cyan-500/50 transition"></div>
+            <img
+              src="/cyber_pursuit_logo.jpg"
+              alt="Logo Escape Police"
+              className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-cyan-400 shadow-xl shadow-cyan-500/30 mx-auto"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold tracking-widest uppercase mb-3">
             <Gamepad2 className="w-3.5 h-3.5 text-cyan-400" />
             CYBER PURSUIT RACING
@@ -94,7 +104,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             ESCAPE THE POLICE
           </h1>
           <p className="text-xs text-gray-400 mt-1.5 max-w-xs mx-auto leading-relaxed">
-            Daftar atau masuk dengan akun Anda untuk mulai balapan dan mencatat rekor di Leaderboard resmi.
+            Daftar atau masuk untuk menyimpan progres di Cloud dan bersaing di Leaderboard resmi.
           </p>
         </div>
 
@@ -271,6 +281,27 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               </button>
             </form>
           )}
+
+          {/* Mode Offline / Tanpa Akun */}
+          <div className="mt-6 pt-5 border-t border-white/10 flex flex-col items-center gap-2.5">
+            <button
+              type="button"
+              onClick={async () => {
+                sound.play('click');
+                const guestRes = await api.guestLogin();
+                if (guestRes.user) {
+                  onLoginSuccess(guestRes.user);
+                }
+              }}
+              className="text-xs text-cyan-400 hover:text-cyan-300 font-display font-bold uppercase tracking-wider flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-cyan-500/10 transition-colors cursor-pointer"
+            >
+              <Gamepad2 className="w-3.5 h-3.5" />
+              <span>Main Mode Offline (Tanpa Akun)</span>
+            </button>
+            <p className="text-[11px] text-gray-500 text-center">
+              Dapat dimainkan tanpa internet. Skor & progres dapat disinkronkan ke Cloud saat online.
+            </p>
+          </div>
         </div>
       </div>
     </div>

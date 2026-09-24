@@ -4,7 +4,9 @@ import {
   MultiplayerRoom,
   DifficultyLevel,
   NotificationItem,
+  ActiveTab,
 } from './types/game';
+import { GameMapId } from './types/maps';
 import { api } from './services/api';
 import { socket } from './services/socket';
 import { sound } from './services/audio';
@@ -15,22 +17,44 @@ import { LeaderboardModal } from './components/LeaderboardModal';
 import { GarageModal } from './components/GarageModal';
 import { TournamentsModal } from './components/TournamentsModal';
 import { AnalyticsModal } from './components/AnalyticsModal';
+import { MapSelectModal } from './components/MapSelectModal';
 import { AuthModal } from './components/AuthModal';
 import { SettingsModal } from './components/SettingsModal';
 import { NotificationsDrawer } from './components/NotificationsDrawer';
 import { AuthScreen } from './components/AuthScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ShareModal } from './components/ShareModal';
+import { OfflineIndicator } from './components/OfflineIndicator';
 
 export default function App() {
   // Navigation
-  const [activeTab, setActiveTab] = useState<'game' | 'multiplayer' | 'leaderboard' | 'garage' | 'tournaments' | 'analytics'>('game');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('game');
 
   // User State & Auth Flow
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [authScreenTab, setAuthScreenTab] = useState<'login' | 'register'>('login');
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('NORMAL');
+
+  // Map Selection & 3D Camera Mode State
+  const [selectedMapId, setSelectedMapId] = useState<GameMapId>(() => {
+    try {
+      const saved = localStorage.getItem('cyber_pursuit_map');
+      if (saved && ['kota', 'salju', 'padang_pasir', 'hutan', 'pegunungan'].includes(saved)) {
+        return saved as GameMapId;
+      }
+    } catch {}
+    return 'kota';
+  });
+
+  const [isMapSelectOpen, setIsMapSelectOpen] = useState(false);
+
+  const handleSelectMap = (mapId: GameMapId) => {
+    setSelectedMapId(mapId);
+    try {
+      localStorage.setItem('cyber_pursuit_map', mapId);
+    } catch {}
+  };
 
   // Multiplayer Game Room State
   const [activeRoom, setActiveRoom] = useState<MultiplayerRoom | null>(null);
@@ -134,7 +158,7 @@ export default function App() {
       if (!data?.room) return;
       setActiveRoom(data.room);
 
-      if (data.room.status === 'in_game') {
+      if (data.room.status === 'in_game' || data.room.status === 'countdown') {
         setActiveTab('game');
       } else if (data.room.status === 'waiting') {
         // If players voted/reset to return to lobby
@@ -227,10 +251,19 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen bg-[#070814] text-white flex flex-col selection:bg-cyan-500 selection:text-black ${
+      className={`min-h-[100dvh] bg-[#070814] text-white flex flex-col selection:bg-cyan-500 selection:text-black overflow-x-hidden ${
         currentUser?.layoutSettings?.scanlines ? 'crt-scanlines' : ''
       }`}
     >
+      {/* Offline/Online Network & Cloud Status Banner */}
+      <OfflineIndicator
+        onSyncSuccess={(updatedUser) => {
+          if (updatedUser) {
+            setCurrentUser(updatedUser);
+          }
+        }}
+      />
+
       {/* Top Navigation */}
       <Navbar
         activeTab={activeTab}
@@ -259,7 +292,10 @@ export default function App() {
         isSyncing={cloudSyncStatus === 'syncing'}
         onTriggerSync={async () => {
           setCloudSyncStatus('syncing');
-          await api.syncOfflineQueue();
+          const syncRes = await api.syncCloudData();
+          if (syncRes?.user) {
+            setCurrentUser(syncRes.user);
+          }
           setCloudSyncStatus('synced');
         }}
         isSoundMuted={isSoundMuted}
@@ -270,7 +306,7 @@ export default function App() {
       {/* Main Screen Container */}
       <main className="flex-1 flex flex-col items-center justify-start w-full relative">
         <ErrorBoundary>
-          {activeTab === 'game' && (
+          {(activeTab === 'game' || activeTab === 'maps') && (
             <GameCanvas
               user={currentUser}
               difficulty={difficulty}
@@ -282,6 +318,9 @@ export default function App() {
               onOpenMultiplayer={() => setActiveTab('multiplayer')}
               onOpenGarage={() => setActiveTab('garage')}
               onOpenLeaderboard={() => setActiveTab('leaderboard')}
+              selectedMapId={selectedMapId}
+              onSelectMap={handleSelectMap}
+              onOpenMapSelect={() => setIsMapSelectOpen(true)}
               onScoreSubmitted={async () => {
                 const updated = await api.getProfile();
                 if (updated) setCurrentUser(updated);
@@ -305,6 +344,7 @@ export default function App() {
             <LeaderboardModal
               user={currentUser}
               onOpenAuth={() => setIsAuthOpen(true)}
+              onBackToGame={() => setActiveTab('game')}
             />
           )}
 
@@ -312,12 +352,23 @@ export default function App() {
             <GarageModal
               user={currentUser}
               onUpdateUser={updated => setCurrentUser(updated)}
+              onBackToGame={() => setActiveTab('game')}
             />
           )}
 
-          {activeTab === 'tournaments' && <TournamentsModal user={currentUser} />}
+          {activeTab === 'tournaments' && (
+            <TournamentsModal
+              user={currentUser}
+              onBackToGame={() => setActiveTab('game')}
+            />
+          )}
 
-          {activeTab === 'analytics' && <AnalyticsModal user={currentUser} />}
+          {activeTab === 'analytics' && (
+            <AnalyticsModal
+              user={currentUser}
+              onBackToGame={() => setActiveTab('game')}
+            />
+          )}
         </ErrorBoundary>
       </main>
 
@@ -354,6 +405,21 @@ export default function App() {
         isOpen={isShareOpen}
         onClose={() => setIsShareOpen(false)}
         roomCode={activeRoom?.code}
+      />
+
+      <MapSelectModal
+        isOpen={isMapSelectOpen || activeTab === 'maps'}
+        onClose={() => {
+          setIsMapSelectOpen(false);
+          if (activeTab === 'maps') setActiveTab('game');
+        }}
+        selectedMapId={selectedMapId}
+        onSelectMap={handleSelectMap}
+        onStartGameWithMap={(mapId) => {
+          handleSelectMap(mapId);
+          setIsMapSelectOpen(false);
+          setActiveTab('game');
+        }}
       />
     </div>
   );

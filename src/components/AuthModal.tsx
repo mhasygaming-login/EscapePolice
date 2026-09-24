@@ -271,7 +271,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       Vault Aktivitas Lokal Terenkripsi
                     </span>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
+                  <span className="text-[10px] text-emerald-400 font-mono font-bold">
                     AES-GCM 256-bit
                   </span>
                 </div>

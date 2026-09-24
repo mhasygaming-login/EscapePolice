@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PIXEL DRIVER 2D — Drift. Dodge. Dominate.</title>
+  <meta name="description" content="Game balap 2D paling kencang di browser. Langsung main tanpa unduh." />
+
+  <!-- Google Fonts: Orbitron & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brandDark: '#0B0F19',
+            brandDarker: '#060911',
+            brandCyan: '#00F0FF',
+            brandRed: '#FF3366',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Orbitron', 'sans-serif'],
+          },
+          boxShadow: {
+            neonCyan: '0 0 25px rgba(0, 240, 255, 0.45)',
+            neonRed: '0 0 30px rgba(255, 51, 102, 0.50)',
+            cardHover: '0 10px 30px -10px rgba(0, 240, 255, 0.25)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Neon & Glow Helpers */
+    .glow-cyan-text {
+      text-shadow: 0 0 15px rgba(0, 240, 255, 0.6), 0 0 30px rgba(0, 240, 255, 0.2);
+    }
+    .glow-red-text {
+      text-shadow: 0 0 15px rgba(255, 51, 102, 0.6);
+    }
+    .bg-grid-pattern {
+      background-size: 36px 36px;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    }
+  </style>
+</head>
+<body class="bg-brandDark text-gray-100 font-sans antialiased min-h-screen flex flex-col selection:bg-brandCyan selection:text-black overflow-x-hidden">
+
+  <!-- ========================================================================= -->
+  <!-- 1. NAVBAR (AutoLayout & Responsive Flex)                                 -->
+  <!-- ========================================================================= -->
+  <header class="sticky top-0 z-50 w-full backdrop-blur-xl bg-brandDark/85 border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+      
+      <!-- Brand Logo -->
+      <a href="#" class="flex items-center gap-2.5 group">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-brandCyan to-brandRed flex items-center justify-center shadow-neonCyan transition-transform duration-300 group-hover:scale-105">
+          <svg class="w-5 h-5 text-black transform -rotate-12" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.04 3H5.81l1.04-3zM19 17H5v-4.66l.12-.34h13.77l.11.34V17z"/>
+          </svg>
+        </div>
+        <span class="font-display font-black text-xl sm:text-2xl tracking-wider text-white group-hover:text-brandCyan transition-colors">
+          PIXEL DRIVER <span class="text-brandCyan glow-cyan-text">2D</span>
+        </span>
+      </a>
+
+      <!-- Navbar Actions (AutoLayout Gap 16px) -->
+      <nav class="flex items-center gap-4">
+        <button 
+          id="btn-leaderboard" 
+          onclick="toggleModal('modal-leaderboard')"
+          class="h-11 px-4 sm:px-5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-display font-bold text-xs sm:text-sm tracking-wider uppercase transition-all duration-200 cursor-pointer min-h-[44px] flex items-center gap-2"
+        >
+          <svg class="w-4 h-4 text-brandCyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+          </svg>
+          <span class="hidden sm:inline">LEADERBOARD</span>
+          <span class="sm:hidden">RANK</span>
+        </button>
+
+        <a 
+          href="#game-section" 
+          class="h-11 px-6 rounded-xl bg-brandCyan hover:bg-[#38f8ff] text-black font-display font-black text-xs sm:text-sm tracking-widest uppercase shadow-neonCyan hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer min-h-[44px] flex items-center justify-center"
+        >
+          PLAY
+        </a>
+      </nav>
+
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- MAIN CONTENT CONTAINER                                                    -->
+  <!-- ========================================================================= -->
+  <main class="flex-grow flex flex-col items-center w-full relative">
+    
+    <!-- Background Neon Ambient Glows -->
+    <div class="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-brandCyan/10 blur-[130px] rounded-full"></div>
+    <div class="pointer-events-none absolute top-[550px] -right-20 w-[450px] h-[450px] bg-brandRed/10 blur-[140px] rounded-full"></div>
+
+    <!-- ======================================================================= -->
+    <!-- 2. HERO SECTION (AutoLayout Gap 32px & Responsive Alignment)            -->
+    <!-- ======================================================================= -->
+    <section class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 lg:pt-16 lg:pb-24 flex flex-col items-center text-center gap-8 relative z-10">
+      
+      <!-- Headline & Sub-Tagline (AutoLayout Gap 16px) -->
+      <div class="flex flex-col items-center gap-4 max-w-3xl">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-brandCyan/30 bg-brandCyan/5 text-brandCyan text-xs font-display font-bold tracking-widest uppercase shadow-sm">
+          <span class="w-2 h-2 rounded-full bg-brandCyan animate-ping"></span>
+          NO DOWNLOAD · INSTANT ACTION
+        </div>
+
+        <h1 class="font-display font-black text-4xl sm:text-6xl lg:text-7xl tracking-tight text-white leading-tight uppercase">
+          DRIFT. DODGE. <br class="hidden sm:inline" />
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-brandCyan via-white to-brandRed glow-cyan-text">
+            DOMINATE.
+          </span>
+        </h1>
+
+        <p class="text-gray-400 text-base sm:text-xl font-medium max-w-xl leading-relaxed">
+          Game balap 2D paling kencang di browser. Langsung main tanpa unduh.
+        </p>
+      </div>
+
+      <!-- CTA Action Button (AutoLayout Gap 24px) -->
+      <div class="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+        <button 
+          id="btn-start-engine"
+          onclick="startGame()"
+          class="w-full sm:w-auto h-14 px-10 rounded-2xl bg-brandRed hover:bg-[#ff1f57] text-white font-display font-black text-base sm:text-lg tracking-widest uppercase shadow-neonRed hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer min-h-[44px] flex items-center justify-center gap-3 group"
+        >
+          <svg class="w-5 h-5 text-white transition-transform group-hover:rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          <span>START ENGINE</span>
+        </button>
+
+        <a 
+          href="#features-section" 
+          class="w-full sm:w-auto h-14 px-8 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-gray-300 hover:text-white font-display font-bold text-sm tracking-wider uppercase transition-all duration-200 cursor-pointer min-h-[44px] flex items-center justify-center"
+        >
+          EXPLORE FEATURES
+        </a>
+      </div>
+
+      <!-- 2D Canvas Game Frame Container (AutoLayout & Responsive Box) -->
+      <div id="game-section" class="w-full max-w-4xl mt-4 scroll-mt-28">
+        <div class="relative rounded-3xl p-2.5 sm:p-4 bg-gradient-to-b from-white/10 to-white/5 border border-brandCyan/30 shadow-2xl backdrop-blur-md">
+          
+          <!-- Top Frame Bar -->
+          <div class="flex items-center justify-between pb-3 px-2 border-b border-white/10 text-xs font-display text-gray-400">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-brandRed/80 inline-block"></span>
+              <span class="w-3 h-3 rounded-full bg-amber-400/80 inline-block"></span>
+              <span class="w-3 h-3 rounded-full bg-brandCyan/80 inline-block"></span>
+              <span class="ml-2 font-bold tracking-wider text-white hidden sm:inline">LIVE 2D CIRCUIT CANVAS</span>
+            </div>
+            <div class="flex items-center gap-4 text-[11px] font-mono">
+              <span id="ui-score" class="text-brandCyan font-bold">SCORE: 0000</span>
+              <span id="ui-speed" class="text-gray-300 hidden sm:inline">SPEED: 140 KM/H</span>
+            </div>
+          </div>
+
+          <!-- HTML5 Canvas Element -->
+          <div class="relative w-full aspect-[16/9] max-h-[460px] min-h-[260px] bg-brandDarker rounded-2xl overflow-hidden mt-3 border border-white/10 shadow-inner flex items-center justify-center">
+            <canvas id="gameCanvas" class="w-full h-full block cursor-pointer"></canvas>
+
+            <!-- Overlay Start Prompt (Disappears on Click/Key) -->
+            <div id="game-overlay" class="absolute inset-0 bg-brandDarker/80 backdrop-blur-sm flex flex-col items-center justify-center gap-4 p-6 text-center transition-opacity duration-300">
+              <div class="w-16 h-16 rounded-2xl bg-brandCyan/20 border border-brandCyan text-brandCyan flex items-center justify-center shadow-neonCyan animate-bounce">
+                <svg class="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              </div>
+              <h3 class="font-display font-black text-2xl sm:text-3xl text-white tracking-wide uppercase">
+                READY TO RACE?
+              </h3>
+              <p class="text-sm text-gray-400 max-w-sm">
+                Tekan tombol di bawah atau gunakan tombol panah <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-brandCyan font-mono">←</kbd> <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-brandCyan font-mono">→</kbd> untuk menyetir.
+              </p>
+              <button 
+                onclick="startGame()" 
+                class="px-8 py-3 rounded-xl bg-brandCyan hover:bg-[#38f8ff] text-black font-display font-black text-sm uppercase tracking-widest shadow-neonCyan transition-transform active:scale-95 cursor-pointer"
+              >
+                GAS SEKARANG
+              </button>
+            </div>
+          </div>
+
+          <!-- Interactive Mobile Controls (Touch friendly AutoLayout) -->
+          <div class="mt-3 flex sm:hidden items-center justify-center gap-6 py-2 border-t border-white/10">
+            <button 
+              id="btn-left" 
+              class="w-16 h-12 rounded-xl bg-white/10 active:bg-brandCyan active:text-black font-bold text-xl flex items-center justify-center border border-white/15 cursor-pointer select-none"
+            >
+              ◀
+            </button>
+            <span class="text-xs text-gray-400 font-display uppercase tracking-wider">Sentuh Steer</span>
+            <button 
+              id="btn-right" 
+              class="w-16 h-12 rounded-xl bg-white/10 active:bg-brandCyan active:text-black font-bold text-xl flex items-center justify-center border border-white/15 cursor-pointer select-none"
+            >
+              ▶
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- 3. FEATURES GRID (AutoLayout Grid: 1 col mobile, 3 col desktop)         -->
+    <!-- ======================================================================= -->
+    <section id="features-section" class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-white/10">
+      
+      <!-- Section Header -->
+      <div class="text-center max-w-2xl mx-auto mb-12 sm:mb-16 space-y-3">
+        <h2 class="text-xs font-display font-bold tracking-widest text-brandCyan uppercase">
+          PERFORMANCE & FEATURES
+        </h2>
+        <h3 class="font-display font-extrabold text-2xl sm:text-4xl text-white tracking-tight uppercase">
+          DIRANCANG UNTUK KECEPATAN
+        </h3>
+      </div>
+
+      <!-- Grid Cards (AutoLayout Gap 24px sm:gap-32px) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+        
+        <!-- Feature Card 1 -->
+        <div class="group relative rounded-3xl p-8 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-brandCyan/50 transition-all duration-300 hover:shadow-cardHover flex flex-col justify-between gap-6">
+          <div class="space-y-4">
+            <div class="w-14 h-14 rounded-2xl bg-brandCyan/10 border border-brandCyan/30 text-brandCyan flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+            </div>
+            <h4 class="font-display font-black text-xl text-white tracking-wide group-hover:text-brandCyan transition-colors">
+              Instant Play
+            </h4>
+            <p class="text-gray-400 font-medium text-base leading-relaxed">
+              Tanpa install.
+            </p>
+          </div>
+          <div class="pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-display font-bold text-gray-400 uppercase">
+            <span class="w-1.5 h-1.5 rounded-full bg-brandCyan"></span> 0 detik loading
+          </div>
+        </div>
+
+        <!-- Feature Card 2 -->
+        <div class="group relative rounded-3xl p-8 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-brandRed/50 transition-all duration-300 hover:shadow-[0_10px_30px_-10px_rgba(255,51,102,0.25)] flex flex-col justify-between gap-6">
+          <div class="space-y-4">
+            <div class="w-14 h-14 rounded-2xl bg-brandRed/10 border border-brandRed/30 text-brandRed flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+              </svg>
+            </div>
+            <h4 class="font-display font-black text-xl text-white tracking-wide group-hover:text-brandRed transition-colors">
+              Global Rank
+            </h4>
+            <p class="text-gray-400 font-medium text-base leading-relaxed">
+              Kalahkan semua orang.
+            </p>
+          </div>
+          <div class="pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-display font-bold text-gray-400 uppercase">
+            <span class="w-1.5 h-1.5 rounded-full bg-brandRed"></span> Real-time Leaderboard
+          </div>
+        </div>
+
+        <!-- Feature Card 3 -->
+        <div class="group relative rounded-3xl p-8 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-brandCyan/50 transition-all duration-300 hover:shadow-cardHover flex flex-col justify-between gap-6">
+          <div class="space-y-4">
+            <div class="w-14 h-14 rounded-2xl bg-brandCyan/10 border border-brandCyan/30 text-brandCyan flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+              </svg>
+            </div>
+            <h4 class="font-display font-black text-xl text-white tracking-wide group-hover:text-brandCyan transition-colors">
+              Custom Garage
+            </h4>
+            <p class="text-gray-400 font-medium text-base leading-relaxed">
+              Modifikasi sesukamu.
+            </p>
+          </div>
+          <div class="pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-display font-bold text-gray-400 uppercase">
+            <span class="w-1.5 h-1.5 rounded-full bg-brandCyan"></span> Skin & Engine Upgrade
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 4. MINIMALIST FOOTER (AutoLayout & Balanced Alignment)                    -->
+  <!-- ========================================================================= -->
+  <footer class="w-full border-t border-white/10 bg-brandDarker py-8 sm:py-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+      
+      <!-- Copyright Text -->
+      <div class="flex items-center gap-2 text-xs sm:text-sm text-gray-400 font-medium">
+        <span>© 2026</span>
+        <span class="font-display font-bold text-white tracking-wider">PIXEL DRIVER 2D</span>
+        <span>— All rights reserved.</span>
+      </div>
+
+      <!-- Social Media Simple Buttons (AutoLayout Gap 16px) -->
+      <div class="flex items-center gap-4">
+        <!-- Discord -->
+        <a 
+          href="#" 
+          aria-label="Discord" 
+          class="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-brandCyan transition-colors min-h-[44px] min-w-[44px]"
+        >
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.894.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+          </svg>
+        </a>
+
+        <!-- Twitter / X -->
+        <a 
+          href="#" 
+          aria-label="X / Twitter" 
+          class="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-brandCyan transition-colors min-h-[44px] min-w-[44px]"
+        >
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+          </svg>
+        </a>
+
+        <!-- GitHub -->
+        <a 
+          href="#" 
+          aria-label="GitHub" 
+          class="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-brandCyan transition-colors min-h-[44px] min-w-[44px]"
+        >
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+          </svg>
+        </a>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: LEADERBOARD POPUP                                                  -->
+  <!-- ========================================================================= -->
+  <div id="modal-leaderboard" class="fixed inset-0 z-50 hidden bg-brandDarker/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-brandDark border border-white/10 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6 relative">
+      <div class="flex items-center justify-between border-b border-white/10 pb-4">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-brandCyan animate-ping"></span>
+          <h3 class="font-display font-black text-xl text-white tracking-wider">TOP RACERS</h3>
+        </div>
+        <button onclick="toggleModal('modal-leaderboard')" class="text-gray-400 hover:text-white text-xl font-bold p-1 cursor-pointer">✕</button>
+      </div>
+
+      <div class="space-y-3 font-mono text-sm">
+        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-brandCyan/30">
+          <span class="text-brandCyan font-bold">#1 CYBER_GHOST</span>
+          <span class="text-white font-bold">98,420 PTS</span>
+        </div>
+        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+          <span class="text-gray-300">#2 DRIFT_KING</span>
+          <span class="text-white font-bold">87,150 PTS</span>
+        </div>
+        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+          <span class="text-gray-400">#3 NEON_VIPER</span>
+          <span class="text-white font-bold">76,390 PTS</span>
+        </div>
+      </div>
+
+      <button onclick="toggleModal('modal-leaderboard')" class="w-full py-3 rounded-xl bg-brandCyan hover:bg-[#38f8ff] text-black font-display font-bold text-xs uppercase tracking-widest cursor-pointer shadow-neonCyan">
+        TUTUP
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- JAVASCRIPT: 2D RACING CANVAS ENGINE & INTERACTIVITY                       -->
+  <!-- ========================================================================= -->
+  <script>
+    // Modal Toggle
+    function toggleModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) {
+        modal.classList.toggle('hidden');
+      }
+    }
+
+    // Interactive 2D Top-Down Racing Game Engine
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const overlay = document.getElementById('game-overlay');
+    const scoreEl = document.getElementById('ui-score');
+
+    let animationId = null;
+    let isPlaying = false;
+    let score = 0;
+    let roadOffset = 0;
+
+    // Player Car
+    const player = {
+      x: 0,
+      y: 0,
+      width: 38,
+      height: 68,
+      speed: 7,
+      color: '#00F0FF',
+      trail: []
+    };
+
+    // Enemy Obstacles
+    const obstacles = [];
+    const colors = ['#FF3366', '#f59e0b', '#a855f7', '#10b981'];
+
+    // Resize Canvas to fit container dimensions
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      if (!isPlaying) {
+        player.x = canvas.width / 2 - player.width / 2;
+        player.y = canvas.height - player.height - 30;
+        drawDemoScene();
+      }
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // Keyboard & Touch Controls
+    const keys = { left: false, right: false };
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+      if (!isPlaying && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ')) {
+        startGame();
+      }
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+    });
+
+    // Touch Buttons
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
+    if (btnLeft && btnRight) {
+      btnLeft.addEventListener('pointerdown', (e) => { e.preventDefault(); keys.left = true; if (!isPlaying) startGame(); });
+      btnLeft.addEventListener('pointerup', () => { keys.left = false; });
+      btnLeft.addEventListener('pointerleave', () => { keys.left = false; });
+
+      btnRight.addEventListener('pointerdown', (e) => { e.preventDefault(); keys.right = true; if (!isPlaying) startGame(); });
+      btnRight.addEventListener('pointerup', () => { keys.right = false; });
+      btnRight.addEventListener('pointerleave', () => { keys.right = false; });
+    }
+
+    // Start Game
+    function startGame() {
+      if (isPlaying) return;
+      isPlaying = true;
+      score = 0;
+      obstacles.length = 0;
+      player.trail = [];
+      player.x = canvas.width / 2 - player.width / 2;
+      player.y = canvas.height - player.height - 30;
+      
+      overlay.classList.add('opacity-0', 'pointer-events-none');
+      setTimeout(() => overlay.classList.add('hidden'), 300);
+
+      // Scroll smoothly to game canvas
+      document.getElementById('game-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      gameLoop();
+    }
+
+    // Spawn Enemy Obstacle
+    function spawnObstacle() {
+      const roadLeft = canvas.width * 0.18;
+      const roadWidth = canvas.width * 0.64;
+      const obsWidth = 36;
+      const obsHeight = 64;
+      const x = roadLeft + Math.random() * (roadWidth - obsWidth);
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const speed = 4 + Math.random() * 3;
+
+      obstacles.push({ x, y: -80, width: obsWidth, height: obsHeight, color, speed });
+    }
+
+    // Draw 2D Car Sprite
+    function drawCar(x, y, width, height, color, isPlayer = false) {
+      ctx.save();
+      // Neon Glow
+      ctx.shadowColor = color;
+      ctx.shadowBlur = isPlayer ? 18 : 10;
+
+      // Chassis Body
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(x, y, width, height, 8);
+      ctx.fill();
+
+      // Cabin Roof
+      ctx.fillStyle = '#060911';
+      ctx.beginPath();
+      ctx.roundRect(x + 5, y + 16, width - 10, height - 32, 4);
+      ctx.fill();
+
+      // Windshield
+      ctx.fillStyle = isPlayer ? '#00F0FF' : '#ffffff';
+      ctx.fillRect(x + 8, y + 20, width - 16, 7);
+
+      // Headlights / Taillights
+      if (isPlayer) {
+        // Cyan Headlights
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x + 4, y + 2, 6, 4);
+        ctx.fillRect(x + width - 10, y + 2, 6, 4);
+        // Red Rear Taillights
+        ctx.fillStyle = '#FF3366';
+        ctx.fillRect(x + 5, y + height - 4, 7, 3);
+        ctx.fillRect(x + width - 12, y + height - 4, 7, 3);
+      } else {
+        // Red Taillights
+        ctx.fillStyle = '#FF3366';
+        ctx.fillRect(x + 5, y + height - 4, 7, 3);
+        ctx.fillRect(x + width - 12, y + height - 4, 7, 3);
+      }
+
+      ctx.restore();
+    }
+
+    // Main Game Loop
+    let spawnTimer = 0;
+    function gameLoop() {
+      if (!isPlaying) return;
+
+      // Update Logic
+      if (keys.left) player.x -= player.speed;
+      if (keys.right) player.x += player.speed;
+
+      // Road Boundaries
+      const roadLeft = canvas.width * 0.16;
+      const roadRight = canvas.width * 0.84 - player.width;
+      if (player.x < roadLeft) player.x = roadLeft;
+      if (player.x > roadRight) player.x = roadRight;
+
+      // Trail Smoke
+      player.trail.push({ x: player.x + player.width / 2, y: player.y + player.height, alpha: 0.6 });
+      if (player.trail.length > 12) player.trail.shift();
+
+      // Spawn Obstacles
+      spawnTimer++;
+      if (spawnTimer % 65 === 0) {
+        spawnObstacle();
+      }
+
+      // Update Obstacles
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obs = obstacles[i];
+        obs.y += obs.speed + 2;
+
+        // Collision Check (AABB)
+        if (
+          player.x < obs.x + obs.width - 4 &&
+          player.x + player.width > obs.x + 4 &&
+          player.y < obs.y + obs.height - 4 &&
+          player.y + player.height > obs.y + 4
+        ) {
+          gameOver();
+          return;
+        }
+
+        // Out of screen
+        if (obs.y > canvas.height + 100) {
+          obstacles.splice(i, 1);
+          score += 150;
+          scoreEl.textContent = `SCORE: ${score.toString().padStart(4, '0')}`;
+        }
+      }
+
+      score += 1;
+      scoreEl.textContent = `SCORE: ${score.toString().padStart(4, '0')}`;
+      roadOffset = (roadOffset + 8) % 60;
+
+      // Render Scene
+      renderScene();
+
+      animationId = requestAnimationFrame(gameLoop);
+    }
+
+    // Render 2D Circuit Track & Elements
+    function renderScene() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Track Asphalt
+      const roadLeft = canvas.width * 0.16;
+      const roadWidth = canvas.width * 0.68;
+      
+      // Grass / Sidewalk Borders
+      ctx.fillStyle = '#060911';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Road Surface
+      ctx.fillStyle = '#0e1424';
+      ctx.fillRect(roadLeft, 0, roadWidth, canvas.height);
+
+      // Road Curbs (Neon Cyan & Red Checkers)
+      const curbWidth = 10;
+      for (let y = -60 + roadOffset; y < canvas.height; y += 30) {
+        const isAlternate = Math.floor((y - roadOffset) / 30) % 2 === 0;
+        ctx.fillStyle = isAlternate ? '#00F0FF' : '#FF3366';
+        ctx.fillRect(roadLeft - curbWidth, y, curbWidth, 30);
+        ctx.fillRect(roadLeft + roadWidth, y, curbWidth, 30);
+      }
+
+      // Center Lane Dashes
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([25, 25]);
+      ctx.lineDashOffset = -roadOffset * 1.5;
+      
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2, 0);
+      ctx.lineTo(canvas.width / 2, canvas.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw Player Nitro Trail
+      for (let t of player.trail) {
+        ctx.fillStyle = `rgba(0, 240, 255, ${t.alpha})`;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+        t.alpha -= 0.05;
+        t.y += 3;
+      }
+
+      // Draw Obstacles
+      for (let obs of obstacles) {
+        drawCar(obs.x, obs.y, obs.width, obs.height, obs.color, false);
+      }
+
+      // Draw Player Car
+      drawCar(player.x, player.y, player.width, player.height, player.color, true);
+    }
+
+    // Game Over Handler
+    function gameOver() {
+      isPlaying = false;
+      cancelAnimationFrame(animationId);
+      
+      overlay.classList.remove('hidden');
+      setTimeout(() => overlay.classList.remove('opacity-0', 'pointer-events-none'), 50);
+
+      overlay.innerHTML = `
+        <div class="w-16 h-16 rounded-2xl bg-brandRed/20 border border-brandRed text-brandRed flex items-center justify-center shadow-neonRed animate-pulse">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </div>
+        <h3 class="font-display font-black text-2xl sm:text-3xl text-white tracking-wide uppercase">
+          CRASHED!
+        </h3>
+        <p class="text-sm font-mono text-brandCyan font-bold">
+          FINAL SCORE: ${score}
+        </p>
+        <button 
+          onclick="startGame()" 
+          class="px-8 py-3 rounded-xl bg-brandRed hover:bg-[#ff1f57] text-white font-display font-black text-sm uppercase tracking-widest shadow-neonRed transition-transform active:scale-95 cursor-pointer"
+        >
+          RESTART ENGINE
+        </button>
+      `;
+    }
+
+    // Demo Initial State
+    function drawDemoScene() {
+      renderScene();
+    }
+
+    // Init
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+    });
+  </script>
+
+</body>
+</html>

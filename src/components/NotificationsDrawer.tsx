@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NotificationItem, UserProfile } from '../types/game';
 import { sound } from '../services/audio';
 import { Bell, CheckCheck, X, Trophy, Swords, Zap, Info, ShieldAlert } from 'lucide-react';
@@ -18,19 +18,36 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
   onMarkAllRead,
   user,
 }) => {
+  const [pushStatus, setPushStatus] = useState<string>(() => {
+    try {
+      return typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'denied';
+    } catch {
+      return 'denied';
+    }
+  });
+
   if (!isOpen) return null;
 
   const requestBrowserPushPermission = async () => {
     sound.play('click');
-    if ('Notification' in window) {
-      const perm = await Notification.requestPermission();
-      if (perm === 'granted') {
-        new Notification('Escape the Police', {
-          body: 'Notifikasi push browser berhasil diaktifkan!',
-          icon: '/favicon.ico',
-        });
-        sound.play('powerup');
+    try {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.requestPermission) {
+        const perm = await Notification.requestPermission();
+        setPushStatus(perm);
+        if (perm === 'granted') {
+          try {
+            new Notification('Escape the Police', {
+              body: 'Notifikasi push browser berhasil diaktifkan!',
+              icon: '/favicon.ico',
+            });
+          } catch {
+            // Ignored if notifications restricted in sandbox
+          }
+          sound.play('powerup');
+        }
       }
+    } catch (err) {
+      console.warn('Push notification unavailable in this environment:', err);
     }
   };
 
@@ -66,7 +83,7 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
           </div>
 
           {/* Browser Push Permission Banner */}
-          {'Notification' in window && Notification.permission !== 'granted' && (
+          {typeof window !== 'undefined' && 'Notification' in window && pushStatus !== 'granted' && (
             <div className="mb-4 p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between gap-2">
               <div className="text-[11px] text-gray-300">
                 Aktifkan push notification browser untuk update turnamen real-time.

@@ -2,7 +2,7 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
-import { WebSocketServer, WebSocket } from 'ws';
+import { setupMultiplayerServer } from './server/multiplayer';
 import { createServer as createViteServer } from 'vite';
 
 const app = express();
@@ -165,10 +165,27 @@ if (fs.existsSync(DB_FILE)) {
     db = { ...db, ...parsed };
     // Filter out any obsolete bot scores so only registered players appear
     if (Array.isArray(db.scores)) {
-      db.scores = db.scores.filter(s => s.userId && !s.userId.startsWith('bot-') && !s.userId.startsWith('guest_') && !s.userId.startsWith('anon'));
+      // Pastikan setiap pemain terdaftar hanya memiliki 1 entri resmi dengan skor terakhir dia main
+      const userLatestScoreMap = new Map<string, StoredScore>();
+      for (const s of db.scores) {
+        if (!s.userId || s.userId.startsWith('bot-') || s.userId.startsWith('guest_') || s.userId.startsWith('anon') || s.userId.startsWith('offline_')) {
+          continue;
+        }
+        const existing = userLatestScoreMap.get(s.userId);
+        if (!existing || new Date(s.timestamp).getTime() > new Date(existing.timestamp).getTime()) {
+          userLatestScoreMap.set(s.userId, s);
+        }
+      }
+      db.scores = Array.from(userLatestScoreMap.values());
     }
   } catch (err) {
     console.error('Failed to parse db.json, using fallback defaults', err);
+  }
+} else {
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to create initial db.json', err);
   }
 }
 
@@ -262,506 +279,9 @@ process.on('SIGTERM', () => {
   process.exit(0);
 });
 
-// Global active WebSocket connections map for user push notifications
-const connectedClients = new Map<string, WebSocket>();
-const allWsClients = new Set<WebSocket>();
+// Initialize Real-time Socket.IO Multiplayer Game Server
+const { io, broadcastLeaderboardUpdate, sendUserNotification, broadcastGlobalAlert } = setupMultiplayerServer(server, db, saveDB);
 
-// Broadcast real-time leaderboard update to all connected clients
-function broadcastLeaderboardUpdate(newEntry?: StoredScore) {
-  const payload = JSON.stringify({
-    type: 'leaderboard_update',
-    score: newEntry,
-    timestamp: new Date().toISOString(),
-  });
-  for (const ws of allWsClients) {
-    if (ws.readyState === WebSocket.OPEN) {
-      try {
-        ws.send(payload);
-      } catch {}
-    }
-  }
-}
-
-// Multiplayer Rooms in memory
-interface PlayerConnection {
-  ws: WebSocket;
-  id: string;
-  username: string;
-  avatar: string;
-  carColor: string;
-  carModel: string;
-  x: number;
-  y: number;
-  score: number;
-  hp: number;
-  combo: number;
-  status: 'ready' | 'playing' | 'crashed' | 'finished';
-  isHost: boolean;
-}
-
-interface Room {
-  code: string;
-  name: string;
-  status: 'waiting' | 'starting' | 'in_game' | 'finished';
-  difficulty: string;
-  players: Map<string, PlayerConnection>;
-  winnerId?: string;
-  createdAt: number;
-}
-
-const activeRooms = new Map<string, Room>();
-
-// Seed a couple of public multiplayer lobby rooms for instant join
-activeRooms.set('NEON-77', {
-  code: 'NEON-77',
-  name: 'Cyber Duel Arena',
-  status: 'waiting',
-  difficulty: 'MAXXX',
-  players: new Map(),
-  createdAt: Date.now(),
-});
-
-activeRooms.set('RACE-01', {
-  code: 'RACE-01',
-  name: 'Highway Sprint 1v1',
-  status: 'waiting',
-  difficulty: 'HARD',
-  players: new Map(),
-  createdAt: Date.now(),
-});
-
-// Setup WebSocket server
-const wss = new WebSocketServer({ server });
-
-wss.on('connection', (ws: WebSocket) => {
-  allWsClients.add(ws);
-  let currentUserId: string | null = null;
-  let currentRoomCode: string | null = null;
-
-  ws.on('message', (message: string) => {
-    try {
-      const data = JSON.parse(message.toString());
-
-      switch (data.type) {
-        case 'auth_register': {
-          currentUserId = data.userId;
-          if (currentUserId) {
-            connectedClients.set(currentUserId, ws);
-          }
-          break;
-        }
-
-        case 'list_rooms': {
-          const roomList = Array.from(activeRooms.values()).map(r => ({
-            code: r.code,
-            name: r.name,
-            status: r.status,
-            difficulty: r.difficulty,
-            playerCount: r.players.size,
-          }));
-          ws.send(JSON.stringify({ type: 'room_list', rooms: roomList }));
-          break;
-        }
-
-        case 'create_room': {
-          leaveCurrentRoom();
-          const roomCode = (data.code || 'ROOM-' + Math.floor(1000 + Math.random() * 9000)).trim().toUpperCase();
-          const room: Room = {
-            code: roomCode,
-            name: data.name || `${data.username}'s Lobby`,
-            status: 'waiting',
-            difficulty: data.difficulty || 'NORMAL',
-            players: new Map(),
-            createdAt: Date.now(),
-          };
-
-          const playerObj: PlayerConnection = {
-            ws,
-            id: data.userId,
-            username: data.username,
-            avatar: data.avatar || '🏎️',
-            carColor: data.carColor || '#00f0ff',
-            carModel: data.carModel || 'civic_fl5',
-            x: 200,
-            y: 500,
-            score: 0,
-            hp: 3,
-            combo: 0,
-            status: 'ready',
-            isHost: true,
-          };
-
-          room.players.set(data.userId, playerObj);
-          activeRooms.set(roomCode, room);
-          currentRoomCode = roomCode;
-          currentUserId = data.userId;
-
-          broadcastRoomState(room);
-          break;
-        }
-
-        case 'join_room': {
-          const targetCode = (data.code || '').trim().toUpperCase();
-          let room = activeRooms.get(targetCode);
-          if (!room) {
-            // Case-insensitive fallback
-            for (const [c, r] of activeRooms) {
-              if (c.toUpperCase() === targetCode) {
-                room = r;
-                break;
-              }
-            }
-          }
-
-          if (!room) {
-            ws.send(JSON.stringify({ type: 'error', message: `Room "${targetCode}" tidak ditemukan! Periksa kembali kode.` }));
-            return;
-          }
-
-          // If reconnecting player
-          if (room.players.has(data.userId)) {
-            const existing = room.players.get(data.userId)!;
-            existing.ws = ws;
-            existing.username = data.username || existing.username;
-            existing.avatar = data.avatar || existing.avatar;
-            existing.carColor = data.carColor || existing.carColor;
-            existing.carModel = data.carModel || existing.carModel;
-            currentRoomCode = room.code;
-            currentUserId = data.userId;
-            broadcastRoomState(room);
-            return;
-          }
-
-          if (room.status === 'in_game') {
-            ws.send(JSON.stringify({ type: 'error', message: 'Balapan di room ini sedang berlangsung! Tunggu hingga selesai.' }));
-            return;
-          }
-
-          if (room.players.size >= 4) {
-            ws.send(JSON.stringify({ type: 'error', message: 'Room sudah penuh (maksimal 4 pemain)!' }));
-            return;
-          }
-
-          const playerObj: PlayerConnection = {
-            ws,
-            id: data.userId,
-            username: data.username,
-            avatar: data.avatar || '🏎️',
-            carColor: data.carColor || '#ff2d6b',
-            carModel: data.carModel || 'civic_fl5',
-            x: 200,
-            y: 500,
-            score: 0,
-            hp: 3,
-            combo: 0,
-            status: 'ready',
-            isHost: room.players.size === 0,
-          };
-
-          room.players.set(data.userId, playerObj);
-          currentRoomCode = room.code;
-          currentUserId = data.userId;
-
-          broadcastRoomState(room);
-          break;
-        }
-
-        case 'toggle_ready': {
-          if (!currentRoomCode) return;
-          const room = activeRooms.get(currentRoomCode);
-          if (!room || !currentUserId) return;
-          const p = room.players.get(currentUserId);
-          if (p) {
-            p.status = p.status === 'ready' ? ('waiting' as any) : 'ready';
-            broadcastRoomState(room);
-          }
-          break;
-        }
-
-        case 'start_game': {
-          if (!currentRoomCode) return;
-          const room = activeRooms.get(currentRoomCode);
-          if (!room) return;
-          room.status = 'in_game';
-          room.winnerId = undefined;
-          for (const p of room.players.values()) {
-            p.status = 'playing';
-            p.score = 0;
-            p.hp = 3;
-            p.combo = 0;
-          }
-          broadcastRoomState(room);
-          break;
-        }
-
-        case 'rematch_room': {
-          if (!currentRoomCode) return;
-          const room = activeRooms.get(currentRoomCode);
-          if (!room) return;
-          room.status = 'in_game';
-          room.winnerId = undefined;
-          for (const p of room.players.values()) {
-            p.status = 'playing';
-            p.score = 0;
-            p.hp = 3;
-            p.combo = 0;
-          }
-          broadcastRoomState(room);
-          break;
-        }
-
-        case 'return_to_lobby': {
-          if (!currentRoomCode) return;
-          const room = activeRooms.get(currentRoomCode);
-          if (!room) return;
-          room.status = 'waiting';
-          room.winnerId = undefined;
-          for (const p of room.players.values()) {
-            p.status = 'ready';
-            p.score = 0;
-            p.hp = 3;
-            p.combo = 0;
-          }
-          broadcastRoomState(room);
-          break;
-        }
-
-        case 'player_sync': {
-          if (!currentRoomCode || !currentUserId) return;
-          const room = activeRooms.get(currentRoomCode);
-          if (!room) return;
-          const p = room.players.get(currentUserId);
-          if (p) {
-            p.x = data.x ?? p.x;
-            p.y = data.y ?? p.y;
-            p.score = data.score ?? p.score;
-            p.hp = data.hp ?? p.hp;
-            p.combo = data.combo ?? p.combo;
-            p.status = data.status ?? p.status;
-            if (data.carColor) p.carColor = data.carColor;
-            if (data.carModel) p.carModel = data.carModel;
-            if (data.username) p.username = data.username;
-            if (data.avatar) p.avatar = data.avatar;
-
-            // Broadcast position and status to all other players in room
-            const payload = JSON.stringify({
-              type: 'opponent_sync',
-              userId: currentUserId,
-              username: p.username,
-              avatar: p.avatar,
-              carColor: p.carColor,
-              carModel: p.carModel,
-              x: p.x,
-              y: p.y,
-              score: p.score,
-              hp: p.hp,
-              combo: p.combo,
-              status: p.status,
-            });
-
-            for (const [id, otherPlayer] of room.players) {
-              if (id !== currentUserId && otherPlayer.ws.readyState === WebSocket.OPEN) {
-                otherPlayer.ws.send(payload);
-              }
-            }
-
-            // Check if only one player remains standing in multiplayer match
-            if (room.status === 'in_game' && room.players.size > 1) {
-              const activePlayers = Array.from(room.players.values()).filter(pl => pl.status === 'playing');
-              if (activePlayers.length === 1) {
-                room.status = 'finished';
-                room.winnerId = activePlayers[0].id;
-                broadcastRoomState(room);
-              } else if (activePlayers.length === 0) {
-                // If all crashed, highest score wins!
-                let topPlayer = Array.from(room.players.values())[0];
-                for (const pl of room.players.values()) {
-                  if (pl.score > topPlayer.score) topPlayer = pl;
-                }
-                room.status = 'finished';
-                room.winnerId = topPlayer?.id;
-                broadcastRoomState(room);
-              }
-            }
-          }
-          break;
-        }
-
-        case 'player_action': {
-          // e.g. attack/EMP, boost, crash, or chat reaction sent to opponents
-          if (!currentRoomCode) return;
-          const room = activeRooms.get(currentRoomCode);
-          if (!room) return;
-          const broadcastMsg = JSON.stringify({
-            type: 'opponent_action',
-            userId: currentUserId,
-            username: data.username,
-            action: data.action,
-            value: data.value,
-          });
-          for (const [id, pl] of room.players) {
-            if (id !== currentUserId && pl.ws.readyState === WebSocket.OPEN) {
-              pl.ws.send(broadcastMsg);
-            }
-          }
-          break;
-        }
-
-        case 'leave_room': {
-          leaveCurrentRoom();
-          break;
-        }
-      }
-    } catch (err) {
-      console.error('WS parse error:', err);
-    }
-  });
-
-  function leaveCurrentRoom() {
-    if (currentRoomCode && currentUserId) {
-      const room = activeRooms.get(currentRoomCode);
-      if (room) {
-        room.players.delete(currentUserId);
-
-        // Notify remaining opponents that this player left
-        const leaveMsg = JSON.stringify({
-          type: 'opponent_left',
-          userId: currentUserId,
-        });
-        for (const [id, pl] of room.players) {
-          if (id !== currentUserId && pl.ws.readyState === WebSocket.OPEN) {
-            pl.ws.send(leaveMsg);
-          }
-        }
-
-        if (room.players.size === 0) {
-          // Don't delete default public rooms
-          if (!['NEON-77', 'RACE-01'].includes(room.code)) {
-            activeRooms.delete(currentRoomCode);
-          } else {
-            room.status = 'waiting';
-            room.winnerId = undefined;
-          }
-        } else {
-          // Reassign host if host left
-          const remaining = Array.from(room.players.values());
-          if (!remaining.some(p => p.isHost)) {
-            remaining[0].isHost = true;
-          }
-
-          // If in game and only 1 player remains, finish and crown them winner
-          if (room.status === 'in_game') {
-            const activePlayers = remaining.filter(pl => pl.status === 'playing');
-            if (activePlayers.length <= 1) {
-              room.status = 'finished';
-              if (activePlayers.length === 1) {
-                room.winnerId = activePlayers[0].id;
-              }
-            }
-          }
-
-          broadcastRoomState(room);
-        }
-      }
-      currentRoomCode = null;
-    }
-  }
-
-  ws.on('close', () => {
-    allWsClients.delete(ws);
-    leaveCurrentRoom();
-    if (currentUserId) {
-      connectedClients.delete(currentUserId);
-    }
-  });
-});
-
-// Heartbeat keep-alive to keep connection alive through reverse proxies and cloud containers
-const heartbeatInterval = setInterval(() => {
-  const pingPayload = JSON.stringify({ type: 'ping', timestamp: Date.now() });
-  for (const ws of allWsClients) {
-    if (ws.readyState === WebSocket.OPEN) {
-      try {
-        ws.send(pingPayload);
-      } catch {
-        allWsClients.delete(ws);
-      }
-    } else if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-      allWsClients.delete(ws);
-    }
-  }
-}, 25000);
-
-heartbeatInterval.unref();
-
-function broadcastRoomState(room: Room) {
-  const playersObj: Record<string, any> = {};
-  for (const [id, p] of room.players) {
-    playersObj[id] = {
-      id: p.id,
-      username: p.username,
-      avatar: p.avatar,
-      carColor: p.carColor,
-      carModel: p.carModel,
-      score: p.score,
-      hp: p.hp,
-      combo: p.combo,
-      status: p.status,
-      isHost: p.isHost,
-    };
-  }
-
-  const payload = JSON.stringify({
-    type: 'room_state',
-    room: {
-      code: room.code,
-      name: room.name,
-      status: room.status,
-      difficulty: room.difficulty,
-      winnerId: room.winnerId,
-      players: playersObj,
-    },
-  });
-
-  for (const p of room.players.values()) {
-    if (p.ws.readyState === WebSocket.OPEN) {
-      p.ws.send(payload);
-    }
-  }
-}
-
-// Broadcast notification to a specific user or globally
-function sendUserNotification(userId: string, notification: StoredNotification) {
-  db.notifications.unshift(notification);
-  saveDB();
-  const clientWs = connectedClients.get(userId);
-  if (clientWs && clientWs.readyState === WebSocket.OPEN) {
-    clientWs.send(JSON.stringify({ type: 'push_notification', notification }));
-  }
-}
-
-function broadcastGlobalAlert(title: string, message: string, type: 'system' | 'tournament_alert' | 'score_beaten' | 'achievement' = 'system') {
-  const notif: StoredNotification = {
-    id: 'notif-' + Date.now(),
-    userId: 'all',
-    type,
-    title,
-    message,
-    timestamp: new Date().toISOString(),
-    read: false,
-  };
-  db.notifications.unshift(notif);
-  saveDB();
-
-  const payload = JSON.stringify({ type: 'push_notification', notification: notif });
-  for (const ws of connectedClients.values()) {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(payload);
-    }
-  }
-}
-
-// ----------------------------------------------------
 // REST API ROUTES
 // ----------------------------------------------------
 
@@ -770,15 +290,132 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('/api/profile', (req, res) => {
-  const { userId } = req.query;
-  if (!userId || typeof userId !== 'string') {
-    return res.status(400).json({ error: 'userId diperlukan' });
+  const { userId, username } = req.query;
+  if ((!userId || typeof userId !== 'string') && (!username || typeof username !== 'string')) {
+    return res.status(400).json({ error: 'userId atau username diperlukan' });
   }
-  const user = db.users[userId];
+
+  let user = typeof userId === 'string' ? db.users[userId] : undefined;
+  if (!user && typeof username === 'string' && username.trim()) {
+    user = userByUsernameLower.get(username.trim().toLowerCase());
+  }
+
   if (!user) {
     return res.status(404).json({ error: 'User tidak ditemukan' });
   }
   res.json({ success: true, user });
+});
+
+// Endpoint sinkronisasi profil & data akun ke Cloud (mendukung online & offline progress merger)
+app.post(['/api/profile/sync', '/api/sync/cloud'], (req, res) => {
+  const { user, pendingScores } = req.body;
+  if (!user || typeof user !== 'object' || !user.id || !user.username) {
+    return res.status(400).json({ error: 'Data user tidak valid' });
+  }
+
+  const userId = String(user.id);
+  const username = String(user.username).trim().slice(0, 24);
+
+  // Hanya pulihkan & sinkronkan akun terdaftar
+  if (userId.startsWith('usr_')) {
+    if (!db.users[userId]) {
+      const restoredUser: StoredUser = {
+        id: userId,
+        username,
+        email: user.email || `${username.toLowerCase()}@cyberpursuit.local`,
+        passwordHash: user.passwordHash || '',
+        avatar: user.avatar || '🏎️',
+        title: user.title || 'RACER',
+        carColor: user.carColor || '#00f0ff',
+        carModel: user.carModel || 'civic_fl5',
+        trailEffect: user.trailEffect || 'cyan_plasma',
+        twoFactorEnabled: false,
+        biometricEnabled: false,
+        achievements: Array.isArray(user.achievements) ? user.achievements : [],
+        stats: {
+          highScore: Math.max(0, Math.floor(Number(user.stats?.highScore) || 0)),
+          gamesPlayed: Math.max(0, Math.floor(Number(user.stats?.gamesPlayed) || 0)),
+          totalDistance: Math.max(0, Math.floor(Number(user.stats?.totalDistance) || 0)),
+          obstaclesDodged: Math.max(0, Math.floor(Number(user.stats?.obstaclesDodged) || 0)),
+          powerUpsCollected: Math.max(0, Math.floor(Number(user.stats?.powerUpsCollected) || 0)),
+          bestCombo: Math.max(0, Math.floor(Number(user.stats?.bestCombo) || 0)),
+          totalBounty: Math.max(0, Math.floor(Number(user.stats?.totalBounty) || 0)),
+          maxLevel: Math.max(1, Math.floor(Number(user.stats?.maxLevel) || 1)),
+          bossKills: Math.max(0, Math.floor(Number(user.stats?.bossKills) || 0)),
+          nearMisses: Math.max(0, Math.floor(Number(user.stats?.nearMisses) || 0)),
+          empUsed: Math.max(0, Math.floor(Number(user.stats?.empUsed) || 0)),
+          multiplayerWins: Math.max(0, Math.floor(Number(user.stats?.multiplayerWins) || 0)),
+          multiplayerMatches: Math.max(0, Math.floor(Number(user.stats?.multiplayerMatches) || 0)),
+        },
+        layoutSettings: user.layoutSettings || {
+          hudPosition: 'top',
+          controlsStyle: 'buttons',
+          screenShake: true,
+          scanlines: true,
+          soundEnabled: true,
+        },
+        notificationSettings: user.notificationSettings || {
+          friendScores: true,
+          tournaments: true,
+          pushEnabled: true,
+          dailyMissions: true,
+        },
+        createdAt: user.createdAt || new Date().toISOString(),
+        lastActive: new Date().toISOString(),
+      };
+      db.users[userId] = restoredUser;
+      userByUsernameLower.set(username.toLowerCase(), restoredUser);
+    } else {
+      // User sudah ada di database Cloud: gabungkan (merge) progres terbaik tanpa menimpa secara merugikan
+      const existing = db.users[userId];
+      existing.stats.highScore = Math.max(existing.stats.highScore || 0, Math.floor(Number(user.stats?.highScore) || 0));
+      existing.stats.gamesPlayed = Math.max(existing.stats.gamesPlayed || 0, Math.floor(Number(user.stats?.gamesPlayed) || 0));
+      existing.stats.totalDistance = Math.max(existing.stats.totalDistance || 0, Math.floor(Number(user.stats?.totalDistance) || 0));
+      existing.stats.obstaclesDodged = Math.max(existing.stats.obstaclesDodged || 0, Math.floor(Number(user.stats?.obstaclesDodged) || 0));
+      existing.stats.powerUpsCollected = Math.max(existing.stats.powerUpsCollected || 0, Math.floor(Number(user.stats?.powerUpsCollected) || 0));
+      existing.stats.bestCombo = Math.max(existing.stats.bestCombo || 0, Math.floor(Number(user.stats?.bestCombo) || 0));
+      existing.stats.totalBounty = Math.max(existing.stats.totalBounty || 0, Math.floor(Number(user.stats?.totalBounty) || 0));
+      existing.stats.maxLevel = Math.max(existing.stats.maxLevel || 1, Math.floor(Number(user.stats?.maxLevel) || 1));
+      existing.stats.bossKills = Math.max(existing.stats.bossKills || 0, Math.floor(Number(user.stats?.bossKills) || 0));
+      existing.stats.nearMisses = Math.max(existing.stats.nearMisses || 0, Math.floor(Number(user.stats?.nearMisses) || 0));
+      existing.stats.empUsed = Math.max(existing.stats.empUsed || 0, Math.floor(Number(user.stats?.empUsed) || 0));
+      existing.stats.multiplayerWins = Math.max(existing.stats.multiplayerWins || 0, Math.floor(Number(user.stats?.multiplayerWins) || 0));
+      existing.stats.multiplayerMatches = Math.max(existing.stats.multiplayerMatches || 0, Math.floor(Number(user.stats?.multiplayerMatches) || 0));
+
+      // Gabungkan pencapaian (achievements)
+      const achSet = new Set(existing.achievements || []);
+      if (Array.isArray(user.achievements)) {
+        user.achievements.forEach((a: string) => achSet.add(a));
+      }
+      existing.achievements = Array.from(achSet);
+
+      // Kustomisasi visual jika ada perubahan
+      if (user.avatar) existing.avatar = user.avatar;
+      if (user.title) existing.title = user.title;
+      if (user.carColor) existing.carColor = user.carColor;
+      if (user.carModel) existing.carModel = user.carModel;
+      if (user.trailEffect) existing.trailEffect = user.trailEffect;
+      if (user.layoutSettings) existing.layoutSettings = { ...existing.layoutSettings, ...user.layoutSettings };
+      if (user.notificationSettings) existing.notificationSettings = { ...existing.notificationSettings, ...user.notificationSettings };
+      existing.lastActive = new Date().toISOString();
+    }
+
+    // Jika ada pending offline scores yang disertakan
+    if (Array.isArray(pendingScores) && pendingScores.length > 0) {
+      for (const item of pendingScores) {
+        if (!item || !item.score) continue;
+        const sNum = Math.floor(Number(item.score) || 0);
+        if (sNum > db.users[userId].stats.highScore) {
+          db.users[userId].stats.highScore = sNum;
+        }
+      }
+    }
+
+    saveDB(true);
+    return res.json({ success: true, user: db.users[userId], syncedAt: new Date().toISOString() });
+  }
+
+  res.json({ success: true, user: db.users[userId] || user });
 });
 
 // Authentication: Register (Simpel Nama & Password saja)
@@ -868,9 +505,9 @@ app.post('/api/auth/register', (req, res) => {
   res.json({ success: true, user: newUser });
 });
 
-// Authentication: Login (Simpel Nama & Password)
+// Authentication: Login (Simpel Nama & Password, aman lintas perangkat & offline sync)
 app.post('/api/auth/login', (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, offlineScores } = req.body;
   const cleanUsername = typeof username === 'string' ? username.trim() : '';
   const cleanPassword = typeof password === 'string' ? password.trim() : '';
 
@@ -879,7 +516,13 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   // Fast O(1) index lookup
-  const user = userByUsernameLower.get(cleanUsername.toLowerCase());
+  let user = userByUsernameLower.get(cleanUsername.toLowerCase());
+  if (!user) {
+    user = Object.values(db.users).find(u => u.username && u.username.toLowerCase() === cleanUsername.toLowerCase());
+    if (user) {
+      userByUsernameLower.set(cleanUsername.toLowerCase(), user);
+    }
+  }
 
   if (!user) {
     return res.status(401).json({ error: 'Nama pemain belum terdaftar. Silakan buat akun baru terlebih dahulu.' });
@@ -889,8 +532,22 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(401).json({ error: 'Password yang Anda masukkan salah!' });
   }
 
+  // Jika ada skor yang diraih saat bermain offline di perangkat ini sebelum login
+  if (Array.isArray(offlineScores) && offlineScores.length > 0) {
+    for (const item of offlineScores) {
+      if (!item) continue;
+      const sNum = Math.floor(Number(item.score) || 0);
+      if (sNum > user.stats.highScore) user.stats.highScore = sNum;
+      user.stats.gamesPlayed += 1;
+      user.stats.totalDistance += Math.floor(Number(item.distance) || 0);
+      user.stats.totalBounty += Math.floor(sNum / 10);
+      user.stats.obstaclesDodged += Math.floor(Number(item.obstaclesDodged) || 0);
+      user.stats.powerUpsCollected += Math.floor(Number(item.powerUpsCollected) || 0);
+    }
+  }
+
   user.lastActive = new Date().toISOString();
-  saveDB();
+  saveDB(true);
 
   res.json({ success: true, user });
 });
@@ -922,46 +579,77 @@ app.post('/api/auth/verify-password', (req, res) => {
   res.json({ success: true, message: 'Kata sandi terverifikasi.' });
 });
 
-// Logout & Hapus Data / Cloud Lama Secara Permanen
-app.post('/api/auth/logout-delete', (req, res) => {
-  const { userId } = req.body;
+// Logout Aman: Sesi keluar tetapi Akun, Progres, dan Skor di Cloud TETAP TERSIMPAN AMAN
+app.post(['/api/auth/logout', '/api/auth/logout-delete'], (req, res) => {
+  const { userId, permanentDelete, password } = req.body;
   if (!userId) {
     return res.status(400).json({ error: 'User ID diperlukan' });
   }
 
-  let deleted = false;
+  // Jika BUKAN penghapusan permanen, simpan sesi dan kembalikan respon sukses tanpa menghapus akun
+  if (!permanentDelete) {
+    const targetUser = db.users[userId];
+    if (targetUser) {
+      targetUser.lastActive = new Date().toISOString();
+      saveDB();
+    }
+    return res.json({
+      success: true,
+      message: 'Berhasil keluar akun. Data dan seluruh progres Anda tersimpan aman di Cloud.'
+    });
+  }
+
+  // Khusus jika user meminta penghapusan akun permanen
   const targetUser = db.users[userId];
   if (targetUser) {
+    if (targetUser.passwordHash && password && targetUser.passwordHash !== password.trim()) {
+      return res.status(401).json({ error: 'Kata sandi salah! Gagal menghapus akun.' });
+    }
     if (targetUser.username) {
       userByUsernameLower.delete(targetUser.username.toLowerCase());
     }
     delete db.users[userId];
-    deleted = true;
   }
 
-  // Hapus semua skor leaderboard milik user ini secara permanen
-  const initialScoresLength = db.scores.length;
   db.scores = db.scores.filter(s => s.userId !== userId);
-  if (db.scores.length !== initialScoresLength) {
-    deleted = true;
-  }
-
-  // Hapus notifikasi milik user ini (db.notifications adalah array StoredNotification[])
   if (Array.isArray(db.notifications)) {
-    const initialNotifsLength = db.notifications.length;
     db.notifications = db.notifications.filter(n => n.userId !== userId);
-    if (db.notifications.length !== initialNotifsLength) {
-      deleted = true;
-    }
   }
 
-  if (deleted) {
-    saveDB(true);
-    // Kirim pembaruan real-time ke semua client bahwa leaderboard diperbarui
-    broadcastLeaderboardUpdate();
+  saveDB(true);
+  broadcastLeaderboardUpdate();
+
+  res.json({ success: true, message: 'Akun dan seluruh data telah dihapus secara permanen.' });
+});
+
+// Hapus Akun Permanen khusus
+app.post('/api/auth/delete-account', (req, res) => {
+  const { userId, password } = req.body;
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID diperlukan' });
   }
 
-  res.json({ success: true, message: 'Data dan cloud lama berhasil dihapus secara permanen.' });
+  const targetUser = db.users[userId];
+  if (!targetUser) {
+    return res.status(404).json({ error: 'Akun tidak ditemukan' });
+  }
+
+  if (targetUser.passwordHash && password && targetUser.passwordHash !== password.trim()) {
+    return res.status(401).json({ error: 'Kata sandi salah!' });
+  }
+
+  if (targetUser.username) {
+    userByUsernameLower.delete(targetUser.username.toLowerCase());
+  }
+  delete db.users[userId];
+  db.scores = db.scores.filter(s => s.userId !== userId);
+  if (Array.isArray(db.notifications)) {
+    db.notifications = db.notifications.filter(n => n.userId !== userId);
+  }
+
+  saveDB(true);
+  broadcastLeaderboardUpdate();
+  res.json({ success: true, message: 'Akun berhasil dihapus.' });
 });
 
 // Verify 2FA code
@@ -1137,87 +825,181 @@ app.put('/api/profile', (req, res) => {
 
 // Submit Run Score & Real-time Global / Friend Alert
 app.post('/api/scores', (req, res) => {
-  const { userId, score, distance, bestCombo, difficulty, obstaclesDodged, powerUpsCollected, bossKilled, empUsed, nearMisses } = req.body;
+  const {
+    userId,
+    username: clientUsername,
+    avatar: clientAvatar,
+    title: clientTitle,
+    carColor: clientCarColor,
+    carModel: clientCarModel,
+    score,
+    distance,
+    bestCombo,
+    difficulty,
+    obstaclesDodged,
+    powerUpsCollected,
+    bossKilled,
+    empUsed,
+    nearMisses
+  } = req.body;
 
   // Sanitize score input: ensure non-negative safe integer
   const scoreNum = Math.max(0, Math.min(100000000, Math.floor(Number(score) || 0)));
-  const user = typeof userId === 'string' ? db.users[userId] : undefined;
-  const isRegistered = !!user && !userId.startsWith('guest_') && !userId.startsWith('anon') && !userId.startsWith('offline_');
+  const distanceNum = Math.max(0, Math.floor(Number(distance) || 0));
+  const comboNum = Math.max(0, Math.floor(Number(bestCombo) || 0));
+  const diffStr = typeof difficulty === 'string' ? difficulty : 'NORMAL';
 
-  const username = user?.username || 'Guest Driver';
-  const avatar = user?.avatar || '🏎️';
-  const title = user?.title || 'RACER';
-  const carColor = user?.carColor || '#00f0ff';
+  let user = typeof userId === 'string' ? db.users[userId] : undefined;
 
-  const newScore: StoredScore = {
-    id: 'score_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-    userId: userId || 'anon',
+  // Auto-heal registered user jika server sempat restart
+  if (!user && typeof userId === 'string' && userId.startsWith('usr_')) {
+    const cleanUName = (clientUsername ? String(clientUsername).trim() : 'Pembalap').slice(0, 24);
+    const restoredUser: StoredUser = {
+      id: userId,
+      username: cleanUName,
+      email: `${cleanUName.toLowerCase()}@cyberpursuit.local`,
+      passwordHash: '',
+      avatar: clientAvatar || '🏎️',
+      title: clientTitle || 'RACER',
+      carColor: clientCarColor || '#00f0ff',
+      carModel: clientCarModel || 'civic_fl5',
+      trailEffect: 'cyan_plasma',
+      twoFactorEnabled: false,
+      biometricEnabled: false,
+      achievements: [],
+      stats: {
+        highScore: scoreNum,
+        gamesPlayed: 0,
+        totalDistance: 0,
+        obstaclesDodged: 0,
+        powerUpsCollected: 0,
+        bestCombo: 0,
+        totalBounty: 0,
+        maxLevel: 1,
+        bossKills: 0,
+        nearMisses: 0,
+        empUsed: 0,
+        multiplayerWins: 0,
+        multiplayerMatches: 0,
+      },
+      layoutSettings: {
+        hudPosition: 'top',
+        controlsStyle: 'buttons',
+        screenShake: true,
+        scanlines: true,
+        soundEnabled: true,
+      },
+      notificationSettings: {
+        friendScores: true,
+        tournaments: true,
+        pushEnabled: true,
+        dailyMissions: true,
+      },
+      createdAt: new Date().toISOString(),
+      lastActive: new Date().toISOString(),
+    };
+    db.users[userId] = restoredUser;
+    userByUsernameLower.set(cleanUName.toLowerCase(), restoredUser);
+    user = restoredUser;
+  }
+
+  // ATURAN RESMI: Hanya pemain yang sudah mendaftar lalu main yang dicantumkan
+  const isRegistered = !!user && typeof userId === 'string' && !userId.startsWith('guest_') && !userId.startsWith('anon') && !userId.startsWith('offline_');
+
+  if (!isRegistered || !user) {
+    return res.json({
+      success: true,
+      rank: null,
+      score: null,
+      userStats: null,
+      isRegistered: false,
+      message: 'Hanya akun pemain terdaftar yang dapat mencatatkan nama dan skor di Leaderboard.'
+    });
+  }
+
+  const username = user.username || clientUsername || 'Racer';
+  const avatar = user.avatar || clientAvatar || '🏎️';
+  const title = user.title || clientTitle || 'RACER';
+  const carColor = user.carColor || clientCarColor || '#00f0ff';
+
+  // Update statistik pemain
+  user.stats.gamesPlayed += 1;
+  user.stats.totalDistance += distanceNum;
+  user.stats.obstaclesDodged += Math.max(0, Math.floor(Number(obstaclesDodged) || 0));
+  user.stats.powerUpsCollected += Math.max(0, Math.floor(Number(powerUpsCollected) || 0));
+  user.stats.nearMisses += Math.max(0, Math.floor(Number(nearMisses) || 0));
+  user.stats.empUsed += Math.max(0, Math.floor(Number(empUsed) || 0));
+  if (bossKilled) user.stats.bossKills += 1;
+  if (comboNum > user.stats.bestCombo) user.stats.bestCombo = comboNum;
+  if (scoreNum > user.stats.highScore) {
+    user.stats.highScore = scoreNum;
+    sendUserNotification(userId, {
+      id: 'notif_' + Date.now(),
+      userId,
+      type: 'achievement',
+      title: 'Rekor Baru Tercatat!',
+      message: `Kamu mencetak rekor pribadi baru: ${scoreNum.toLocaleString()} poin!`,
+      timestamp: new Date().toISOString(),
+      read: false,
+    });
+  }
+
+  const earnedBounty = Math.floor(scoreNum / 10) + (bossKilled ? 500 : 0);
+  user.stats.totalBounty += earnedBounty;
+  user.lastActive = new Date().toISOString();
+
+  // ATURAN LEADERBOARD:
+  // Nama pemain tercantum dengan SKOR TERAKHIR DIA MAIN (1 entri resmi per pemain terdaftar)
+  const existingScoreIndex = db.scores.findIndex(s => s.userId === userId);
+
+  const updatedScoreEntry: StoredScore = {
+    id: existingScoreIndex !== -1 ? db.scores[existingScoreIndex].id : 'score_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+    userId,
     username,
     avatar,
     title,
     carColor,
-    score: scoreNum,
-    distance: Math.max(0, Math.floor(Number(distance) || 0)),
-    bestCombo: Math.max(0, Math.floor(Number(bestCombo) || 0)),
-    difficulty: typeof difficulty === 'string' ? difficulty : 'NORMAL',
+    score: scoreNum, // SKOR TERAKHIR DIA MAIN
+    distance: distanceNum,
+    bestCombo: comboNum,
+    difficulty: diffStr,
     timestamp: new Date().toISOString(),
   };
 
-  // Hanya simpan ke database leaderboard resmi jika pemain SUDAH MENDAFTAR
-  if (isRegistered && user) {
-    db.scores.push(newScore);
-
-    // Update user stats
-    user.stats.gamesPlayed += 1;
-    user.stats.totalDistance += newScore.distance;
-    user.stats.obstaclesDodged += Math.max(0, Math.floor(Number(obstaclesDodged) || 0));
-    user.stats.powerUpsCollected += Math.max(0, Math.floor(Number(powerUpsCollected) || 0));
-    user.stats.nearMisses += Math.max(0, Math.floor(Number(nearMisses) || 0));
-    user.stats.empUsed += Math.max(0, Math.floor(Number(empUsed) || 0));
-    if (bossKilled) user.stats.bossKills += 1;
-    if (newScore.bestCombo > user.stats.bestCombo) user.stats.bestCombo = newScore.bestCombo;
-    if (scoreNum > user.stats.highScore) {
-      user.stats.highScore = scoreNum;
-      sendUserNotification(userId, {
-        id: 'notif_' + Date.now(),
-        userId,
-        type: 'achievement',
-        title: 'Rekor Baru Tercatat!',
-        message: `Kamu mencetak rekor pribadi baru: ${scoreNum.toLocaleString()} poin!`,
-        timestamp: new Date().toISOString(),
-        read: false,
-      });
-    }
-
-    const earnedBounty = Math.floor(scoreNum / 10) + (bossKilled ? 500 : 0);
-    user.stats.totalBounty += earnedBounty;
-    user.lastActive = new Date().toISOString();
-
-    // Sort scores and keep top 250
-    db.scores.sort((a, b) => b.score - a.score);
-    if (db.scores.length > 250) {
-      db.scores = db.scores.slice(0, 250);
-    }
-
-    saveDB();
-
-    // Broadcast update real-time ke semua client WebSocket yang aktif
-    broadcastLeaderboardUpdate(newScore);
-
-    const rank = db.scores.findIndex(s => s.id === newScore.id) + 1;
-    if (rank <= 3 && scoreNum > 1000) {
-      broadcastGlobalAlert(
-        `🚨 Papan Peringkat Global Bergetar!`,
-        `[#${rank}] ${username} baru saja mencetak skor fantastis ${scoreNum.toLocaleString()} di mode ${newScore.difficulty}!`,
-        'score_beaten'
-      );
-    }
-
-    return res.json({ success: true, rank, score: newScore, userStats: user.stats, isRegistered: true });
+  if (existingScoreIndex !== -1) {
+    db.scores[existingScoreIndex] = updatedScoreEntry;
+  } else {
+    db.scores.push(updatedScoreEntry);
   }
 
-  // Jika belum mendaftar, kembalikan skor saja tanpa dicantumkan di papan peringkat
-  res.json({ success: true, rank: null, score: newScore, userStats: user?.stats, isRegistered: false });
+  // Urutkan leaderboard berdasarkan skor terakhir
+  db.scores.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.distance !== a.distance) return b.distance - a.distance;
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+  });
+
+  saveDB();
+
+  // Broadcast update real-time ke semua client WebSocket yang aktif
+  broadcastLeaderboardUpdate(updatedScoreEntry);
+
+  const rank = db.scores.findIndex(s => s.userId === userId) + 1;
+  if (rank <= 3 && scoreNum > 1000) {
+    broadcastGlobalAlert(
+      `🚨 Papan Peringkat Global Bergetar!`,
+      `[#${rank}] ${username} baru saja mencetak skor fantastis ${scoreNum.toLocaleString()} di mode ${diffStr}!`,
+      'score_beaten'
+    );
+  }
+
+  return res.json({
+    success: true,
+    rank,
+    score: updatedScoreEntry,
+    userStats: user.stats,
+    isRegistered: true
+  });
 });
 
 // Batch Offline Scores Sync Endpoint
@@ -1230,45 +1012,69 @@ app.post('/api/scores/batch', (req, res) => {
   const user = typeof userId === 'string' ? db.users[userId] : undefined;
   const isRegistered = !!user && !userId.startsWith('guest_') && !userId.startsWith('anon') && !userId.startsWith('offline_');
 
+  if (!isRegistered || !user) {
+    return res.json({ success: true, syncedCount: 0, isRegistered: false });
+  }
+
   let syncedCount = 0;
+  let lastValidScoreItem: any = null;
+
   for (const item of scores) {
     if (!item) continue;
     const scoreNum = Math.max(0, Math.min(100000000, Math.floor(Number(item.score) || 0)));
-    const entry: StoredScore = {
-      id: 'score_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-      userId: userId || 'anon',
-      username: user?.username || 'Racer',
-      avatar: user?.avatar || '🏎️',
-      title: user?.title || 'RACER',
-      carColor: user?.carColor || '#00f0ff',
+    const distanceNum = Math.max(0, Math.floor(Number(item.distance) || 0));
+    const comboNum = Math.max(0, Math.floor(Number(item.bestCombo) || 0));
+
+    user.stats.gamesPlayed += 1;
+    user.stats.totalDistance += distanceNum;
+    user.stats.obstaclesDodged += Math.max(0, Math.floor(Number(item.obstaclesDodged) || 0));
+    user.stats.powerUpsCollected += Math.max(0, Math.floor(Number(item.powerUpsCollected) || 0));
+    if (comboNum > user.stats.bestCombo) user.stats.bestCombo = comboNum;
+    if (scoreNum > user.stats.highScore) user.stats.highScore = scoreNum;
+    user.stats.totalBounty += Math.floor(scoreNum / 10);
+
+    lastValidScoreItem = {
       score: scoreNum,
-      distance: Math.max(0, Math.floor(Number(item.distance) || 0)),
-      bestCombo: Math.max(0, Math.floor(Number(item.bestCombo) || 0)),
+      distance: distanceNum,
+      bestCombo: comboNum,
       difficulty: typeof item.difficulty === 'string' ? item.difficulty : 'NORMAL',
       timestamp: item.timestamp || new Date().toISOString(),
     };
-
-    if (isRegistered && user) {
-      db.scores.push(entry);
-      user.stats.gamesPlayed += 1;
-      user.stats.totalDistance += entry.distance;
-      user.stats.obstaclesDodged += Math.max(0, Math.floor(Number(item.obstaclesDodged) || 0));
-      user.stats.powerUpsCollected += Math.max(0, Math.floor(Number(item.powerUpsCollected) || 0));
-      if (entry.bestCombo > user.stats.bestCombo) user.stats.bestCombo = entry.bestCombo;
-      if (scoreNum > user.stats.highScore) user.stats.highScore = scoreNum;
-      user.stats.totalBounty += Math.floor(scoreNum / 10);
-    }
     syncedCount++;
   }
 
-  if (isRegistered && user && syncedCount > 0) {
+  if (lastValidScoreItem) {
     user.lastActive = new Date().toISOString();
-    db.scores.sort((a, b) => b.score - a.score);
-    if (db.scores.length > 250) {
-      db.scores = db.scores.slice(0, 250);
+
+    const existingIndex = db.scores.findIndex(s => s.userId === userId);
+    const updatedEntry: StoredScore = {
+      id: existingIndex !== -1 ? db.scores[existingIndex].id : 'score_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      userId,
+      username: user.username,
+      avatar: user.avatar || '🏎️',
+      title: user.title || 'RACER',
+      carColor: user.carColor || '#00f0ff',
+      score: lastValidScoreItem.score,
+      distance: lastValidScoreItem.distance,
+      bestCombo: lastValidScoreItem.bestCombo,
+      difficulty: lastValidScoreItem.difficulty,
+      timestamp: lastValidScoreItem.timestamp,
+    };
+
+    if (existingIndex !== -1) {
+      db.scores[existingIndex] = updatedEntry;
+    } else {
+      db.scores.push(updatedEntry);
     }
+
+    db.scores.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.distance !== a.distance) return b.distance - a.distance;
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+
     saveDB();
-    broadcastLeaderboardUpdate();
+    broadcastLeaderboardUpdate(updatedEntry);
   }
 
   res.json({ success: true, syncedCount, userStats: user?.stats });
@@ -1278,18 +1084,20 @@ app.post('/api/scores/batch', (req, res) => {
 app.get('/api/leaderboard', (req, res) => {
   const { period = 'all', difficulty, search } = req.query;
 
-  // Use cached sorted leaderboard of registered users for ultra-fast response time
-  if (!cachedLeaderboard) {
-    cachedLeaderboard = db.scores.filter(s => {
-      const user = db.users[s.userId];
-      return !!user && !s.userId.startsWith('guest_') && !s.userId.startsWith('bot-') && !s.userId.startsWith('anon') && !s.userId.startsWith('offline_');
-    });
-    cachedLeaderboard.sort((a, b) => b.score - a.score);
-  }
+  // Pastikan hanya akun pemain terdaftar yang valid yang muncul di papan peringkat
+  let list = db.scores.filter(s => {
+    const user = db.users[s.userId];
+    return !!user && !s.userId.startsWith('guest_') && !s.userId.startsWith('bot-') && !s.userId.startsWith('anon') && !s.userId.startsWith('offline_');
+  });
 
-  let list = cachedLeaderboard;
+  // Urutkan berdasarkan skor terakhir
+  list.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.distance !== a.distance) return b.distance - a.distance;
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+  });
 
-  // Search filter by player name
+  // Filter pencarian nama pemain
   if (typeof search === 'string' && search.trim()) {
     const q = search.trim().toLowerCase();
     list = list.filter(s => s.username.toLowerCase().includes(q));
@@ -1480,10 +1288,20 @@ async function setupVite() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const possiblePaths = [
+      path.join(process.cwd(), 'dist'),
+      path.join(__dirname, 'dist'),
+      __dirname,
+    ];
+    const distPath = possiblePaths.find(p => fs.existsSync(path.join(p, 'index.html'))) || path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const indexPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(200).send('<!DOCTYPE html><html><head><meta http-equiv="refresh" content="3"><title>Starting...</title></head><body style="background:#090a16;color:#00f0ff;font-family:sans-serif;text-align:center;padding:50px;"><h2>Memuat Escape Police...</h2><p>Sedang menyiapkan game, halaman akan refresh otomatis.</p></body></html>');
+      }
     });
   }
 

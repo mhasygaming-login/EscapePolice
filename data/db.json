@@ -1,0 +1,177 @@
+{
+  "users": {
+    "usr_1789523877890_df18u": {
+      "id": "usr_1789523877890_df18u",
+      "username": "TestPlayer123",
+      "email": "testplayer123@cyberpursuit.local",
+      "passwordHash": "password123",
+      "avatar": "🏎️",
+      "title": "ROOKIE RACER",
+      "carColor": "#00f0ff",
+      "carModel": "civic_fl5",
+      "trailEffect": "cyan_plasma",
+      "twoFactorEnabled": false,
+      "biometricEnabled": false,
+      "achievements": [],
+      "stats": {
+        "highScore": 1500,
+        "gamesPlayed": 1,
+        "totalDistance": 240,
+        "obstaclesDodged": 12,
+        "powerUpsCollected": 3,
+        "bestCombo": 4,
+        "totalBounty": 150,
+        "maxLevel": 1,
+        "bossKills": 0,
+        "nearMisses": 0,
+        "empUsed": 0,
+        "multiplayerWins": 0,
+        "multiplayerMatches": 0
+      },
+      "layoutSettings": {
+        "hudPosition": "top",
+        "controlsStyle": "buttons",
+        "screenShake": true,
+        "scanlines": true,
+        "soundEnabled": true
+      },
+      "notificationSettings": {
+        "friendScores": true,
+        "tournaments": true,
+        "pushEnabled": true,
+        "dailyMissions": true
+      },
+      "createdAt": "2026-09-16T01:57:57.890Z",
+      "lastActive": "2026-09-16T01:58:00.173Z"
+    },
+    "usr_1789524160303_8eqrd": {
+      "id": "usr_1789524160303_8eqrd",
+      "username": "pembalap_pro",
+      "email": "pembalap_pro@cyberpursuit.local",
+      "passwordHash": "password123",
+      "avatar": "🏎️",
+      "title": "ROOKIE RACER",
+      "carColor": "#00f0ff",
+      "carModel": "civic_fl5",
+      "trailEffect": "cyan_plasma",
+      "twoFactorEnabled": false,
+      "biometricEnabled": false,
+      "achievements": [],
+      "stats": {
+        "highScore": 0,
+        "gamesPlayed": 0,
+        "totalDistance": 0,
+        "obstaclesDodged": 0,
+        "powerUpsCollected": 0,
+        "bestCombo": 0,
+        "totalBounty": 0,
+        "maxLevel": 1,
+        "bossKills": 0,
+        "nearMisses": 0,
+        "empUsed": 0,
+        "multiplayerWins": 0,
+        "multiplayerMatches": 0
+      },
+      "layoutSettings": {
+        "hudPosition": "top",
+        "controlsStyle": "buttons",
+        "screenShake": true,
+        "scanlines": true,
+        "soundEnabled": true
+      },
+      "notificationSettings": {
+        "friendScores": true,
+        "tournaments": true,
+        "pushEnabled": true,
+        "dailyMissions": true
+      },
+      "createdAt": "2026-09-16T02:02:40.304Z",
+      "lastActive": "2026-09-16T02:02:40.304Z"
+    }
+  },
+  "scores": [
+    {
+      "id": "score_1789523880164_gslm",
+      "userId": "usr_1789523877890_df18u",
+      "username": "TestPlayer123",
+      "avatar": "🏎️",
+      "title": "ROOKIE RACER",
+      "carColor": "#00f0ff",
+      "score": 1500,
+      "distance": 240,
+      "bestCombo": 4,
+      "difficulty": "NORMAL",
+      "timestamp": "2026-09-16T01:58:00.164Z"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif-1789524160304",
+      "userId": "usr_1789524160303_8eqrd",
+      "type": "system",
+      "title": "Selamat Datang di Escape Police!",
+      "message": "Halo pembalap_pro, akun barumu siap! Pacu mobilmu dan capai puncak leaderboard.",
+      "timestamp": "2026-09-16T02:02:40.304Z",
+      "read": false
+    },
+    {
+      "id": "notif-1789523880174",
+      "userId": "all",
+      "type": "score_beaten",
+      "title": "🚨 Papan Peringkat Global Bergetar!",
+      "message": "[#1] TestPlayer123 baru saja mencetak skor fantastis 1,500 di mode NORMAL!",
+      "timestamp": "2026-09-16T01:58:00.174Z",
+      "read": false
+    },
+    {
+      "id": "notif_1789523880164",
+      "userId": "usr_1789523877890_df18u",
+      "type": "achievement",
+      "title": "Rekor Baru Tercatat!",
+      "message": "Kamu mencetak rekor pribadi baru: 1,500 poin!",
+      "timestamp": "2026-09-16T01:58:00.173Z",
+      "read": false
+    },
+    {
+      "id": "notif-1789523877890",
+      "userId": "usr_1789523877890_df18u",
+      "type": "system",
+      "title": "Selamat Datang di Escape Police!",
+      "message": "Halo TestPlayer123, akun barumu siap! Pacu mobilmu dan capai puncak leaderboard.",
+      "timestamp": "2026-09-16T01:57:57.890Z",
+      "read": false
+    }
+  ],
+  "tournaments": [
+    {
+      "id": "tourney-1",
+      "title": "Midnight Pursuit Grand Prix",
+      "description": "Lari dari kepungan armada polisi MAXXX selama 24 jam non-stop!",
+      "tier": "CYBER_LEGEND",
+      "startTime": "2026-09-16T03:04:59.204Z",
+      "endTime": "2026-09-17T03:04:59.204Z",
+      "prizeBounty": 25000,
+      "participants": []
+    },
+    {
+      "id": "tourney-2",
+      "title": "Neon Drift Sprint Championship",
+      "description": "Pertarungan combo streak tertinggi di jalan tol neon malam.",
+      "tier": "ELITE",
+      "startTime": "2026-09-16T15:04:59.204Z",
+      "endTime": "2026-09-17T15:04:59.204Z",
+      "prizeBounty": 10000,
+      "participants": []
+    },
+    {
+      "id": "tourney-3",
+      "title": "Rookie Highway Escape",
+      "description": "Kejuaraan harian untuk pengemudi pemula mengasah refleks.",
+      "tier": "ROOKIE",
+      "startTime": "2026-09-16T02:04:59.204Z",
+      "endTime": "2026-09-16T09:04:59.204Z",
+      "prizeBounty": 5000,
+      "participants": []
+    }
+  ]
+}

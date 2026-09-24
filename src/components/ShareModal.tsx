@@ -13,7 +13,7 @@ import {
   Smartphone,
   Laptop
 } from 'lucide-react';
-import { getPublicGameUrl, copyTextToClipboard } from '../utils/share';
+import { getPublicGameUrl, copyTextToClipboard, PUBLIC_APP_URL } from '../utils/share';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -47,18 +47,33 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, roomCod
     }
   };
 
+  const safeOpenUrl = (url: string) => {
+    try {
+      const opened = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.click();
+      }
+    } catch {
+      // Fallback
+    }
+  };
+
   const handleWhatsAppShare = () => {
     const text = roomCode
       ? `Ayo balapan bareng aku di Escape Police! Masuk ke room: ${roomCode}\nKlik link: ${publicUrl}`
       : `Ayo main game balap liar Escape Police bareng aku secara real-time!\nKlik link: ${publicUrl}`;
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+    safeOpenUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`);
   };
 
   const handleTelegramShare = () => {
     const text = roomCode
       ? `Ayo balapan bareng aku di Escape Police! Masuk ke room: ${roomCode}`
       : `Ayo main game balap liar Escape Police bareng aku secara real-time!`;
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(publicUrl)}&text=${encodeURIComponent(text)}`, '_blank');
+    safeOpenUrl(`https://t.me/share/url?url=${encodeURIComponent(publicUrl)}&text=${encodeURIComponent(text)}`);
   };
 
   return (
@@ -167,6 +182,20 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, roomCod
                 <span>Telegram</span>
               </button>
             </div>
+          </div>
+
+          {/* Guide for Page Not Found (404) */}
+          <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-2 text-left">
+            <div className="flex items-center gap-2 text-amber-300 font-display font-bold text-xs">
+              <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Cara Mengaktifkan Link Publik (Jika Masih Muncul "Page Not Found"):</span>
+            </div>
+            <ol className="text-[11px] text-gray-300 space-y-1 list-decimal list-inside pl-0.5 leading-relaxed">
+              <li>Lihat ke <strong>pojok kanan atas antarmuka Google AI Studio</strong> Anda.</li>
+              <li>Klik tombol <strong>"Share"</strong> (di sebelah tombol Run/Pengaturan).</li>
+              <li>Pilih <strong>"Anyone with the link can view"</strong> lalu klik <strong>"Publish"</strong> atau <strong>"Update"</strong>.</li>
+              <li>Tunggu beberapa detik. Link publik <code>{PUBLIC_APP_URL}</code> akan langsung aktif dan bisa dibuka oleh siapapun tanpa login!</li>
+            </ol>
           </div>
 
           {/* Multi-Device Feature Highlights */}

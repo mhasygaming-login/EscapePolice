@@ -1,8 +1,17 @@
 export const PUBLIC_APP_URL = 'https://ais-pre-ohvu3ldljbu2zszu353vkc-311469337722.asia-southeast1.run.app';
 
 /**
+ * Checks if current runtime is in a private developer preview container
+ */
+export function isDevEnvironment(): boolean {
+  if (typeof window === 'undefined' || !window.location) return false;
+  const origin = window.location.origin || '';
+  return origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('ais-dev-');
+}
+
+/**
  * Returns the best public shareable URL for the game or a specific multiplayer room.
- * Handles running inside iframes, development containers, and deployed domains.
+ * Ensures private dev domains (ais-dev-...) are NEVER handed out to friends.
  */
 export function getPublicGameUrl(roomCode?: string): string {
   let baseUrl = PUBLIC_APP_URL;
@@ -10,8 +19,15 @@ export function getPublicGameUrl(roomCode?: string): string {
   try {
     if (typeof window !== 'undefined' && window.location) {
       const origin = window.location.origin;
-      // If running on a valid public domain (not localhost or null iframe origin)
-      if (origin && !origin.includes('localhost') && origin !== 'null' && origin.startsWith('http')) {
+      // Only use window.location if it's already a public deployment domain (like ais-pre-... or custom domain)
+      if (
+        origin &&
+        !origin.includes('localhost') &&
+        !origin.includes('127.0.0.1') &&
+        !origin.includes('ais-dev-') &&
+        origin !== 'null' &&
+        origin.startsWith('http')
+      ) {
         baseUrl = `${origin}${window.location.pathname.replace(/\/$/, '')}`;
       }
     }

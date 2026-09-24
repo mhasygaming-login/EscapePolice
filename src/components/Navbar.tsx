@@ -1,27 +1,24 @@
 import React from 'react';
-import { UserProfile } from '../types/game';
+import { UserProfile, ActiveTab } from '../types/game';
 import {
   Trophy,
   Users,
   Gamepad2,
-  Palette,
+  Car,
   BarChart3,
   Calendar,
+  Compass,
   Bell,
-  Cloud,
-  CloudOff,
   Volume2,
   VolumeX,
   Settings,
-  ShieldCheck,
-  User,
-  Flame,
   Share2
 } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavbarProps {
   user: UserProfile | null;
-  activeTab: 'game' | 'multiplayer' | 'leaderboard' | 'garage' | 'tournaments' | 'analytics' | 'achievements';
+  activeTab: ActiveTab;
   setActiveTab?: (tab: any) => void;
   onSelectTab?: (tab: any) => void;
   onOpenAuth: () => void;
@@ -72,92 +69,120 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isSyncing = propIsSyncing !== undefined ? propIsSyncing : cloudStatus === 'syncing';
 
   return (
-    <header className="w-full bg-[#080812]/95 backdrop-blur-md border-b border-white/10 px-3 py-2.5 sm:px-6 sticky top-0 z-40">
+    <header className="w-full bg-[#070a0f]/95 backdrop-blur-md border-b border-[#00E5FF]/20 px-3 py-2.5 sm:px-6 sticky top-0 z-40 shadow-[0_4px_25px_rgba(0,229,255,0.08)]">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-        {/* Brand */}
+        {/* Logo Kiri: ESCAPE POLICE */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => changeTab('game')}
-            className="flex items-center gap-2 group text-left focus:outline-none cursor-pointer"
-            title="Escape Police"
+            className="flex items-center gap-2.5 group text-left focus:outline-none cursor-pointer transition-transform hover:scale-105"
+            title="Escape Police: Cyber Pursuit"
           >
-            <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
-              <span>🚨</span>
+            <div className="relative">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden border border-[#00E5FF] shadow-[0_0_12px_rgba(0,229,255,0.5)]">
+                <img
+                  src="/cyber_pursuit_logo.jpg"
+                  alt="Escape Police Logo"
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#00E5FF] shadow-[0_0_8px_#00E5FF]" />
             </div>
             <div className="font-display font-black text-sm sm:text-base tracking-wider text-white">
-              ESCAPE <span className="text-cyan-400">POLICE</span>
+              ESCAPE <span className="text-[#00E5FF] text-glow-cyan">POLICE</span>
             </div>
           </button>
         </div>
 
-        {/* Center Nav Pills */}
-        <nav className="hidden md:flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+        {/* Menu Navigasi Tengah (Pill Style Tabs) */}
+        <nav className="hidden xl:flex items-center gap-1 bg-[#0d131f]/90 p-1.5 rounded-2xl border border-[#00E5FF]/20 shadow-inner">
+          {/* [SOLO] */}
           <button
             onClick={() => changeTab('game')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all duration-200 cursor-pointer ${
               activeTab === 'game'
-                ? 'bg-cyan-500 text-black shadow-sm font-black'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                ? 'bg-[#00E5FF] text-black font-black shadow-[0_0_15px_rgba(0,229,255,0.6)] scale-100'
+                : 'text-gray-400 hover:text-white hover:bg-white/5 hover:scale-105'
             }`}
           >
             <Gamepad2 className="w-3.5 h-3.5" />
             Solo
           </button>
 
+          {/* [PETA / 5 MAPS] */}
+          <button
+            onClick={() => changeTab('maps')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all duration-200 cursor-pointer ${
+              activeTab === 'maps'
+                ? 'bg-[#00E5FF] text-black font-black shadow-[0_0_15px_rgba(0,229,255,0.6)] scale-100'
+                : 'text-gray-400 hover:text-white hover:bg-white/5 hover:scale-105'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>Peta</span>
+            <span className="text-[10px] font-mono opacity-80">(5)</span>
+          </button>
+
+          {/* MULTIPLAYER */}
           <button
             onClick={() => changeTab('multiplayer')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all duration-200 cursor-pointer ${
               activeTab === 'multiplayer'
-                ? 'bg-fuchsia-500 text-white shadow-sm font-black'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                ? 'bg-[#00E5FF] text-black font-black shadow-[0_0_15px_rgba(0,229,255,0.6)] scale-100'
+                : 'text-gray-400 hover:text-white hover:bg-white/5 hover:scale-105'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
             Multiplayer
           </button>
 
+          {/* PERINGKAT */}
           <button
             onClick={() => changeTab('leaderboard')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all duration-200 cursor-pointer ${
               activeTab === 'leaderboard'
-                ? 'bg-amber-400 text-black shadow-sm font-black'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                ? 'bg-[#00E5FF] text-black font-black shadow-[0_0_15px_rgba(0,229,255,0.6)] scale-100'
+                : 'text-gray-400 hover:text-white hover:bg-white/5 hover:scale-105'
             }`}
           >
             <Trophy className="w-3.5 h-3.5" />
             Peringkat
           </button>
 
+          {/* GARASI */}
           <button
             onClick={() => changeTab('garage')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all duration-200 cursor-pointer ${
               activeTab === 'garage'
-                ? 'bg-purple-500 text-white shadow-sm font-black'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                ? 'bg-[#00E5FF] text-black font-black shadow-[0_0_15px_rgba(0,229,255,0.6)] scale-100'
+                : 'text-gray-400 hover:text-white hover:bg-white/5 hover:scale-105'
             }`}
           >
-            <Palette className="w-3.5 h-3.5" />
+            <Car className="w-3.5 h-3.5" />
             Garasi
           </button>
 
+          {/* TURNAMEN */}
           <button
             onClick={() => changeTab('tournaments')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all duration-200 cursor-pointer ${
               activeTab === 'tournaments'
-                ? 'bg-rose-500 text-white shadow-sm font-black'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                ? 'bg-[#00E5FF] text-black font-black shadow-[0_0_15px_rgba(0,229,255,0.6)] scale-100'
+                : 'text-gray-400 hover:text-white hover:bg-white/5 hover:scale-105'
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
             Turnamen
           </button>
 
+          {/* ANALITIK */}
           <button
             onClick={() => changeTab('analytics')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all duration-200 cursor-pointer ${
               activeTab === 'analytics'
-                ? 'bg-emerald-500 text-black shadow-sm font-black'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                ? 'bg-[#00E5FF] text-black font-black shadow-[0_0_15px_rgba(0,229,255,0.6)] scale-100'
+                : 'text-gray-400 hover:text-white hover:bg-white/5 hover:scale-105'
             }`}
           >
             <BarChart3 className="w-3.5 h-3.5" />
@@ -165,56 +190,40 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </nav>
 
-        {/* Right Tools & User Info */}
-        <div className="flex items-center gap-1.5">
-          {/* Sound Toggle */}
+        {/* Sisi Kanan Utility Controls */}
+        <div className="flex items-center gap-2">
+          {/* Audio Mute Toggle */}
           <button
             onClick={onToggleSound}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+            className="p-2 rounded-xl bg-[#0d131f] hover:bg-[#141e30] text-gray-300 hover:text-[#00E5FF] border border-[#00E5FF]/20 hover:border-[#00E5FF]/60 hover:scale-105 transition-all duration-200 cursor-pointer shadow-sm"
             title={effectiveSoundMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
           >
-            {effectiveSoundMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-cyan-400" />}
+            {effectiveSoundMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-[#00E5FF]" />}
           </button>
 
-          {/* Cloud Sync Status Icon */}
-          <button
-            onClick={() => onTriggerSync && onTriggerSync()}
-            disabled={isSyncing}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer relative"
-            title={isOnline ? 'Tersinkronisasi ke Cloud' : 'Offline'}
-          >
-            {isOnline ? (
-              <Cloud className={`w-4 h-4 ${isSyncing ? 'animate-spin text-cyan-400' : 'text-gray-400'}`} />
-            ) : (
-              <CloudOff className="w-4 h-4 text-rose-400" />
-            )}
-            <span
-              className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${
-                isOnline ? 'bg-emerald-400' : 'bg-rose-400'
-              }`}
-            />
-          </button>
-
-          {/* Notifications Bell */}
+          {/* Notification Bell */}
           <button
             onClick={onOpenNotifications}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer relative"
+            className="p-2 rounded-xl bg-[#0d131f] hover:bg-[#141e30] text-gray-300 hover:text-[#00E5FF] border border-[#00E5FF]/20 hover:border-[#00E5FF]/60 hover:scale-105 transition-all duration-200 cursor-pointer relative shadow-sm"
             title="Notifikasi"
           >
             <Bell className="w-4 h-4" />
             {effectiveUnread > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500" />
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_6px_#f43f5e]" />
             )}
           </button>
 
-          {/* Share Public Link */}
+          {/* PWA Install Button */}
+          <PWAInstallButton />
+
+          {/* Tombol [BAGIKAN] (Outline Cyan, border neon glowing, teks bold) */}
           {onOpenShare && (
             <button
               onClick={onOpenShare}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:text-cyan-300 text-xs font-display font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00E5FF]/10 hover:bg-[#00E5FF]/25 border border-[#00E5FF] text-[#00E5FF] hover:text-white text-xs font-display font-black uppercase tracking-wider shadow-[0_0_12px_rgba(0,229,255,0.4)] hover:shadow-[0_0_20px_rgba(0,229,255,0.7)] hover:scale-105 transition-all duration-200 cursor-pointer"
               title="Bagikan Link Game ke Teman"
             >
-              <Share2 className="w-3.5 h-3.5" />
+              <Share2 className="w-3.5 h-3.5 stroke-[2.5]" />
               <span className="hidden sm:inline">Bagikan</span>
             </button>
           )}
@@ -222,78 +231,72 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Settings */}
           <button
             onClick={onOpenSettings}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+            className="p-2 rounded-xl bg-[#0d131f] hover:bg-[#141e30] text-gray-300 hover:text-[#00E5FF] border border-[#00E5FF]/20 hover:border-[#00E5FF]/60 hover:scale-105 transition-all duration-200 cursor-pointer shadow-sm"
             title="Pengaturan"
           >
             <Settings className="w-4 h-4" />
           </button>
 
-          {/* User Account Button */}
+          {/* User Profile */}
           {user ? (
             <button
               onClick={onOpenAuth}
-              className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
+              className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-xl bg-[#0d131f] hover:bg-[#141e30] border border-[#00E5FF]/20 hover:border-[#00E5FF]/60 hover:scale-105 transition-all duration-200 cursor-pointer shadow-sm"
             >
               <div
-                className="w-6 h-6 rounded-lg flex items-center justify-center text-xs border"
+                className="w-6 h-6 rounded-lg flex items-center justify-center text-xs border font-bold"
                 style={{ borderColor: user.carColor, backgroundColor: `${user.carColor}22` }}
               >
                 {user.avatar || '🏎️'}
               </div>
-              <span className="text-xs font-bold text-white hidden sm:inline max-w-[80px] truncate">
-                {user.username}
-              </span>
+              <div className="hidden lg:flex flex-col text-left">
+                <span className="text-xs font-bold text-white max-w-[90px] truncate leading-none">
+                  {user.username}
+                </span>
+                <span className="text-[10px] text-[#00E5FF] font-mono leading-tight">
+                  {(user.stats?.totalBounty || 0).toLocaleString()} ⚡
+                </span>
+              </div>
             </button>
           ) : (
             <button
               onClick={onOpenAuth}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-cyan-500 text-black text-xs font-bold tracking-wider hover:bg-cyan-400 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-[#00E5FF] hover:bg-[#00F0FF] text-black font-display font-black text-xs uppercase tracking-wider shadow-[0_0_12px_rgba(0,229,255,0.4)] hover:scale-105 transition-all duration-200 cursor-pointer"
             >
-              <User className="w-3.5 h-3.5" />
               Masuk
             </button>
           )}
         </div>
       </div>
 
-      {/* Mobile Nav Drawer Row */}
-      <div className="flex md:hidden items-center justify-around gap-1 mt-2 pt-2 border-t border-white/10 overflow-x-auto text-[11px] font-bold uppercase">
-        <button
-          onClick={() => changeTab('game')}
-          className={`px-2 py-1 rounded ${activeTab === 'game' ? 'text-cyan-400 bg-cyan-500/10' : 'text-gray-400'}`}
-        >
-          Solo
-        </button>
-        <button
-          onClick={() => changeTab('multiplayer')}
-          className={`px-2 py-1 rounded ${activeTab === 'multiplayer' ? 'text-fuchsia-400 bg-fuchsia-500/10' : 'text-gray-400'}`}
-        >
-          Multiplayer
-        </button>
-        <button
-          onClick={() => changeTab('leaderboard')}
-          className={`px-2 py-1 rounded ${activeTab === 'leaderboard' ? 'text-amber-400 bg-amber-500/10' : 'text-gray-400'}`}
-        >
-          Peringkat
-        </button>
-        <button
-          onClick={() => changeTab('garage')}
-          className={`px-2 py-1 rounded ${activeTab === 'garage' ? 'text-purple-400 bg-purple-500/10' : 'text-gray-400'}`}
-        >
-          Garasi
-        </button>
-        <button
-          onClick={() => changeTab('tournaments')}
-          className={`px-2 py-1 rounded ${activeTab === 'tournaments' ? 'text-rose-400 bg-rose-500/10' : 'text-gray-400'}`}
-        >
-          Turnamen
-        </button>
-        <button
-          onClick={() => changeTab('analytics')}
-          className={`px-2 py-1 rounded ${activeTab === 'analytics' ? 'text-emerald-400 bg-emerald-500/10' : 'text-gray-400'}`}
-        >
-          Analitik
-        </button>
+      {/* Tablet & Mobile Nav Bar (Professional Responsive Auto-Layout) */}
+      <div className="flex xl:hidden items-center justify-start sm:justify-center gap-1.5 sm:gap-2 mt-2 pt-2 border-t border-[#00E5FF]/20 overflow-x-auto scrollbar-none text-[11px] font-bold uppercase px-0.5">
+        {[
+          { id: 'game', label: 'Solo', icon: Gamepad2 },
+          { id: 'maps', label: 'Peta', icon: Compass },
+          { id: 'multiplayer', label: 'Multiplayer', icon: Users },
+          { id: 'leaderboard', label: 'Peringkat', icon: Trophy },
+          { id: 'garage', label: 'Garasi', icon: Car },
+          { id: 'tournaments', label: 'Turnamen', icon: Calendar },
+          { id: 'analytics', label: 'Analitik', icon: BarChart3 },
+        ].map(item => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => changeTab(item.id as any)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-xl transition-all whitespace-nowrap cursor-pointer shrink-0 active:scale-95 ${
+                isActive
+                  ? 'text-black bg-[#00E5FF] font-black shadow-[0_0_12px_rgba(0,229,255,0.5)]'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
       </div>
     </header>
   );

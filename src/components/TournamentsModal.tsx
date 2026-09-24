@@ -2,16 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Tournament, UserProfile } from '../types/game';
 import { api } from '../services/api';
 import { sound } from '../services/audio';
-import { Calendar, Clock, Trophy, Share2, PlusCircle, Check, Users, ExternalLink } from 'lucide-react';
+import { Calendar, Clock, Trophy, Share2, PlusCircle, Check, Users, ExternalLink, Gamepad2 } from 'lucide-react';
 
 interface TournamentsModalProps {
   user: UserProfile | null;
+  onBackToGame?: () => void;
 }
 
-export const TournamentsModal: React.FC<TournamentsModalProps> = ({ user }) => {
+export const TournamentsModal: React.FC<TournamentsModalProps> = ({ user, onBackToGame }) => {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [sharedId, setSharedId] = useState<string | null>(null);
+  const [registeringId, setRegisteringId] = useState<string | null>(null);
 
   useEffect(() => {
     api.getTournaments(user?.id).then(list => {
@@ -21,18 +23,23 @@ export const TournamentsModal: React.FC<TournamentsModalProps> = ({ user }) => {
   }, [user?.id]);
 
   const handleRegister = async (t: Tournament) => {
-    if (!user) return;
+    if (!user || registeringId) return;
+    setRegisteringId(t.id);
     sound.play('click');
-    const ok = await api.registerTournament(t.id, user.id);
-    if (ok) {
-      sound.play('win');
-      setTournaments(prev =>
-        prev.map(item =>
-          item.id === t.id
-            ? { ...item, isRegistered: true, participantsCount: item.participantsCount + 1 }
-            : item
-        )
-      );
+    try {
+      const ok = await api.registerTournament(t.id, user.id);
+      if (ok) {
+        sound.play('win');
+        setTournaments(prev =>
+          prev.map(item =>
+            item.id === t.id
+              ? { ...item, isRegistered: true, participantsCount: item.participantsCount + 1 }
+              : item
+          )
+        );
+      }
+    } finally {
+      setRegisteringId(null);
     }
   };
 
@@ -92,21 +99,37 @@ export const TournamentsModal: React.FC<TournamentsModalProps> = ({ user }) => {
   return (
     <div className="w-full max-w-5xl mx-auto py-4 px-3 sm:px-6 space-y-6">
       {/* Header Banner */}
-      <div className="rounded-2xl bg-gradient-to-r from-rose-950/40 via-[#0d0f1e] to-[#0a0a14] border border-rose-500/30 p-6">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold uppercase tracking-widest mb-2">
-          <Calendar className="w-3.5 h-3.5" /> Kalender Jadwal & Turnamen Cyber
+      <div className="rounded-2xl bg-gradient-to-r from-rose-950/40 via-[#0d0f1e] to-[#0a0a14] border border-rose-500/30 p-5 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold uppercase tracking-widest mb-2">
+            <Calendar className="w-3.5 h-3.5" /> Kalender Jadwal & Turnamen Cyber
+          </div>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-display font-extrabold text-white text-glow-magenta">
+            TURNAMEN & JADWAL RESMI
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-300 mt-1 max-w-2xl leading-relaxed">
+            Daftarkan diri dalam kejuaraan mingguan, sinkronkan jadwal langsung ke Google Calendar atau ekspor file .ics,
+            serta bagikan tautan turnamen ke rekan satu tim!
+          </p>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-white text-glow-magenta">
-          TURNAMEN & JADWAL RESMI
-        </h1>
-        <p className="text-xs sm:text-sm text-gray-300 mt-1 max-w-2xl">
-          Daftarkan diri dalam kejuaraan mingguan, sinkronkan jadwal langsung ke Google Calendar atau ekspor file .ics,
-          serta bagikan tautan turnamen ke rekan satu tim!
-        </p>
+
+        {onBackToGame && (
+          <button
+            type="button"
+            onClick={() => {
+              sound.play('click');
+              onBackToGame();
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-display font-black uppercase tracking-wider shadow-md shadow-cyan-500/25 active:scale-95 cursor-pointer shrink-0 self-start md:self-center transition-transform whitespace-nowrap"
+          >
+            <Gamepad2 className="w-4 h-4" />
+            <span>Main Balapan (Solo)</span>
+          </button>
+        )}
       </div>
 
       {/* Tournament Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {tournaments.map(t => {
           const startDate = new Date(t.startTime);
           const endDate = new Date(t.endTime);
@@ -181,14 +204,16 @@ export const TournamentsModal: React.FC<TournamentsModalProps> = ({ user }) => {
               <div className="space-y-2 pt-3 border-t border-white/10">
                 <button
                   onClick={() => handleRegister(t)}
-                  disabled={t.isRegistered}
-                  className={`w-full py-2.5 rounded-xl font-display font-bold text-xs uppercase tracking-wider transition-all ${
+                  disabled={t.isRegistered || registeringId === t.id}
+                  className={`w-full py-2.5 rounded-xl font-display font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
                     t.isRegistered
                       ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 cursor-default'
-                      : 'bg-rose-500 hover:bg-rose-400 text-white shadow-lg shadow-rose-500/25'
+                      : registeringId === t.id
+                      ? 'bg-rose-500/60 text-white cursor-wait'
+                      : 'bg-rose-500 hover:bg-rose-400 text-white shadow-lg shadow-rose-500/25 active:scale-98'
                   }`}
                 >
-                  {t.isRegistered ? '✓ Terdaftar' : 'Daftar Turnamen'}
+                  {t.isRegistered ? '✓ Terdaftar' : registeringId === t.id ? 'Mendaftarkan...' : 'Daftar Turnamen'}
                 </button>
 
                 {/* Calendar Sync & Share */}

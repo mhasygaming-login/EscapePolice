@@ -80,9 +80,9 @@ export const LogoutConfirmModal: React.FC<LogoutConfirmModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
-      <div className="bg-[#0c0d1c] border border-rose-500/40 rounded-3xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(244,63,94,0.2)] overflow-hidden">
+      <div className="bg-[#0c0d1c] border border-cyan-500/40 rounded-3xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(0,240,255,0.15)] overflow-hidden">
         {/* Glow ambient background */}
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-rose-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-20 -right-20 w-40 h-40 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
 
         {/* Close Button */}
         <button
@@ -94,24 +94,24 @@ export const LogoutConfirmModal: React.FC<LogoutConfirmModalProps> = ({
 
         {/* Header Icon & Title */}
         <div className="flex flex-col items-center text-center mb-5">
-          <div className="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 mb-3 shadow-lg shadow-rose-500/20">
-            <ShieldAlert className="w-7 h-7 text-rose-400" />
+          <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 mb-3 shadow-lg shadow-cyan-500/20">
+            <LogOut className="w-7 h-7 text-cyan-400" />
           </div>
           <h3 className="text-lg font-display font-black text-white tracking-wider">
-            KONFIRMASI KELUAR AKUN
+            KELUAR DARI SESI AKUN
           </h3>
           <p className="text-xs text-gray-400 mt-1 max-w-xs leading-relaxed">
-            Untuk menjaga privasi dan keamanan data Anda, pastikan tindakan keluar akun ini benar-benar disengaja.
+            Ingin berganti akun atau perangkat? Seluruh progres akunmu tetap aman di Cloud.
           </p>
         </div>
 
         {/* Question Notification Banner */}
-        <div className="p-3.5 rounded-2xl bg-rose-950/50 border border-rose-500/40 text-xs text-rose-200 mb-4 flex items-start gap-2.5">
-          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+        <div className="p-3.5 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-100 mb-4 flex items-start gap-2.5">
+          <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <div>Apakah Anda yakin ingin keluar dari akun <strong className="text-white font-bold">{user.username}</strong>?</div>
-            <div className="text-[11px] text-rose-300 leading-relaxed">
-              ⚠️ <strong>Perhatian:</strong> Data akun & cloud lama akan <strong>dihapus secara permanen</strong>. Anda akan otomatis kembali ke halaman login untuk mendaftar ulang.
+            <div>Keluar dari akun <strong className="text-white font-bold">{user.username}</strong>?</div>
+            <div className="text-[11px] text-cyan-300/90 leading-relaxed">
+              ☁️ <strong>Cloud Tersinkron:</strong> Skor tertinggi, level, koleksi mobil, dan bounty Anda <strong>tersimpan aman di server Cloud</strong>. Anda dapat login kembali kapan pun dari perangkat lain tanpa kehilangan progress.
             </div>
           </div>
         </div>
@@ -167,10 +167,10 @@ export const LogoutConfirmModal: React.FC<LogoutConfirmModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="py-2.5 px-3 rounded-xl bg-rose-500 hover:bg-rose-400 disabled:opacity-50 text-white text-xs font-display font-black uppercase tracking-wider shadow-lg shadow-rose-500/25 transition-transform active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-center"
+              className="py-2.5 px-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black text-xs font-display font-black uppercase tracking-wider shadow-lg shadow-cyan-500/25 transition-transform active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-center"
             >
               <LogOut className="w-3.5 h-3.5" />
-              {loading ? 'Memverifikasi...' : 'Iya, Keluar Akun'}
+              {loading ? 'Menyimpan & Keluar...' : 'Iya, Keluar Sesi'}
             </button>
           </div>
         </form>
