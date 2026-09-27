@@ -352,13 +352,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="mt-6 pt-4 border-t border-white/10 flex justify-end gap-3">
             <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs font-bold font-display uppercase tracking-wider transition-colors cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs font-bold font-display uppercase tracking-wider transition-colors cursor-pointer min-h-[44px] flex items-center justify-center"
             >
               Tutup
             </button>
             <button
               onClick={handleSave}
-              className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-display font-extrabold uppercase tracking-wider shadow-lg shadow-cyan-500/25 transition-transform active:scale-95 cursor-pointer"
+              className="flex items-center justify-center gap-1.5 px-6 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-display font-extrabold uppercase tracking-wider shadow-lg shadow-cyan-500/25 transition-transform active:scale-95 cursor-pointer min-h-[44px]"
             >
               {saved ? <Check className="w-4 h-4 text-black" /> : null}
               {saved ? 'Tersimpan!' : 'Terapkan Pengaturan'}

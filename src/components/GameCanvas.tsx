@@ -364,6 +364,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     rainDrops: any[];
     roadY: number;
     worldY: number;
+    smoothSpeed?: number;
     score: number;
     distance: number;
     frameCount: number;
@@ -423,6 +424,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     rainDrops: [],
     roadY: 0,
     worldY: 0,
+    smoothSpeed: 5,
     score: 0,
     distance: 0,
     frameCount: 0,
@@ -685,6 +687,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   // Keyboard events
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Do not hijack keys if user is typing in an input, textarea, or contentEditable element
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
       loopRef.current.keys[e.key] = true;
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(e.key)) {
         e.preventDefault();
@@ -725,6 +733,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
       loopRef.current.keys[e.key] = false;
     };
 
@@ -999,29 +1011,29 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const turnAccel = p.turnAccel || 0.88;
 
       if (steerInput !== 0) {
-        // Agile & quick evasive steering while staying controllable
+        // Agile & quick evasive steering with soft progressive responsiveness
         p.vx += steerInput * turnAccel;
         p.vx = Math.max(-maxTurn, Math.min(maxTurn, p.vx));
-        p.vx *= 0.88;
+        p.vx *= 0.91; // silky smooth lateral acceleration
       } else {
-        // High tire grip when key is released: quickly stops lateral slide (tidak licin!)
-        p.vx *= 0.58;
-        if (Math.abs(p.vx) < 0.08) p.vx = 0;
+        // High tire grip with soft deceleration curve (no harsh snapping)
+        p.vx *= 0.80;
+        if (Math.abs(p.vx) < 0.04) p.vx = 0;
       }
 
       const isMovingForward = Boolean(state.keys.ArrowUp || state.keys.w || state.keys.W);
       const isMovingBackward = Boolean(state.keys.ArrowDown || state.keys.s || state.keys.S);
 
-      if (isMovingForward) p.vy -= p.speed * 1.15; // Maju ke depan lebih cepat & responsif
-      if (isMovingBackward) p.vy += p.speed * 0.85;
+      if (isMovingForward) p.vy -= p.speed * 1.08;
+      if (isMovingBackward) p.vy += p.speed * 0.82;
 
-      p.vy *= 0.84;
-      if (Math.abs(p.vy) < 0.08) p.vy = 0;
+      p.vy *= 0.88; // gentle forward/reverse suspension inertia
+      if (Math.abs(p.vy) < 0.04) p.vy = 0;
 
-      // Realistic subtle body rotation on turn
-      const targetDrift = (p.vx / maxTurn) * 0.13;
-      p.driftAngle = (p.driftAngle || 0) + (targetDrift - (p.driftAngle || 0)) * 0.22;
-      p.isDrifting = Math.abs(p.vx) > 1.0 || (steerInput !== 0 && Math.abs(p.vx) > 0.5);
+      // Realistic progressive body tilt & suspension roll on turn
+      const targetDrift = (p.vx / maxTurn) * 0.14;
+      p.driftAngle = (p.driftAngle || 0) + (targetDrift - (p.driftAngle || 0)) * 0.16;
+      p.isDrifting = Math.abs(p.vx) > 0.8 || (steerInput !== 0 && Math.abs(p.vx) > 0.4);
 
       const geom = getRoadGeometry(canvas.width);
       p.x = Math.max(geom.roadLeft + 10, Math.min(geom.roadRight - 10 - p.width, p.x + p.vx));
@@ -1053,6 +1065,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       if (p.multiplierTimer > 0) multiplier *= 2;
       if (state.roadEvent === 'doubleXP') multiplier *= 2;
+
+      // Smooth camera & world speed interpolation for silky progressive acceleration
+      state.smoothSpeed = (state.smoothSpeed || currentSpeed) + (currentSpeed - (state.smoothSpeed || currentSpeed)) * 0.18;
+      const renderSpeed = state.smoothSpeed;
 
       // Real Tire Friction Skid Marks Left on Asphalt ("gesekan ban pada jalan yg berbekas")
       // Left on asphalt when steering firmly without any bubble/circle particles
@@ -1119,6 +1135,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (state.mission.id === 'dodge') state.missionProgress = state.obstaclesDodged;
         if (state.mission.id === 'collect') state.missionProgress = state.powerUpsCollected;
         if (state.mission.id === 'combo') state.missionProgress = Math.max(state.missionProgress, state.bestCombo);
+        if (state.mission.id === 'near') state.missionProgress = state.nearMisses;
+
+        // Update live HUD mission progress periodically
+        if (state.frameCount % 20 === 0) {
+          setMissionText(`MISI: ${state.mission.text.replace('{target}', String(state.mission.target))} [${Math.min(state.mission.target, state.missionProgress)}/${state.mission.target}]`);
+        }
 
         if (state.missionProgress >= state.mission.target) {
           state.score += state.mission.reward;
@@ -1253,19 +1275,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
 
       // Road background scroll
-      state.worldY = (state.worldY || 0) + currentSpeed;
-      state.roadY = (state.roadY + currentSpeed) % 100;
+      state.worldY = (state.worldY || 0) + renderSpeed;
+      state.roadY = (state.roadY + renderSpeed) % 100;
 
       // -----------------------------------------------------------------
       // RENDER
       // -----------------------------------------------------------------
       ctx.save();
       if (user?.layoutSettings.screenShake && state.screenShake > 0) {
-        const sx = (Math.random() - 0.5) * state.screenShake * 2;
-        const sy = (Math.random() - 0.5) * state.screenShake * 2;
+        const sx = (Math.random() - 0.5) * state.screenShake * 1.8;
+        const sy = (Math.random() - 0.5) * state.screenShake * 1.8;
         ctx.translate(sx, sy);
-        state.screenShake *= 0.9;
-        if (state.screenShake < 0.3) state.screenShake = 0;
+        state.screenShake *= 0.88; // gentle exponential decay
+        if (state.screenShake < 0.2) state.screenShake = 0;
       }
 
       const { roadWidth, roadLeft, roadRight, laneW } = getRoadGeometry(canvas.width);
@@ -1282,7 +1304,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         state.worldY || 0,
         activeMap,
         state.frameCount,
-        currentSpeed
+        renderSpeed
       );
 
       // Main asphalt road surface
@@ -1318,10 +1340,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
         for (let i = state.skidMarks.length - 1; i >= 0; i--) {
           const sm = state.skidMarks[i];
-          sm.rlY1 += currentSpeed;
-          sm.rlY2 += currentSpeed;
-          sm.rrY1 += currentSpeed;
-          sm.rrY2 += currentSpeed;
+          sm.rlY1 += renderSpeed;
+          sm.rlY2 += renderSpeed;
+          sm.rrY1 += renderSpeed;
+          sm.rrY2 += renderSpeed;
           sm.life--;
 
           if (sm.life <= 0 || (sm.rlY1 > canvas.height + 60 && sm.rrY1 > canvas.height + 60)) {
@@ -1354,14 +1376,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           const dx = p.x + p.width / 2 - (pu.x + pu.width / 2);
           const dy = p.y + p.height / 2 - (pu.y + pu.height / 2);
           const d = Math.hypot(dx, dy);
-          if (d < 230 && d > 1) {
-            pu.x += (dx / d) * 7.5;
-            pu.y += (dy / d) * 7.5;
+          if (d < 240 && d > 1) {
+            // Smooth progressive magnetic attraction curve
+            const pullStrength = Math.min(8.5, Math.max(2.0, (240 - d) * 0.045));
+            pu.x += (dx / d) * pullStrength;
+            pu.y += (dy / d) * pullStrength;
           }
         }
-        pu.y += currentSpeed;
+        pu.y += renderSpeed;
 
-        // Draw Powerup
+        // Draw Powerup with gentle floating bobbing & soft pulsing aura
         const colors: Record<string, string> = {
           shield: '#00f0ff',
           nitro: '#7c5cff',
@@ -1386,17 +1410,31 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         };
 
         const col = colors[pu.type] || '#00f0ff';
+        // Organic gentle floating motion
+        const bob = Math.sin(state.frameCount * 0.07 + i * 1.3) * 2.8;
         const puX = pu.x + 14;
-        const puY = pu.y + 14;
+        const puY = pu.y + 14 + bob;
+        const pulse = 1 + Math.sin(state.frameCount * 0.09 + i) * 0.06;
 
         ctx.save();
-        ctx.shadowBlur = 14;
+        // Soft outer ambient halo
+        ctx.shadowBlur = 16 * pulse;
         ctx.shadowColor = col;
         ctx.fillStyle = col;
         ctx.beginPath();
-        ctx.arc(puX, puY, 14, 0, Math.PI * 2);
+        ctx.arc(puX, puY, 13 * pulse, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
+
+        // Inner soft radial highlight
+        const grad = ctx.createRadialGradient(puX - 3, puY - 3, 2, puX, puY, 13 * pulse);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(puX, puY, 13 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.font = '12px Orbitron';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -1480,7 +1518,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       let triggerGameOver = false;
       for (let i = state.obstacles.length - 1; i >= 0; i--) {
         const o = state.obstacles[i];
-        o.y += currentSpeed + o.speed;
+        o.y += renderSpeed + o.speed;
 
         // Lane switching logic for MAXXX mode:
         // Police cars and police motorcycles change lanes alternately
@@ -1504,18 +1542,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           const targetX = roadLeft + laneW * (tgtLane + 0.5) - o.width / 2;
           const diffX = targetX - o.x;
 
+          const targetTilt = Math.abs(diffX) > 1.5 ? Math.sign(diffX) * 0.12 : 0;
+          o.tiltAngle = (o.tiltAngle || 0) + (targetTilt - (o.tiltAngle || 0)) * 0.16;
+
           if (Math.abs(diffX) > 1.5) {
             const steerSpeed = o.type === 'motorcycle' ? 2.4 : 1.8;
             const step = Math.sign(diffX) * Math.min(Math.abs(diffX), steerSpeed);
             o.x += step;
-            // Realistic steering tilt towards the target lane
-            o.tiltAngle = Math.sign(diffX) * 0.12;
             if (Math.abs(diffX) < 3) {
               o.currentLane = o.targetLane;
             }
           } else {
             o.x = targetX;
-            o.tiltAngle = 0;
             o.currentLane = o.targetLane;
           }
         } else if (o.weave) {
@@ -1724,63 +1762,148 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           showUnderglow: true,
         });
 
-        // Nitro exhaust twin jet flames
+        // Nitro exhaust twin jet plumes - soft organic glow & smooth sinusoidal flicker
         if (p.nitroTimer > 0) {
           ctx.save();
-          ctx.fillStyle = '#00f0ff';
-          ctx.shadowBlur = 14;
+          const flameFlicker = Math.sin(state.frameCount * 0.4) * 3 + Math.cos(state.frameCount * 0.7) * 2;
+          const flameLen = 20 + flameFlicker;
+
+          // Outer cyan jet plumes
+          ctx.shadowBlur = 16;
           ctx.shadowColor = '#00f0ff';
-          ctx.fillRect(-11, 38, 4, 16 + Math.random() * 12);
-          ctx.fillRect(7, 38, 4, 16 + Math.random() * 12);
+          ctx.fillStyle = '#00e5ff';
+          // Left jet
+          ctx.beginPath();
+          ctx.moveTo(-13, 38);
+          ctx.lineTo(-7, 38);
+          ctx.lineTo(-10, 38 + flameLen);
+          ctx.closePath();
+          ctx.fill();
+          // Right jet
+          ctx.beginPath();
+          ctx.moveTo(7, 38);
+          ctx.lineTo(13, 38);
+          ctx.lineTo(10, 38 + flameLen);
+          ctx.closePath();
+          ctx.fill();
+
+          // Inner white hot core
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = '#ffffff';
           ctx.fillStyle = '#ffffff';
-          ctx.fillRect(-10, 38, 2, 10 + Math.random() * 6);
-          ctx.fillRect(8, 38, 2, 10 + Math.random() * 6);
+          ctx.beginPath();
+          ctx.moveTo(-11.5, 38);
+          ctx.lineTo(-8.5, 38);
+          ctx.lineTo(-10, 38 + flameLen * 0.55);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(8.5, 38);
+          ctx.lineTo(11.5, 38);
+          ctx.lineTo(10, 38 + flameLen * 0.55);
+          ctx.closePath();
+          ctx.fill();
+
           ctx.restore();
         }
 
         ctx.restore();
 
-        // Shield bubble
+        // Shield bubble with soft harmonic breathing glow & gradient
         if (p.shieldTimer > 0) {
+          ctx.save();
+          const breath = Math.sin(state.frameCount * 0.08) * 1.5;
+          const shieldRadius = p.width * 0.94 + breath;
+          const cx = p.x + p.width / 2;
+          const cy = p.y + p.height / 2;
+
+          ctx.shadowBlur = 14;
+          ctx.shadowColor = '#00f0ff';
+          ctx.strokeStyle = `rgba(0, 240, 255, ${0.7 + Math.sin(state.frameCount * 0.1) * 0.18})`;
+          ctx.lineWidth = 2.5;
           ctx.beginPath();
-          ctx.arc(p.x + p.width / 2, p.y + p.height / 2, p.width * 0.95, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
-          ctx.lineWidth = 3;
+          ctx.arc(cx, cy, shieldRadius, 0, Math.PI * 2);
           ctx.stroke();
-          ctx.fillStyle = 'rgba(0, 240, 255, 0.12)';
+
+          // Soft inner protective gradient
+          const shieldGrad = ctx.createRadialGradient(cx, cy, shieldRadius * 0.4, cx, cy, shieldRadius);
+          shieldGrad.addColorStop(0, 'rgba(0, 240, 255, 0.04)');
+          shieldGrad.addColorStop(0.8, 'rgba(0, 240, 255, 0.14)');
+          shieldGrad.addColorStop(1, 'rgba(0, 240, 255, 0.28)');
+          ctx.fillStyle = shieldGrad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, shieldRadius, 0, Math.PI * 2);
           ctx.fill();
+          ctx.restore();
         }
 
-        // Magnet ring
+        // Magnet ring with harmonic expansion ripples
         if (p.magnetTimer > 0) {
-          ctx.beginPath();
-          const rMag = 55 + Math.sin(state.frameCount * 0.2) * 4;
-          ctx.arc(p.x + p.width / 2, p.y + p.height / 2, rMag, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(255, 183, 3, 0.4)';
+          ctx.save();
+          const cx = p.x + p.width / 2;
+          const cy = p.y + p.height / 2;
+          const rMag1 = 52 + Math.sin(state.frameCount * 0.08) * 4;
+          const rMag2 = 62 + Math.sin(state.frameCount * 0.08 + 1.2) * 4;
+
+          ctx.strokeStyle = 'rgba(255, 183, 3, 0.45)';
           ctx.lineWidth = 2;
+          ctx.shadowColor = '#ffb703';
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.arc(cx, cy, rMag1, 0, Math.PI * 2);
           ctx.stroke();
+
+          ctx.strokeStyle = 'rgba(255, 183, 3, 0.22)';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.arc(cx, cy, rMag2, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
         }
       }
 
-      // Particles & Sparks
+      // Particles & Sparks with soft air drag
       for (let i = state.particles.length - 1; i >= 0; i--) {
         const pt = state.particles[i];
         pt.x += pt.vx;
         pt.y += pt.vy;
+        pt.vx *= 0.94; // air resistance
+        pt.vy *= 0.94;
         pt.life--;
-        ctx.globalAlpha = pt.life / pt.maxLife;
+        ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
         ctx.fillStyle = pt.color;
         ctx.beginPath();
-        ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+        ctx.arc(pt.x, pt.y, Math.max(0.5, pt.size * (pt.life / pt.maxLife)), 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
         if (pt.life <= 0) state.particles.splice(i, 1);
       }
 
-      // Floating Texts
+      // Soft expanding shockwaves
+      if (state.shockwaves && state.shockwaves.length > 0) {
+        ctx.save();
+        for (let i = state.shockwaves.length - 1; i >= 0; i--) {
+          const sw = state.shockwaves[i];
+          sw.r += (sw.max - sw.r) * 0.16;
+          sw.life--;
+          const alpha = (sw.life / 20) * 0.65;
+          ctx.beginPath();
+          ctx.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(0, 240, 255, ${alpha})`;
+          ctx.lineWidth = 2.5;
+          ctx.shadowColor = '#00f0ff';
+          ctx.shadowBlur = 8;
+          ctx.stroke();
+          if (sw.life <= 0) state.shockwaves.splice(i, 1);
+        }
+        ctx.restore();
+      }
+
+      // Floating Texts with gentle upward drift
       for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
         const ft = state.floatingTexts[i];
-        ft.y -= 1.1;
+        ft.y -= 0.85;
         ft.life--;
         ctx.globalAlpha = Math.min(0.65, ft.life / 35);
         ctx.font = '700 11px Orbitron';
@@ -2618,7 +2741,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                   <span className="text-[#00E676] font-display font-bold text-xs tracking-wider uppercase">
                     {latestLeaderboardRank
                       ? `PERINGKAT #${latestLeaderboardRank} DI LEADERBOARD! (LIVE)`
-                      : 'PERINGKAT #2 DI LEADERBOARD! (LIVE)'}
+                      : scoreSavedStatus === 'saving'
+                      ? 'MENYIMPAN SKOR KE LEADERBOARD...'
+                      : 'SKOR TERCATAT RESMI DI LEADERBOARD'}
                   </span>
                 </div>
 

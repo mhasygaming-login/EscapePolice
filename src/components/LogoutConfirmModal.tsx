@@ -160,14 +160,14 @@ export const LogoutConfirmModal: React.FC<LogoutConfirmModalProps> = ({
             <button
               type="button"
               onClick={handleClose}
-              className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 text-xs font-display font-bold uppercase tracking-wider transition-colors cursor-pointer text-center"
+              className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 text-xs font-display font-bold uppercase tracking-wider transition-colors cursor-pointer text-center min-h-[44px] flex items-center justify-center"
             >
               Tidak, Batalkan
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="py-2.5 px-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black text-xs font-display font-black uppercase tracking-wider shadow-lg shadow-cyan-500/25 transition-transform active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-center"
+              className="py-2.5 px-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black text-xs font-display font-black uppercase tracking-wider shadow-lg shadow-cyan-500/25 transition-transform active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-center min-h-[44px]"
             >
               <LogOut className="w-3.5 h-3.5" />
               {loading ? 'Menyimpan & Keluar...' : 'Iya, Keluar Sesi'}

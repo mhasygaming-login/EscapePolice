@@ -47,34 +47,15 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, roomCod
     }
   };
 
-  const safeOpenUrl = (url: string) => {
-    try {
-      const opened = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!opened) {
-        const link = document.createElement('a');
-        link.href = url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.click();
-      }
-    } catch {
-      // Fallback
-    }
-  };
+  const whatsappText = roomCode
+    ? `Ayo balapan bareng aku di Escape Police! Masuk ke room: ${roomCode}\nKlik link: ${publicUrl}`
+    : `Ayo main game balap liar Escape Police bareng aku secara real-time!\nKlik link: ${publicUrl}`;
+  const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
 
-  const handleWhatsAppShare = () => {
-    const text = roomCode
-      ? `Ayo balapan bareng aku di Escape Police! Masuk ke room: ${roomCode}\nKlik link: ${publicUrl}`
-      : `Ayo main game balap liar Escape Police bareng aku secara real-time!\nKlik link: ${publicUrl}`;
-    safeOpenUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`);
-  };
-
-  const handleTelegramShare = () => {
-    const text = roomCode
-      ? `Ayo balapan bareng aku di Escape Police! Masuk ke room: ${roomCode}`
-      : `Ayo main game balap liar Escape Police bareng aku secara real-time!`;
-    safeOpenUrl(`https://t.me/share/url?url=${encodeURIComponent(publicUrl)}&text=${encodeURIComponent(text)}`);
-  };
+  const telegramText = roomCode
+    ? `Ayo balapan bareng aku di Escape Police! Masuk ke room: ${roomCode}`
+    : `Ayo main game balap liar Escape Police bareng aku secara real-time!`;
+  const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(publicUrl)}&text=${encodeURIComponent(telegramText)}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-md animate-fadeIn">
@@ -165,22 +146,24 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, roomCod
               Bagikan Langsung:
             </span>
             <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handleWhatsAppShare}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-display font-bold text-xs tracking-wider transition-colors cursor-pointer"
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-display font-bold text-xs tracking-wider transition-colors cursor-pointer min-h-[44px]"
               >
                 <MessageCircle className="w-4 h-4 text-emerald-400" />
                 <span>WhatsApp</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleTelegramShare}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/40 text-sky-300 font-display font-bold text-xs tracking-wider transition-colors cursor-pointer"
+              </a>
+              <a
+                href={telegramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/40 text-sky-300 font-display font-bold text-xs tracking-wider transition-colors cursor-pointer min-h-[44px]"
               >
                 <Send className="w-4 h-4 text-sky-400" />
                 <span>Telegram</span>
-              </button>
+              </a>
             </div>
           </div>
 

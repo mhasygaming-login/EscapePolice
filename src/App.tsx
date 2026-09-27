@@ -136,21 +136,38 @@ export default function App() {
 
   // WebSocket connection & push notification listener
   useEffect(() => {
-    if (currentUser?.id) {
-      socket.connect(currentUser.id);
+    if (!currentUser?.id) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
     }
 
-    const unbindNotif = socket.on('push_notification', (notif: NotificationItem) => {
-      setNotifications(prev => [notif, ...prev]);
+    socket.connect(currentUser.id);
+
+    // Initial load of user notifications
+    api.getNotifications(currentUser.id).then(notifs => {
+      if (Array.isArray(notifs)) {
+        setNotifications(notifs);
+        setUnreadCount(notifs.filter(n => !n.read).length);
+      }
+    }).catch(() => {});
+
+    const unbindNotif = socket.on('push_notification', (data: any) => {
+      const notif: NotificationItem = data?.notification || data;
+      if (!notif || !notif.title) return;
+
+      setNotifications(prev => [notif, ...prev.filter(n => n.id !== notif.id)]);
       setUnreadCount(c => c + 1);
       sound.play('coin');
 
       // Native browser notification if allowed
       if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(notif.title, {
-          body: notif.message,
-          icon: '/favicon.ico',
-        });
+        try {
+          new Notification(notif.title, {
+            body: notif.message,
+            icon: '/favicon.ico',
+          });
+        } catch {}
       }
     });
 
@@ -200,6 +217,9 @@ export default function App() {
   const handleMarkAllNotifRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     setUnreadCount(0);
+    if (currentUser?.id) {
+      api.markNotificationRead(currentUser.id);
+    }
   };
 
   const handleToggleSound = () => {

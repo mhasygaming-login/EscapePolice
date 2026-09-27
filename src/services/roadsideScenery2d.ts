@@ -815,7 +815,7 @@ export class RoadsideScenery2D {
 
     for (const p of this.particles) {
       // Update particle positions based on current car speed & natural wind
-      p.y += p.speedY + speed * 0.75;
+      p.y += p.speedY + speed * 0.72;
       p.x += p.speedX;
 
       if (p.y > canvasHeight + 20) {
@@ -825,46 +825,52 @@ export class RoadsideScenery2D {
       if (p.x < -20) p.x = canvasWidth + 20;
       if (p.x > canvasWidth + 20) p.x = -20;
 
+      // Soft vertical fade-in / fade-out at canvas boundaries
+      const edgeFactor = Math.min(1, Math.max(0, Math.min(p.y / 50, (canvasHeight - p.y) / 50)));
       ctx.save();
-      ctx.globalAlpha = p.alpha;
+      ctx.globalAlpha = p.alpha * Math.max(0.2, edgeFactor);
 
       if (pType === 'neon_rain') {
-        // Neon Blue / Cyan Streaking Rain
+        // Neon Blue / Cyan Streaking Rain with soft gradient taper
         ctx.strokeStyle = '#38bdf8';
         ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x - 2, p.y + p.size * 9);
+        ctx.lineTo(p.x - 1.5, p.y + p.size * 8);
         ctx.stroke();
       } else if (pType === 'snowfall') {
-        // Soft Drifting Snowflakes
+        // Soft Harmonically Drifting Snowflakes
+        const sway = Math.sin(frameCount * 0.035 + (p.extra || 0)) * 6;
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(p.x + Math.sin(frameCount * 0.05 + (p.extra || 0)) * 4, p.y, p.size, 0, Math.PI * 2);
+        ctx.arc(p.x + sway, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
       } else if (pType === 'sandstorm') {
-        // Whipping Golden Amber Dust Streaks
-        ctx.strokeStyle = '#fbbf24';
-        ctx.lineWidth = 1.5;
+        // Soft Whipping Golden Amber Dust Streaks
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.7)';
+        ctx.lineWidth = 1.3;
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x + p.size * 6, p.y + p.size * 3);
+        ctx.lineTo(p.x + p.size * 5, p.y + p.size * 2.5);
         ctx.stroke();
       } else if (pType === 'fireflies') {
-        // Glowing Bioluminescent Fireflies with Soft Pulse
-        const pulse = 0.5 + Math.sin(frameCount * 0.1 + (p.extra || 0)) * 0.5;
+        // Glowing Bioluminescent Fireflies with Gentle Sinusoidal Float & Soft Glow
+        const pulse = 0.65 + Math.sin(frameCount * 0.06 + (p.extra || 0)) * 0.35;
+        const driftX = Math.sin(frameCount * 0.04 + (p.extra || 0)) * 3;
+        const driftY = Math.cos(frameCount * 0.03 + (p.extra || 0)) * 2;
         ctx.fillStyle = '#6ee7b7';
         ctx.shadowColor = '#34d399';
-        ctx.shadowBlur = 6;
+        ctx.shadowBlur = 8;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * pulse, 0, Math.PI * 2);
+        ctx.arc(p.x + driftX, p.y + driftY, p.size * pulse, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
       } else {
-        // Mountain Cloud Mist Droplets
+        // Mountain Cloud Mist Droplets with soft radial expansion
+        const mistPulse = 1 + Math.sin(frameCount * 0.03 + (p.extra || 0)) * 0.15;
         ctx.fillStyle = '#e9d5ff';
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * 1.5, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.size * 1.5 * mistPulse, 0, Math.PI * 2);
         ctx.fill();
       }
 

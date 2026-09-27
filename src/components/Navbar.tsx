@@ -96,7 +96,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Menu Navigasi Tengah (Pill Style Tabs) */}
-        <nav className="hidden xl:flex items-center gap-1 bg-[#0d131f]/90 p-1.5 rounded-2xl border border-[#00E5FF]/20 shadow-inner">
+        <nav className="hidden lg:flex items-center gap-1 bg-[#0d131f]/90 p-1.5 rounded-2xl border border-[#00E5FF]/20 shadow-inner">
           {/* [SOLO] */}
           <button
             onClick={() => changeTab('game')}
@@ -110,7 +110,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             Solo
           </button>
 
-          {/* [PETA / 5 MAPS] */}
+          {/* [PETA] */}
           <button
             onClick={() => changeTab('maps')}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all duration-200 cursor-pointer ${
@@ -121,7 +121,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Compass className="w-3.5 h-3.5" />
             <span>Peta</span>
-            <span className="text-[10px] font-mono opacity-80">(5)</span>
           </button>
 
           {/* MULTIPLAYER */}
@@ -191,11 +190,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         </nav>
 
         {/* Sisi Kanan Utility Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Audio Mute Toggle */}
           <button
             onClick={onToggleSound}
-            className="p-2 rounded-xl bg-[#0d131f] hover:bg-[#141e30] text-gray-300 hover:text-[#00E5FF] border border-[#00E5FF]/20 hover:border-[#00E5FF]/60 hover:scale-105 transition-all duration-200 cursor-pointer shadow-sm"
+            className="p-2 rounded-xl bg-[#0d131f] hover:bg-[#141e30] text-gray-300 hover:text-[#00E5FF] border border-[#00E5FF]/20 hover:border-[#00E5FF]/60 hover:scale-105 transition-all duration-200 cursor-pointer shadow-sm min-h-[44px] min-w-[44px] flex items-center justify-center"
             title={effectiveSoundMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
           >
             {effectiveSoundMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-[#00E5FF]" />}
@@ -204,7 +203,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Notification Bell */}
           <button
             onClick={onOpenNotifications}
-            className="p-2 rounded-xl bg-[#0d131f] hover:bg-[#141e30] text-gray-300 hover:text-[#00E5FF] border border-[#00E5FF]/20 hover:border-[#00E5FF]/60 hover:scale-105 transition-all duration-200 cursor-pointer relative shadow-sm"
+            className="p-2 rounded-xl bg-[#0d131f] hover:bg-[#141e30] text-gray-300 hover:text-[#00E5FF] border border-[#00E5FF]/20 hover:border-[#00E5FF]/60 hover:scale-105 transition-all duration-200 cursor-pointer relative shadow-sm min-h-[44px] min-w-[44px] flex items-center justify-center"
             title="Notifikasi"
           >
             <Bell className="w-4 h-4" />
@@ -220,10 +219,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           {onOpenShare && (
             <button
               onClick={onOpenShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00E5FF]/10 hover:bg-[#00E5FF]/25 border border-[#00E5FF] text-[#00E5FF] hover:text-white text-xs font-display font-black uppercase tracking-wider shadow-[0_0_12px_rgba(0,229,255,0.4)] hover:shadow-[0_0_20px_rgba(0,229,255,0.7)] hover:scale-105 transition-all duration-200 cursor-pointer"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#00E5FF]/10 hover:bg-[#00E5FF]/25 border border-[#00E5FF] text-[#00E5FF] hover:text-white text-xs font-display font-black uppercase tracking-wider shadow-[0_0_12px_rgba(0,229,255,0.4)] hover:shadow-[0_0_20px_rgba(0,229,255,0.7)] hover:scale-105 transition-all duration-200 cursor-pointer min-h-[44px]"
               title="Bagikan Link Game ke Teman"
             >
-              <Share2 className="w-3.5 h-3.5 stroke-[2.5]" />
+              <Share2 className="w-4 h-4 stroke-[2.5]" />
               <span className="hidden sm:inline">Bagikan</span>
             </button>
           )}
@@ -231,7 +230,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Settings */}
           <button
             onClick={onOpenSettings}
-            className="p-2 rounded-xl bg-[#0d131f] hover:bg-[#141e30] text-gray-300 hover:text-[#00E5FF] border border-[#00E5FF]/20 hover:border-[#00E5FF]/60 hover:scale-105 transition-all duration-200 cursor-pointer shadow-sm"
+            className="p-2 rounded-xl bg-[#0d131f] hover:bg-[#141e30] text-gray-300 hover:text-[#00E5FF] border border-[#00E5FF]/20 hover:border-[#00E5FF]/60 hover:scale-105 transition-all duration-200 cursor-pointer shadow-sm min-h-[44px] min-w-[44px] flex items-center justify-center"
             title="Pengaturan"
           >
             <Settings className="w-4 h-4" />
@@ -241,10 +240,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           {user ? (
             <button
               onClick={onOpenAuth}
-              className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-xl bg-[#0d131f] hover:bg-[#141e30] border border-[#00E5FF]/20 hover:border-[#00E5FF]/60 hover:scale-105 transition-all duration-200 cursor-pointer shadow-sm"
+              className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-xl bg-[#0d131f] hover:bg-[#141e30] border border-[#00E5FF]/20 hover:border-[#00E5FF]/60 hover:scale-105 transition-all duration-200 cursor-pointer shadow-sm min-h-[44px]"
             >
               <div
-                className="w-6 h-6 rounded-lg flex items-center justify-center text-xs border font-bold"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-xs border font-bold"
                 style={{ borderColor: user.carColor, backgroundColor: `${user.carColor}22` }}
               >
                 {user.avatar || '🏎️'}
@@ -261,7 +260,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           ) : (
             <button
               onClick={onOpenAuth}
-              className="px-3 py-1.5 rounded-xl bg-[#00E5FF] hover:bg-[#00F0FF] text-black font-display font-black text-xs uppercase tracking-wider shadow-[0_0_12px_rgba(0,229,255,0.4)] hover:scale-105 transition-all duration-200 cursor-pointer"
+              className="px-3 py-2 rounded-xl bg-[#00E5FF] hover:bg-[#00F0FF] text-black font-display font-black text-xs uppercase tracking-wider shadow-[0_0_12px_rgba(0,229,255,0.4)] hover:scale-105 transition-all duration-200 cursor-pointer min-h-[44px] flex items-center justify-center"
             >
               Masuk
             </button>
@@ -270,7 +269,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Tablet & Mobile Nav Bar (Professional Responsive Auto-Layout) */}
-      <div className="flex xl:hidden items-center justify-start sm:justify-center gap-1.5 sm:gap-2 mt-2 pt-2 border-t border-[#00E5FF]/20 overflow-x-auto scrollbar-none text-[11px] font-bold uppercase px-0.5">
+      <div className="flex lg:hidden items-center justify-start sm:justify-center gap-1.5 sm:gap-2 mt-2 pt-2 border-t border-[#00E5FF]/20 overflow-x-auto scrollbar-none text-[11px] font-bold uppercase px-0.5">
         {[
           { id: 'game', label: 'Solo', icon: Gamepad2 },
           { id: 'maps', label: 'Peta', icon: Compass },

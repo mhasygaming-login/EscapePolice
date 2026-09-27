@@ -232,6 +232,18 @@ export const GarageModal: React.FC<GarageModalProps> = ({ user, onUpdateUser, on
               type="button"
               onClick={() => {
                 sound.play('click');
+                if (user) {
+                  const updates = {
+                    avatar: selectedAvatar,
+                    title: selectedTitle,
+                    carModel: selectedModel,
+                    carColor: selectedColor,
+                    trailEffect: selectedTrail,
+                  };
+                  const updatedUser = { ...user, ...updates };
+                  onUpdateUser(updatedUser);
+                  api.updateProfile(user.id, updates).catch(() => {});
+                }
                 onBackToGame();
               }}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-black text-xs uppercase tracking-wider shadow-md shadow-cyan-500/25 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
