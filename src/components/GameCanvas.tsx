@@ -339,6 +339,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       nitroTimer: number;
       magnetTimer: number;
       multiplierTimer: number;
+      cloakTimer: number;
       slowTimer: number;
     };
     keys: Record<string, boolean>;
@@ -387,6 +388,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     roadEventTimer: number;
     mission: any;
     missionProgress: number;
+    missionBaseline: number;
+    missionCooldown: number;
+    policeFreezeTimer: number;
+    powerUpSpawnTimer: number;
     nitroEnergy: number;
     empCharges: number;
   }>({
@@ -411,6 +416,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       nitroTimer: 0,
       magnetTimer: 0,
       multiplierTimer: 0,
+      cloakTimer: 0,
       slowTimer: 0,
     },
     keys: {},
@@ -447,6 +453,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     roadEventTimer: 0,
     mission: null,
     missionProgress: 0,
+    missionBaseline: 0,
+    missionCooldown: 0,
+    policeFreezeTimer: 0,
+    powerUpSpawnTimer: 180,
     nitroEnergy: 50,
     empCharges: 2,
   });
@@ -513,18 +523,25 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
   }, [multiplayerRoom, addToast]);
 
-  // Missions
+  // Missions with relative baseline progress (prevents instant auto-completion cascades)
   const generateMission = useCallback(() => {
     const list = [
-      { id: 'survive', text: 'Bertahan {target} m', target: 250, reward: 120 },
-      { id: 'dodge', text: 'Hindari {target} rintangan', target: 15, reward: 140 },
-      { id: 'collect', text: 'Ambil {target} power-up', target: 5, reward: 160 },
-      { id: 'combo', text: 'Capai combo ×{target}', target: 10, reward: 200 },
-      { id: 'near', text: 'Lakukan {target} NEAR MISS', target: 6, reward: 180 },
+      { id: 'survive', text: 'Bertahan {target} m lagi', target: 200, reward: 80 },
+      { id: 'dodge', text: 'Hindari {target} rintangan lagi', target: 12, reward: 90 },
+      { id: 'collect', text: 'Ambil {target} item lagi', target: 3, reward: 100 },
+      { id: 'combo', text: 'Capai streak combo ×{target}', target: 8, reward: 120 },
+      { id: 'near', text: 'Lakukan {target} NEAR MISS lagi', target: 4, reward: 110 },
     ];
     const picked = list[Math.floor(Math.random() * list.length)];
-    loopRef.current.mission = picked;
-    loopRef.current.missionProgress = 0;
+    const state = loopRef.current;
+    if (picked.id === 'survive') state.missionBaseline = Math.floor(state.distance);
+    else if (picked.id === 'dodge') state.missionBaseline = state.obstaclesDodged;
+    else if (picked.id === 'collect') state.missionBaseline = state.powerUpsCollected;
+    else if (picked.id === 'near') state.missionBaseline = state.nearMisses;
+    else state.missionBaseline = 0;
+
+    state.mission = picked;
+    state.missionProgress = 0;
     setMissionText(`MISI: ${picked.text.replace('{target}', String(picked.target))} [0/${picked.target}]`);
   }, []);
 
@@ -578,11 +595,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       nitroTimer: 0,
       magnetTimer: 0,
       multiplierTimer: 0,
+      cloakTimer: 0,
       slowTimer: 0,
     };
     loopRef.current.skidMarks = [];
     loopRef.current.nitroEnergy = 50;
     loopRef.current.empCharges = 2;
+    loopRef.current.policeFreezeTimer = 0;
+    loopRef.current.powerUpSpawnTimer = 180;
+    loopRef.current.missionCooldown = 0;
     loopRef.current.obstacles = [];
     loopRef.current.powerUps = [];
     loopRef.current.particles = [];
@@ -1045,7 +1066,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (p.nitroTimer > 0) p.nitroTimer--;
       if (p.magnetTimer > 0) p.magnetTimer--;
       if (p.multiplierTimer > 0) p.multiplierTimer--;
+      if (p.cloakTimer > 0) p.cloakTimer--;
       if (p.slowTimer > 0) p.slowTimer--;
+      if (state.policeFreezeTimer > 0) state.policeFreezeTimer--;
 
       // Sync nitro & ability state to UI periodically
       if (state.frameCount % 10 === 0) {
@@ -1129,24 +1152,41 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
-      // Mission progress check
+      // Mission progress check (relative delta from baseline, cleanly prevents point cascade)
       if (state.mission) {
-        if (state.mission.id === 'survive') state.missionProgress = Math.floor(state.distance);
-        if (state.mission.id === 'dodge') state.missionProgress = state.obstaclesDodged;
-        if (state.mission.id === 'collect') state.missionProgress = state.powerUpsCollected;
-        if (state.mission.id === 'combo') state.missionProgress = Math.max(state.missionProgress, state.bestCombo);
-        if (state.mission.id === 'near') state.missionProgress = state.nearMisses;
+        let currentProgress = 0;
+        if (state.mission.id === 'survive') currentProgress = Math.max(0, Math.floor(state.distance) - (state.missionBaseline || 0));
+        else if (state.mission.id === 'dodge') currentProgress = Math.max(0, state.obstaclesDodged - (state.missionBaseline || 0));
+        else if (state.mission.id === 'collect') currentProgress = Math.max(0, state.powerUpsCollected - (state.missionBaseline || 0));
+        else if (state.mission.id === 'near') currentProgress = Math.max(0, state.nearMisses - (state.missionBaseline || 0));
+        else if (state.mission.id === 'combo') currentProgress = state.combo;
+
+        state.missionProgress = currentProgress;
 
         // Update live HUD mission progress periodically
-        if (state.frameCount % 20 === 0) {
+        if (state.frameCount % 15 === 0) {
           setMissionText(`MISI: ${state.mission.text.replace('{target}', String(state.mission.target))} [${Math.min(state.mission.target, state.missionProgress)}/${state.mission.target}]`);
         }
 
         if (state.missionProgress >= state.mission.target) {
-          state.score += state.mission.reward;
-          state.bounty += state.mission.reward;
+          const rewardBounty = state.mission.reward;
+          state.bounty += rewardBounty;
+          state.score += 25; // Controlled, clean score bonus (no point floods)
           sound.play('levelup');
-          addToast(`MISI SELESAI +${state.mission.reward} BOUNTY!`, 'green');
+          addToast(`🎯 MISI SELESAI! +${rewardBounty} BOUNTY`, 'green');
+          state.floatingTexts.push({
+            x: p.x + p.width / 2,
+            y: p.y - 18,
+            text: `🎯 MISI SUKSES! +${rewardBounty} BOUNTY`,
+            color: '#10b981',
+            life: 50,
+          });
+          state.mission = null; // Clear so it cannot re-trigger repeatedly
+          state.missionCooldown = 150; // 2.5s cooldown before next mission
+        }
+      } else if (state.missionCooldown && state.missionCooldown > 0) {
+        state.missionCooldown--;
+        if (state.missionCooldown <= 0) {
           generateMission();
         }
       }
@@ -1254,21 +1294,35 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         });
       }
 
-      // Spawn Power-Ups
-      if (Math.random() < 0.008 + state.level * 0.0003) {
+      // Spawn Power-Ups with measured pacing (every ~3.5 to 5s)
+      if (!state.powerUpSpawnTimer) {
+        state.powerUpSpawnTimer = 180;
+      }
+      state.powerUpSpawnTimer--;
+      if (state.powerUpSpawnTimer <= 0) {
+        state.powerUpSpawnTimer = 220 + Math.floor(Math.random() * 80);
+
         let type: string;
-        // If nitro is depleted or running low, boost chance of spawning a nitro item
-        if (state.nitroEnergy < 50 && Math.random() < 0.35) {
+        // Smart dynamic drop distribution based on situation
+        if (p.hp <= 1 && Math.random() < 0.35) {
+          type = 'repair';
+        } else if (state.nitroEnergy < 30 && Math.random() < 0.40) {
           type = 'nitro';
+        } else if (Math.random() < 0.28) {
+          type = 'coin'; // Regular currency coin
         } else {
-          const types = ['shield', 'nitro', 'repair', 'magnet', 'multiplier', 'coin', 'cloak', 'freeze', 'emp'];
-          type = types[Math.floor(Math.random() * types.length)];
+          const utilityTypes = ['shield', 'nitro', 'repair', 'magnet', 'multiplier', 'cloak', 'freeze', 'emp'];
+          type = utilityTypes[Math.floor(Math.random() * utilityTypes.length)];
         }
-        const { roadLeft, roadWidth } = getRoadGeometry(canvas.width);
+
+        const { laneCenters } = getRoadGeometry(canvas.width);
+        const laneIndex = Math.floor(Math.random() * 3);
+        const itemX = laneCenters[laneIndex] - 14;
+
         state.powerUps.push({
           type,
-          x: roadLeft + 20 + Math.random() * (roadWidth - 40 - 28),
-          y: -40,
+          x: itemX,
+          y: -44,
           width: 28,
           height: 28,
         });
@@ -1445,68 +1499,163 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         // Check powerup pickup
         if (checkCollision(p, pu)) {
           state.powerUpsCollected++;
+          // Clean modest score for collecting any item (+10 pts, prevents point flooding)
+          state.score += 10;
+
+          // Soft pickup visual FX: ring shockwave & colorful sparkles
+          state.shockwaves.push({
+            x: pu.x + 14,
+            y: pu.y + 14,
+            r: 6,
+            max: 32,
+            life: 16,
+          });
+          for (let s = 0; s < 8; s++) {
+            state.particles.push({
+              x: pu.x + 14,
+              y: pu.y + 14,
+              vx: (Math.random() - 0.5) * 4.5,
+              vy: (Math.random() - 0.5) * 4.5,
+              color: col,
+              size: Math.random() * 3.5 + 1.5,
+              life: 18,
+              maxLife: 18,
+            });
+          }
+
           switch (pu.type) {
             case 'shield':
-              p.shieldTimer = 340;
+              p.shieldTimer = 320;
               sound.play('powerup');
-              addToast('SHIELD FORCEFIELD AKTIF!', 'cyan');
+              addToast('🛡️ FORCEFIELD SHIELD AKTIF', 'cyan');
+              state.floatingTexts.push({
+                x: p.x + p.width / 2,
+                y: p.y - 12,
+                text: '🛡️ SHIELD AKTIF',
+                color: '#00f0ff',
+                life: 40,
+              });
               break;
+
             case 'nitro':
-              const refillAmount = 50;
-              state.nitroEnergy = Math.min(100, state.nitroEnergy + refillAmount);
+              state.nitroEnergy = Math.min(100, state.nitroEnergy + 40);
               setNitroEnergy(Math.round(state.nitroEnergy));
-              p.nitroTimer = Math.max(p.nitroTimer, 180);
               sound.play('nitro');
-              addToast('+50% NITRO REFILL! BOOST AKTIF! ⚡', 'purple');
+              addToast('⚡ +40% NITRO REFILL', 'purple');
+              state.floatingTexts.push({
+                x: p.x + p.width / 2,
+                y: p.y - 12,
+                text: '⚡ +40% NITRO',
+                color: '#d946ef',
+                life: 40,
+              });
               break;
+
             case 'repair':
-              if (p.hp < maxHp) p.hp++;
-              sound.play('powerup');
-              addToast('+1 HP REPAIR', 'magenta');
+              if (p.hp < maxHp) {
+                p.hp++;
+                sound.play('powerup');
+                addToast('❤️ +1 HP PERBAIKAN MESIN', 'magenta');
+                state.floatingTexts.push({
+                  x: p.x + p.width / 2,
+                  y: p.y - 12,
+                  text: '❤️ +1 HP REPAIR',
+                  color: '#ec4899',
+                  life: 40,
+                });
+              } else {
+                state.bounty += 30;
+                sound.play('powerup');
+                addToast('❤️ HP MAKSIMAL! +30 BONUS BOUNTY', 'magenta');
+                state.floatingTexts.push({
+                  x: p.x + p.width / 2,
+                  y: p.y - 12,
+                  text: '❤️ MAX HP (+30 BOUNTY)',
+                  color: '#ec4899',
+                  life: 40,
+                });
+              }
               break;
+
             case 'magnet':
-              p.magnetTimer = 380;
+              p.magnetTimer = 360;
               sound.play('magnet');
-              addToast('MAGNET BOUNTY AKTIF!', 'amber');
+              addToast('🧲 MAGNET BOUNTY AKTIF', 'amber');
+              state.floatingTexts.push({
+                x: p.x + p.width / 2,
+                y: p.y - 12,
+                text: '🧲 MAGNET AKTIF',
+                color: '#f59e0b',
+                life: 40,
+              });
               break;
+
             case 'multiplier':
-              p.multiplierTimer = 320;
+              p.multiplierTimer = 300;
               sound.play('multiplier');
-              addToast('SKOR & BOUNTY 2×!', 'green');
+              addToast('✨ MULTIPLIER 2× SKOR AKTIF', 'green');
+              state.floatingTexts.push({
+                x: p.x + p.width / 2,
+                y: p.y - 12,
+                text: '✨ 2× SKOR AKTIF',
+                color: '#10b981',
+                life: 40,
+              });
               break;
+
             case 'coin':
-              state.score += 40;
-              state.bounty += 50;
+              state.bounty += 25;
+              state.score += 5; // Modest bonus, not 40 or 100!
               sound.play('coin');
+              state.floatingTexts.push({
+                x: p.x + p.width / 2,
+                y: p.y - 12,
+                text: '🪙 +25 BOUNTY',
+                color: '#fbbf24',
+                life: 38,
+              });
               break;
+
             case 'freeze':
-              p.slowTimer = 220;
+              state.policeFreezeTimer = 240;
               sound.play('powerup');
-              addToast('POLISI DIBEKUKAN!', 'cyan');
+              addToast('❄️ POLISI DIBEKUKAN (SLOW 60%)', 'cyan');
+              state.floatingTexts.push({
+                x: p.x + p.width / 2,
+                y: p.y - 12,
+                text: '❄️ POLISI DIBEKUKAN',
+                color: '#38bdf8',
+                life: 40,
+              });
               break;
-            case 'emp': {
-              state.empCharges = Math.min(5, state.empCharges + 1);
+
+            case 'cloak':
+              p.cloakTimer = 240;
+              sound.play('powerup');
+              addToast('👁️ STEALTH CLOAK: GHOST MODE', 'purple');
+              state.floatingTexts.push({
+                x: p.x + p.width / 2,
+                y: p.y - 12,
+                text: '👁️ STEALTH GHOST MODE',
+                color: '#a78bfa',
+                life: 40,
+              });
+              break;
+
+            case 'emp':
+              // Store EMP charge for strategic manual trigger (does NOT blow up immediately!)
+              state.empCharges = Math.min(3, state.empCharges + 1);
               setEmpCharges(state.empCharges);
-              state.empUsed++;
               sound.play('emp');
-              let destroyed = 0;
-              for (let k = state.obstacles.length - 1; k >= 0; k--) {
-                const ob = state.obstacles[k];
-                if (ob.type !== 'barricade' && ob.type !== 'spike') {
-                  spawnExplosion(ob.x + ob.width / 2, ob.y + ob.height / 2);
-                  destroyed++;
-                  state.obstacles.splice(k, 1);
-                }
-              }
-              state.score += destroyed * 25;
-              state.heat = Math.max(0, state.heat - 15);
-              state.screenShake = 12;
-              addToast(`EMP AKTIF! ${destroyed} KENDARAAN HANCUR`, 'magenta');
-              if (multiplayerRoom) {
-                socket.send({ type: 'player_action', action: 'emp', value: destroyed });
-              }
+              addToast('💥 +1 EMP CHARGE TERSIMPAN! (TEKAN E)', 'magenta');
+              state.floatingTexts.push({
+                x: p.x + p.width / 2,
+                y: p.y - 12,
+                text: '💥 +1 EMP CHARGE (TEKAN E)',
+                color: '#f43f5e',
+                life: 42,
+              });
               break;
-            }
           }
           state.powerUps.splice(i, 1);
         } else if (pu.y > canvas.height + 40) {
@@ -1516,9 +1665,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       // Update & Draw Obstacles
       let triggerGameOver = false;
+      const isPoliceFrozen = (state.policeFreezeTimer || 0) > 0;
+      const freezeMultiplier = isPoliceFrozen ? 0.35 : 1.0;
+
       for (let i = state.obstacles.length - 1; i >= 0; i--) {
         const o = state.obstacles[i];
-        o.y += renderSpeed + o.speed;
+        o.y += renderSpeed + o.speed * freezeMultiplier;
 
         // Lane switching logic for MAXXX mode:
         // Police cars and police motorcycles change lanes alternately
@@ -1621,6 +1773,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             ctx.fill();
           }
         }
+        if (isPoliceFrozen) {
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
+          ctx.fillRect(o.x - 2, o.y - 2, o.width + 4, o.height + 4);
+          ctx.font = '10px Orbitron';
+          ctx.fillStyle = '#bae6fd';
+          ctx.textAlign = 'center';
+          ctx.fillText('❄️', o.x + o.width / 2, o.y - 4);
+        }
         ctx.restore();
 
         // Near-Miss / Graze detection
@@ -1642,6 +1802,21 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               life: 35,
             });
           }
+        }
+
+        // Stealth Cloak Ghost Phase Check (immune to collisions while cloaked)
+        if (p.cloakTimer > 0 && checkCollision(p, o)) {
+          if (!o.grazed) {
+            o.grazed = true;
+            state.floatingTexts.push({
+              x: o.x + o.width / 2,
+              y: o.y,
+              text: 'GHOST PHASE 👁️',
+              color: '#a78bfa',
+              life: 25,
+            });
+          }
+          continue;
         }
 
         // Player Collision
@@ -1743,6 +1918,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       // Draw Player Car
       if (p.invulnerableTimer === 0 || state.frameCount % 6 < 3) {
         ctx.save();
+        if (p.cloakTimer > 0) {
+          ctx.globalAlpha = 0.45 + Math.sin(state.frameCount * 0.15) * 0.12;
+        }
         ctx.translate(p.x + p.width / 2, p.y + p.height / 2);
         ctx.rotate(p.driftAngle || 0);
 
@@ -1861,6 +2039,23 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ctx.stroke();
           ctx.restore();
         }
+
+        // Stealth Ghost aura pulse
+        if (p.cloakTimer > 0) {
+          ctx.save();
+          const cx = p.x + p.width / 2;
+          const cy = p.y + p.height / 2;
+          const rCloak = p.width * 0.9 + Math.sin(state.frameCount * 0.12) * 3;
+          ctx.strokeStyle = 'rgba(167, 139, 250, 0.45)';
+          ctx.lineWidth = 1.8;
+          ctx.shadowColor = '#a78bfa';
+          ctx.shadowBlur = 10;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.arc(cx, cy, rCloak, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
       }
 
       // Particles & Sparks with soft air drag
@@ -1974,10 +2169,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         // Active Power pills
         const powers: { label: string; time: number; color: string }[] = [];
         if (p.shieldTimer > 0) powers.push({ label: 'SHIELD', time: Math.ceil(p.shieldTimer / 60), color: '#00f0ff' });
-        if (p.nitroTimer > 0) powers.push({ label: 'NITRO', time: Math.ceil(p.nitroTimer / 60), color: '#7c5cff' });
+        if (p.nitroTimer > 0) powers.push({ label: 'NITRO', time: Math.ceil(p.nitroTimer / 60), color: '#d946ef' });
         if (p.magnetTimer > 0) powers.push({ label: 'MAGNET', time: Math.ceil(p.magnetTimer / 60), color: '#ffb703' });
-        if (p.multiplierTimer > 0) powers.push({ label: '2× SKOR', time: Math.ceil(p.multiplierTimer / 60), color: '#06ffa5' });
-        if (p.slowTimer > 0) powers.push({ label: 'FREEZE', time: Math.ceil(p.slowTimer / 60), color: '#74b9ff' });
+        if (p.multiplierTimer > 0) powers.push({ label: '2× SKOR', time: Math.ceil(p.multiplierTimer / 60), color: '#10b981' });
+        if (p.cloakTimer > 0) powers.push({ label: 'STEALTH', time: Math.ceil(p.cloakTimer / 60), color: '#a78bfa' });
+        if (state.policeFreezeTimer > 0) powers.push({ label: 'FREEZE', time: Math.ceil(state.policeFreezeTimer / 60), color: '#38bdf8' });
         setActivePowers(powers);
       }
 
