@@ -225,6 +225,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           carModel: data.carModel || 'civic_fl5',
           x: data.x,
           y: data.y,
+          speed: data.speed ?? 0,
+          distance: data.distance ?? 0,
           score: data.score,
           hp: data.hp,
           combo: data.combo,
@@ -1197,6 +1199,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           type: 'player_sync',
           x: p.x,
           y: p.y,
+          speed: Math.round(currentSpeed),
+          distance: Math.round(state.distance),
           score: Math.floor(state.score),
           hp: p.hp,
           combo: state.combo,
@@ -1206,6 +1210,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           username: userRef.current?.username || 'Racer',
           avatar: userRef.current?.avatar || '🏎️',
         });
+
+        // Check target distance finish condition in multiplayer match
+        if (multiplayerRoom.targetDistance && state.distance >= multiplayerRoom.targetDistance && p.hp > 0) {
+          socket.send({
+            type: 'race_finish',
+            winnerId: userRef.current?.id || 'player',
+            reason: `${userRef.current?.username || 'Kamu'} mencapai garis finish terlebih dahulu!`
+          });
+        }
       }
 
       // Spawn Obstacles
@@ -2265,6 +2278,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           <div className="flex flex-col items-center bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-xl border border-cyan-500/30 shadow-md pointer-events-auto opacity-85 hover:opacity-100 transition-opacity">
             <div className="text-[9px] text-cyan-400 font-bold uppercase tracking-widest flex items-center gap-1 mb-0.5">
               <Swords className="w-2.5 h-2.5 text-fuchsia-400" /> Duel: {multiplayerRoom.code}
+              {multiplayerRoom.targetDistance && (
+                <span className="text-gray-400 font-mono text-[8.5px]">
+                  (Target: {multiplayerRoom.targetDistance}m)
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1.5 text-[10px] font-display">
               {(() => {
@@ -2273,12 +2291,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                   username: 'Kamu',
                   avatar: user?.avatar || '🏎️',
                   score: score,
+                  distance: distance,
                   hp: hp,
                   status: hp > 0 ? 'playing' : 'crashed',
                   isMe: true,
                 };
                 const allList = [myEntry, ...(Object.values(opponents) as MultiplayerPlayerState[]).map(o => ({ ...o, isMe: false }))];
-                allList.sort((a, b) => b.score - a.score);
+                allList.sort((a, b) => (b.distance || b.score) - (a.distance || a.score));
 
                 return allList.map((pl, idx) => (
                   <div
@@ -2294,7 +2313,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                     <span className="text-[8.5px] font-mono text-amber-400 font-black">#{idx + 1}</span>
                     <span className="text-[10px]">{pl.avatar || '🏎️'}</span>
                     <span className="max-w-[60px] truncate font-bold">{pl.username}</span>
-                    <span className="font-mono text-[9px] text-white font-bold ml-0.5">{pl.score}</span>
+                    <span className="font-mono text-[9px] text-white font-bold ml-0.5">{pl.distance ? `${pl.distance}m` : pl.score}</span>
                     {pl.status === 'crashed' && <span className="text-[8.5px] text-rose-400">💥</span>}
                   </div>
                 ));

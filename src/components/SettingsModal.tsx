@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { UserProfile } from '../types/game';
 import { api } from '../services/api';
 import { sound } from '../services/audio';
+import { socket } from '../services/socket';
+import {
+  getServerBaseUrl,
+  getCustomServerUrl,
+  setCustomServerUrl,
+  DEFAULT_CLOUD_BACKEND_URL,
+} from '../utils/serverUrl';
 import {
   Settings,
   Sliders,
@@ -15,7 +22,13 @@ import {
   ShieldCheck,
   User,
   KeyRound,
-  UserCheck
+  UserCheck,
+  Globe,
+  Server,
+  Wifi,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { LogoutConfirmModal } from './LogoutConfirmModal';
 
@@ -52,6 +65,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [saved, setSaved] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+
+  // Server & Multiplayer connectivity state
+  const [serverUrlInput, setServerUrlInput] = useState(getCustomServerUrl() || getServerBaseUrl());
+  const [pingStatus, setPingStatus] = useState<{ testing: boolean; latency?: number; error?: string } | null>(null);
+
+  const handleTestPing = async () => {
+    sound.play('click');
+    setPingStatus({ testing: true });
+    const startTime = Date.now();
+    try {
+      const res = await api.request('/api/tournaments');
+      if (res.ok) {
+        const ms = Date.now() - startTime;
+        setPingStatus({ testing: false, latency: ms });
+        sound.play('coin');
+      } else {
+        setPingStatus({ testing: false, error: `Server merespon error: HTTP ${res.status}` });
+      }
+    } catch (e: any) {
+      setPingStatus({ testing: false, error: 'Tidak dapat terhubung ke server.' });
+      sound.play('gameover');
+    }
+  };
+
+  const handleApplyServerUrl = () => {
+    sound.play('click');
+    const trimmed = serverUrlInput.trim();
+    if (!trimmed || trimmed === DEFAULT_CLOUD_BACKEND_URL) {
+      setCustomServerUrl(null);
+      setServerUrlInput(DEFAULT_CLOUD_BACKEND_URL);
+    } else {
+      setCustomServerUrl(trimmed);
+    }
+    socket.reconnect();
+    handleTestPing();
+  };
+
+  const handleResetDefaultServer = () => {
+    sound.play('click');
+    setCustomServerUrl(null);
+    setServerUrlInput(DEFAULT_CLOUD_BACKEND_URL);
+    socket.reconnect(DEFAULT_CLOUD_BACKEND_URL);
+    handleTestPing();
+  };
 
   // Sync settings when user prop updates
   React.useEffect(() => {
@@ -234,7 +291,86 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
 
-            {/* Section 2: HUD & Display Layout */}
+            {/* Section 2: Server & Koneksi Multiplayer (Multi-Device) */}
+            <div className="space-y-3">
+              <div className="text-xs font-display font-bold text-gray-300 uppercase tracking-wider flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Server className="w-4 h-4 text-cyan-400" /> Server & Koneksi Multiplayer
+                </span>
+                <span className="flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Multi-Device Ready
+                </span>
+              </div>
+
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/5 space-y-3">
+                <p className="text-[11px] text-gray-300 leading-relaxed">
+                  Semua akun, skor, dan ruang balapan tersambung ke server Cloud Run real-time, memungkinkan Anda dan teman bermain bersama di HP maupun PC (termasuk domain Vercel).
+                </p>
+
+                <div>
+                  <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-1.5">
+                    Target Alamat Server Backend:
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={serverUrlInput}
+                      onChange={e => setServerUrlInput(e.target.value)}
+                      placeholder={DEFAULT_CLOUD_BACKEND_URL}
+                      className="flex-1 bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyServerUrl}
+                      className="px-3 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold font-display uppercase tracking-wider transition-colors cursor-pointer"
+                    >
+                      Terapkan
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-white/5">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleTestPing}
+                      disabled={pingStatus?.testing}
+                      className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <Wifi className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>{pingStatus?.testing ? 'Menguji...' : 'Tes Ping Koneksi'}</span>
+                    </button>
+
+                    {serverUrlInput !== DEFAULT_CLOUD_BACKEND_URL && (
+                      <button
+                        type="button"
+                        onClick={handleResetDefaultServer}
+                        className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-[11px] font-medium transition-colors cursor-pointer"
+                      >
+                        Reset ke Server Resmi
+                      </button>
+                    )}
+                  </div>
+
+                  {pingStatus && !pingStatus.testing && (
+                    <div className="text-xs font-mono font-bold flex items-center gap-1.5">
+                      {pingStatus.latency !== undefined ? (
+                        <span className="text-emerald-400 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> {pingStatus.latency} ms (Lancar)
+                        </span>
+                      ) : (
+                        <span className="text-rose-400 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5" /> {pingStatus.error}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: HUD & Display Layout */}
             <div className="space-y-3">
               <div className="text-xs font-display font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Monitor className="w-4 h-4 text-cyan-400" /> Tata Letak HUD & Visual Game

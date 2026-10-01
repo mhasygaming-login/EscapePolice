@@ -192,6 +192,7 @@ export default function App() {
   // Handle start match from multiplayer lobby
   const handleStartMultiplayerMatch = useCallback((room: MultiplayerRoom) => {
     setActiveRoom(room);
+    setInitialInviteRoom(null);
     setActiveTab('game');
   }, []);
 
@@ -199,6 +200,7 @@ export default function App() {
   const handleLeaveMultiplayer = useCallback(() => {
     socket.send({ type: 'leave_room' });
     setActiveRoom(null);
+    setInitialInviteRoom(null);
     setActiveTab('multiplayer');
   }, []);
 
@@ -355,6 +357,7 @@ export default function App() {
               onStartMatch={handleStartMultiplayerMatch}
               onBackToSolo={() => {
                 setActiveRoom(null);
+                setInitialInviteRoom(null);
                 setActiveTab('game');
               }}
             />

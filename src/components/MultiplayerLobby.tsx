@@ -47,6 +47,7 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
   >([]);
   const [currentRoom, setCurrentRoom] = useState<MultiplayerRoom | null>(null);
   const [roomCodeInput, setRoomCodeInput] = useState(initialRoomCode || '');
+  const [customRoomCode, setCustomRoomCode] = useState('');
   const [newRoomName, setNewRoomName] = useState(`${user?.username || 'Pembalap'}'s Arena`);
   const [newRoomDiff, setNewRoomDiff] = useState<DifficultyLevel>('NORMAL');
   const [copiedLink, setCopiedLink] = useState(false);
@@ -129,6 +130,7 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
     sound.play('click');
     socket.send({
       type: 'create_room',
+      code: customRoomCode.trim().toUpperCase() || undefined,
       name: newRoomName.trim() || `${user?.username || 'Pembalap'}'s Arena`,
       difficulty: newRoomDiff,
       userId: user?.id || 'guest_' + Date.now(),
@@ -470,15 +472,22 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
                 <span className="text-[11px] font-display font-bold uppercase tracking-wider text-cyan-300">
                   Link Publik Game (Multi-Perangkat)
                 </span>
-                <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  ONLINE REAL-TIME
+                <span className="px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  {socket.isP2P ? 'P2P WEBRTC AKTIF' : 'CLOUD SERVER AKTIF'}
                 </span>
               </div>
               <p className="text-xs text-gray-300">
-                Bagikan link ini ke teman Anda agar bisa langsung membuka dan main balap bareng dari browser HP atau PC:
+                Bagikan link ini ke teman Anda agar bisa langsung membuka dan main balap bareng dari browser HP, Laptop, atau Tablet berbeda:
               </p>
               <div className="text-[11px] text-cyan-400/90 font-mono select-all break-all pt-0.5">
                 {getPublicGameUrl()}
+              </div>
+              {/* Cara Main Bareng Berbeda Perangkat */}
+              <div className="pt-2 text-[11px] text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
+                <span><strong className="text-cyan-400">Langkah 1:</strong> Buat Ruangan baru di bawah.</span>
+                <span><strong className="text-fuchsia-400">Langkah 2:</strong> Kirim Kode / Link ke teman.</span>
+                <span><strong className="text-emerald-400">Langkah 3:</strong> Teman masukkan kode & klik Masuk!</span>
               </div>
             </div>
 
@@ -577,6 +586,19 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
                     onChange={e => setNewRoomName(e.target.value)}
                     placeholder="Nama arena..."
                     className="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-fuchsia-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10.5px] text-gray-400 font-semibold uppercase tracking-wider block">
+                    Kode Room Khusus (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    value={customRoomCode}
+                    onChange={e => setCustomRoomCode(e.target.value.toUpperCase())}
+                    placeholder="Contoh: NEON-77 (atau kosongkan untuk acak)"
+                    className="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-xs font-mono uppercase text-cyan-300 focus:outline-none focus:border-cyan-400 placeholder:normal-case placeholder:font-sans placeholder:text-gray-500"
                   />
                 </div>
 

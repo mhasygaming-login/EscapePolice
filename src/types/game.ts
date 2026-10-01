@@ -22,6 +22,7 @@ export interface UserProfile {
   id: string;
   username: string;
   email: string;
+  passwordHash?: string;
   avatar: string; // icon identifier or emoji
   title: string;
   carColor: string; // hex

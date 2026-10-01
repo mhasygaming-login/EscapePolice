@@ -1,5 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { NotificationItem } from '../types/game';
+import { getServerBaseUrl, DEFAULT_CLOUD_BACKEND_URL } from '../utils/serverUrl';
+import { peerMultiplayer } from './peerMultiplayer';
 
 type MessageHandler = (data: any) => void;
 
@@ -9,8 +11,67 @@ class SocketClient {
   private currentUserId: string | null = null;
   private sendQueue: any[] = [];
   public isConnected: boolean = false;
+  public isP2P: boolean = false;
   public ping: number = 0;
   private pingInterval: any = null;
+  private activeServerUrl: string = '';
+  private triedFallback: boolean = false;
+  private p2pEventsWired: boolean = false;
+
+  constructor() {
+    this.wireP2PEvents();
+  }
+
+  private wireP2PEvents() {
+    if (this.p2pEventsWired) return;
+    this.p2pEventsWired = true;
+
+    const p2pEvents = [
+      'room_list',
+      'room_state',
+      'countdown_tick',
+      'race_start',
+      'race_finish',
+      'opponent_sync',
+      'opponent_action',
+      'opponent_left',
+      'chat_message',
+      'error',
+      'connect',
+    ];
+
+    p2pEvents.forEach((ev) => {
+      peerMultiplayer.on(ev, (data: any) => {
+        if (ev === 'connect') {
+          this.isConnected = true;
+          this.isP2P = true;
+        }
+        this.trigger(ev, data);
+      });
+    });
+  }
+
+  public getConnectedUrl(): string {
+    if (this.isP2P) return 'P2P WebRTC Direct';
+    return this.activeServerUrl || getServerBaseUrl();
+  }
+
+  public reconnect(newUrl?: string) {
+    if (this.socket) {
+      try {
+        this.socket.disconnect();
+      } catch {}
+      this.socket = null;
+    }
+    peerMultiplayer.cleanup();
+    this.isConnected = false;
+    this.isP2P = false;
+    this.triedFallback = false;
+    if (newUrl) {
+      this.activeServerUrl = newUrl;
+    }
+    this.connect(this.currentUserId || undefined);
+  }
 
   public connect(userId?: string) {
     if (userId) {
@@ -24,83 +85,104 @@ class SocketClient {
       return;
     }
 
-    if (!this.socket) {
-      this.socket = io(window.location.origin, {
-        path: '/socket.io',
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionAttempts: 20,
-        reconnectionDelay: 1000,
-        timeout: 10000,
-      });
+    const targetUrl = this.activeServerUrl || getServerBaseUrl();
+    this.activeServerUrl = targetUrl;
 
-      this.socket.on('connect', () => {
+    // Check if targetUrl is valid for Socket.IO
+    if (!this.socket) {
+      try {
+        this.socket = io(targetUrl, {
+          path: '/socket.io',
+          transports: ['websocket', 'polling'],
+          reconnection: true,
+          reconnectionAttempts: 4,
+          reconnectionDelay: 1000,
+          timeout: 4000,
+        });
+
+        this.socket.on('connect', () => {
+          this.isConnected = true;
+          this.isP2P = false;
+          this.trigger('connect', true);
+
+          if (this.currentUserId) {
+            this.emit('auth_register', { userId: this.currentUserId });
+          }
+
+          // Flush any queued messages
+          while (this.sendQueue.length > 0) {
+            const item = this.sendQueue.shift();
+            this.send(item);
+          }
+
+          this.startPingMeasurement();
+        });
+
+        this.socket.on('disconnect', (reason) => {
+          this.isConnected = false;
+          this.trigger('disconnect', reason);
+          if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+            this.pingInterval = null;
+          }
+        });
+
+        this.socket.on('connect_error', () => {
+          // If server cannot be reached (e.g. static host like Vercel),
+          // activate resilient WebRTC Peer-to-Peer mode!
+          this.isP2P = true;
+          this.isConnected = true;
+          this.trigger('connect', true);
+
+          // Flush queued messages through P2P
+          while (this.sendQueue.length > 0) {
+            const item = this.sendQueue.shift();
+            peerMultiplayer.send(item);
+          }
+        });
+
+        // Handle server ping measurement
+        this.socket.on('pong_check', (timestamp: number) => {
+          if (timestamp) {
+            this.ping = Math.max(1, Date.now() - timestamp);
+            this.trigger('ping_update', this.ping);
+          }
+        });
+
+        // Map dynamic incoming socket events to listeners
+        const coreEvents = [
+          'room_list',
+          'room_state',
+          'countdown_tick',
+          'race_start',
+          'race_finish',
+          'opponent_sync',
+          'opponent_action',
+          'opponent_left',
+          'leaderboard_update',
+          'push_notification',
+          'error',
+          'chat_message',
+        ];
+
+        for (const ev of coreEvents) {
+          this.socket.on(ev, (data: any) => {
+            this.trigger(ev, data);
+          });
+        }
+
+        // Catch-all for any custom server events
+        this.socket.onAny((event: string, ...args: any[]) => {
+          const payload = args.length > 0 ? args[0] : null;
+          this.trigger(event, payload);
+        });
+      } catch (err) {
+        // Fallback directly to P2P
+        this.isP2P = true;
         this.isConnected = true;
         this.trigger('connect', true);
-
-        if (this.currentUserId) {
-          this.emit('auth_register', { userId: this.currentUserId });
-        }
-
-        // Flush any queued messages
-        while (this.sendQueue.length > 0) {
-          const item = this.sendQueue.shift();
-          this.send(item);
-        }
-
-        this.startPingMeasurement();
-      });
-
-      this.socket.on('disconnect', (reason) => {
-        this.isConnected = false;
-        this.trigger('disconnect', reason);
-        if (this.pingInterval) {
-          clearInterval(this.pingInterval);
-          this.pingInterval = null;
-        }
-      });
-
-      this.socket.on('connect_error', (err) => {
-        this.isConnected = false;
-        this.trigger('error', err);
-      });
-
-      // Handle server ping measurement
-      this.socket.on('pong_check', (timestamp: number) => {
-        if (timestamp) {
-          this.ping = Math.max(1, Date.now() - timestamp);
-          this.trigger('ping_update', this.ping);
-        }
-      });
-
-      // Map dynamic incoming socket events to listeners
-      const coreEvents = [
-        'room_list',
-        'room_state',
-        'countdown_tick',
-        'race_start',
-        'race_finish',
-        'opponent_sync',
-        'opponent_action',
-        'opponent_left',
-        'leaderboard_update',
-        'push_notification',
-        'error',
-        'chat_message',
-      ];
-
-      for (const ev of coreEvents) {
-        this.socket.on(ev, (data: any) => {
-          this.trigger(ev, data);
-        });
       }
-
-      // Catch-all for any custom server events
-      this.socket.onAny((event: string, ...args: any[]) => {
-        const payload = args.length > 0 ? args[0] : null;
-        this.trigger(event, payload);
-      });
-    } else if (!this.socket.connected) {
+    } else if (!this.socket.connected && !this.isP2P) {
       this.socket.connect();
     }
   }
@@ -116,25 +198,25 @@ class SocketClient {
   }
 
   /**
-   * Universal send method compatible with legacy { type, ... } payloads
-   * as well as standard Socket.IO event emissions
+   * Universal send method compatible with Socket.IO & P2P WebRTC
    */
   public send(payload: any) {
     if (!payload) return;
 
-    if (!this.socket || !this.socket.connected) {
-      if (this.sendQueue.length < 50) {
-        this.sendQueue.push(payload);
+    // Route to Socket.IO if connected to a live server
+    if (this.socket && this.socket.connected) {
+      const eventName = payload.type || 'message';
+      try {
+        this.socket.emit(eventName, payload);
+        return;
+      } catch (e) {
+        console.error('Socket.IO emit error:', e);
       }
-      return;
     }
 
-    const eventName = payload.type || 'message';
-    try {
-      // Emit named event directly with payload data
-      this.socket.emit(eventName, payload);
-    } catch (e) {
-      console.error('Socket.IO emit error:', e);
+    // Otherwise route through WebRTC Peer-to-Peer
+    if (this.isP2P || !this.socket || !this.socket.connected) {
+      peerMultiplayer.send(payload);
     }
   }
 
@@ -153,10 +235,12 @@ class SocketClient {
     }
     this.currentUserId = null;
     this.isConnected = false;
+    this.isP2P = false;
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
     }
+    peerMultiplayer.cleanup();
   }
 
   public on(event: string, handler: MessageHandler) {

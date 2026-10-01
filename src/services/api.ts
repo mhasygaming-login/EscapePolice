@@ -1,14 +1,64 @@
 import { UserProfile, LeaderboardEntry, Tournament, NotificationItem, AnalyticsData, DifficultyLevel } from '../types/game';
 import { encryptedActivityService } from './encryptedActivity';
+import { buildApiUrl, DEFAULT_CLOUD_BACKEND_URL } from '../utils/serverUrl';
 
 const LOCAL_STORAGE_USER_KEY = 'cyber_pursuit_cached_user';
 const LOCAL_STORAGE_ACTIVE_SESSION = 'cyber_pursuit_active_session';
 const LOCAL_STORAGE_PENDING_SCORES = 'cyber_pursuit_pending_scores';
+const LOCAL_STORAGE_REGISTERED_USERS = 'cyber_pursuit_registered_users';
+
+function getStoredUsersMap(): Record<string, UserProfile> {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_REGISTERED_USERS);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveStoredUserLocally(user: UserProfile) {
+  try {
+    if (!user || !user.username) return;
+    const map = getStoredUsersMap();
+    map[user.username.trim().toLowerCase()] = user;
+    localStorage.setItem(LOCAL_STORAGE_REGISTERED_USERS, JSON.stringify(map));
+  } catch (e) {
+    console.warn('Failed to save user in local registry:', e);
+  }
+}
 
 export const api = {
   // Offline sync helper
   isOnline(): boolean {
     return typeof navigator !== 'undefined' ? navigator.onLine : true;
+  },
+
+  // Resilient API request with automatic cross-domain fallback
+  async request(path: string, options?: RequestInit): Promise<Response> {
+    const primaryUrl = buildApiUrl(path);
+    try {
+      const res = await fetch(primaryUrl, options);
+      const isHtmlResponse = res.headers.get('content-type')?.includes('text/html');
+      // If 404 or Vercel returned HTML SPA fallback, retry against the live Cloud Run backend if different
+      if ((!res.ok && res.status === 404) || isHtmlResponse) {
+        if (!primaryUrl.startsWith(DEFAULT_CLOUD_BACKEND_URL) && DEFAULT_CLOUD_BACKEND_URL !== window.location.origin) {
+          const fallbackUrl = `${DEFAULT_CLOUD_BACKEND_URL}${path.startsWith('/') ? path : `/${path}`}`;
+          try {
+            const fbRes = await fetch(fallbackUrl, options);
+            if (fbRes.ok || fbRes.status < 500) {
+              return fbRes;
+            }
+          } catch {}
+        }
+      }
+      return res;
+    } catch (err) {
+      if (!primaryUrl.startsWith(DEFAULT_CLOUD_BACKEND_URL) && DEFAULT_CLOUD_BACKEND_URL !== window.location.origin) {
+        const fallbackUrl = `${DEFAULT_CLOUD_BACKEND_URL}${path.startsWith('/') ? path : `/${path}`}`;
+        return await fetch(fallbackUrl, options);
+      }
+      throw err;
+    }
   },
 
   getLocalUser(): UserProfile | null {
@@ -23,6 +73,7 @@ export const api = {
   saveLocalUser(user: UserProfile) {
     try {
       localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(user));
+      saveStoredUserLocally(user);
       // Mengingat status login pengguna agar tidak perlu masuk kembali
       if (user.id && !user.id.startsWith('guest_') && !user.id.startsWith('offline_')) {
         localStorage.setItem(LOCAL_STORAGE_ACTIVE_SESSION, user.id);
@@ -49,9 +100,23 @@ export const api = {
       return null;
     }
 
+    // Kembalikan profil lokal langsung agar loading sekejap
+    if (local && local.id === activeUserId) {
+      // Background sync jika online
+      this.syncCloudData().catch(() => {});
+      return local;
+    }
+
     try {
-      const res = await fetch(`/api/profile?userId=${encodeURIComponent(activeUserId)}`);
-      if (res.ok) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const res = await this.request(`/api/profile?userId=${encodeURIComponent(activeUserId)}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const isHtml = res.headers.get('content-type')?.includes('text/html');
+
+      if (res.ok && !isHtml) {
         const data = await res.json();
         if (data.user) {
           this.saveLocalUser(data.user);
@@ -59,7 +124,7 @@ export const api = {
         }
       } else if (res.status === 404 && local && local.username && activeUserId.startsWith('usr_')) {
         // Auto-heal: Server restart/container reload, pulihkan sesi akun terdaftar
-        const syncRes = await fetch('/api/profile/sync', {
+        const syncRes = await this.request('/api/profile/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user: local }),
@@ -95,7 +160,7 @@ export const api = {
         }
       } catch {}
 
-      const res = await fetch('/api/sync/cloud', {
+      const res = await this.request('/api/sync/cloud', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user: local, pendingScores }),
@@ -127,7 +192,7 @@ export const api = {
         await this.syncCloudData().catch(() => {});
 
         // Panggil endpoint logout aman (TIDAK menghapus akun)
-        await fetch('/api/auth/logout', {
+        await this.request('/api/auth/logout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: targetUserId }),
@@ -147,7 +212,7 @@ export const api = {
   // Hapus Akun Permanen (hanya jika pengguna secara eksplisit menghendaki)
   async deleteAccount(userId: string, password?: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const res = await fetch('/api/auth/delete-account', {
+      const res = await this.request('/api/auth/delete-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, password }),
@@ -173,82 +238,220 @@ export const api = {
   },
 
   async login(username: string, password?: string): Promise<{ success?: boolean; require2FA?: boolean; userId?: string; user?: UserProfile; error?: string }> {
-    try {
-      let pendingScores: any[] = [];
-      try {
-        const rawPending = localStorage.getItem(LOCAL_STORAGE_PENDING_SCORES);
-        if (rawPending) {
-          pendingScores = JSON.parse(rawPending);
-        }
-      } catch {}
+    const cleanUsername = (username || '').trim().slice(0, 24);
+    const cleanPassword = (password || '').trim().slice(0, 64);
 
-      const res = await fetch('/api/auth/login', {
+    if (!cleanUsername) {
+      return { error: 'Nama pemain wajib diisi!' };
+    }
+
+    let pendingScores: any[] = [];
+    try {
+      const rawPending = localStorage.getItem(LOCAL_STORAGE_PENDING_SCORES);
+      if (rawPending) {
+        pendingScores = JSON.parse(rawPending);
+      }
+    } catch {}
+
+    // 1. Coba login ke server dengan timeout
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+      const res = await this.request('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, offlineScores: pendingScores }),
+        body: JSON.stringify({ username: cleanUsername, password: cleanPassword, offlineScores: pendingScores }),
+        signal: controller.signal,
       });
-      const data = await res.json();
-      if (data.user) {
-        this.saveLocalUser(data.user);
-        if (pendingScores.length > 0) {
-          localStorage.removeItem(LOCAL_STORAGE_PENDING_SCORES);
+      clearTimeout(timeoutId);
+
+      const isHtml = res.headers.get('content-type')?.includes('text/html');
+      if (res.ok && !isHtml) {
+        const data = await res.json();
+        if (data.user) {
+          this.saveLocalUser(data.user);
+          if (pendingScores.length > 0) {
+            localStorage.removeItem(LOCAL_STORAGE_PENDING_SCORES);
+          }
+          encryptedActivityService.addActivity(data.user.id, {
+            type: 'account_registered',
+            title: 'Sesi Masuk Berhasil',
+            score: data.user.stats?.highScore || 0,
+            distance: data.user.stats?.totalDistance || 0,
+            obstaclesDodged: data.user.stats?.obstaclesDodged || 0,
+            bountyEarned: 0,
+            difficulty: 'NORMAL',
+            details: `Pengemudi ${data.user.username} masuk ke sistem`,
+          });
+          return data;
         }
-        // Catat aktivitas login terenkripsi
-        encryptedActivityService.addActivity(data.user.id, {
-          type: 'account_registered',
-          title: 'Sesi Masuk Berhasil',
-          score: data.user.stats?.highScore || 0,
-          distance: data.user.stats?.totalDistance || 0,
-          obstaclesDodged: data.user.stats?.obstaclesDodged || 0,
-          bountyEarned: 0,
-          difficulty: 'NORMAL',
-          details: `Pengemudi ${data.user.username} masuk ke sistem dengan aman`,
-        });
+      } else if (!isHtml) {
+        // Respons JSON error spesifik dari server (misal password salah)
+        try {
+          const errData = await res.json();
+          if (errData?.error) {
+            return { error: errData.error };
+          }
+        } catch {}
       }
-      return data;
     } catch (err) {
-      // Fallback to local user if matching (offline login)
-      const local = this.getLocalUser();
-      if (local && (local.username.toLowerCase() === username.toLowerCase())) {
-        if (!password || !local.passwordHash || local.passwordHash === password.trim()) {
-          return { success: true, user: local };
-        }
-      }
-      return { error: 'Gagal terhubung ke server. Periksa koneksi internet.' };
+      // Server tidak dapat dihubungi (misal di Vercel tanpa backend eksternal atau offline)
     }
+
+    // 2. Fallback resilient: Cek registri lokal
+    const map = getStoredUsersMap();
+    const localUser = map[cleanUsername.toLowerCase()] || this.getLocalUser();
+
+    if (localUser && (localUser.username.toLowerCase() === cleanUsername.toLowerCase())) {
+      if (localUser.passwordHash && cleanPassword && localUser.passwordHash !== cleanPassword) {
+        return { error: 'Password yang Anda masukkan salah!' };
+      }
+      this.saveLocalUser(localUser);
+      encryptedActivityService.addActivity(localUser.id, {
+        type: 'account_registered',
+        title: 'Sesi Masuk (Lokal/Offline)',
+        score: localUser.stats?.highScore || 0,
+        distance: localUser.stats?.totalDistance || 0,
+        obstaclesDodged: localUser.stats?.obstaclesDodged || 0,
+        bountyEarned: 0,
+        difficulty: 'NORMAL',
+        details: `Pembalap ${localUser.username} masuk melalui penyimpanan lokal`,
+      });
+      return { success: true, user: localUser };
+    }
+
+    return { error: 'Nama pemain belum terdaftar. Silakan buat akun baru di tab Daftar terlebih dahulu!' };
   },
 
   async register(username: string, password?: string): Promise<{ success?: boolean; user?: UserProfile; error?: string }> {
+    const cleanUsername = (username || '').trim().slice(0, 24);
+    const cleanPassword = (password || '').trim().slice(0, 64);
+
+    if (!cleanUsername) {
+      return { error: 'Nama pemain wajib diisi!' };
+    }
+    if (cleanUsername.length < 2) {
+      return { error: 'Nama pemain minimal 2 karakter!' };
+    }
+    if (!cleanPassword || cleanPassword.length < 3) {
+      return { error: 'Password minimal 3 karakter!' };
+    }
+
+    // Cek registri lokal untuk mencegah duplikasi nama di browser yang sama
+    const map = getStoredUsersMap();
+    if (map[cleanUsername.toLowerCase()]) {
+      return { error: 'Nama pemain sudah terdaftar di perangkat ini! Silakan pilih nama lain atau masuk di tab Masuk.' };
+    }
+
+    // 1. Coba mendaftar ke server backend Cloud jika tersedia
     try {
-      const res = await fetch('/api/auth/register', {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+      const res = await this.request('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username: cleanUsername, password: cleanPassword }),
+        signal: controller.signal,
       });
-      const data = await res.json();
-      if (data.user) {
-        this.saveLocalUser(data.user);
-        // Catat aktivitas pendaftaran terenkripsi
-        encryptedActivityService.addActivity(data.user.id, {
-          type: 'account_registered',
-          title: 'Pendaftaran Akun Baru',
-          score: 0,
-          distance: 0,
-          obstaclesDodged: 0,
-          bountyEarned: 0,
-          difficulty: 'NORMAL',
-          details: `Akun baru ${data.user.username} berhasil didaftarkan`,
-        });
+      clearTimeout(timeoutId);
+
+      const isHtml = res.headers.get('content-type')?.includes('text/html');
+      if (res.ok && !isHtml) {
+        const data = await res.json();
+        if (data.user) {
+          this.saveLocalUser(data.user);
+          encryptedActivityService.addActivity(data.user.id, {
+            type: 'account_registered',
+            title: 'Pendaftaran Akun Baru (Cloud)',
+            score: 0,
+            distance: 0,
+            obstaclesDodged: 0,
+            bountyEarned: 0,
+            difficulty: 'NORMAL',
+            details: `Akun baru ${data.user.username} berhasil didaftarkan di server Cloud`,
+          });
+          return data;
+        }
+      } else if (!isHtml) {
+        try {
+          const errData = await res.json();
+          if (errData?.error) {
+            return { error: errData.error };
+          }
+        } catch {}
       }
-      return data;
     } catch (err) {
-      return { error: 'Koneksi gagal. Silakan coba lagi.' };
+      // Backend server tidak dapat dijangkau (misal deploy di Vercel static tanpa server aktif)
     }
+
+    // 2. Pembuatan Akun Resilient Instan (TIDAK PERNAH GAGAL)
+    // Memastikan siapa pun pemain di Vercel atau lintas perangkat langsung bisa membuat akun!
+    const userId = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+    const newUser: UserProfile = {
+      id: userId,
+      username: cleanUsername,
+      email: `${cleanUsername.toLowerCase()}@cyberpursuit.local`,
+      passwordHash: cleanPassword,
+      avatar: '🏎️',
+      title: 'ROOKIE RACER',
+      carColor: '#00f0ff',
+      carModel: 'civic_fl5',
+      trailEffect: 'cyan_plasma',
+      twoFactorEnabled: false,
+      biometricEnabled: false,
+      achievements: ['first'],
+      stats: {
+        highScore: 0,
+        gamesPlayed: 0,
+        totalDistance: 0,
+        obstaclesDodged: 0,
+        powerUpsCollected: 0,
+        bestCombo: 0,
+        totalBounty: 0,
+        maxLevel: 1,
+        bossKills: 0,
+        nearMisses: 0,
+        empUsed: 0,
+        multiplayerWins: 0,
+        multiplayerMatches: 0,
+      },
+      layoutSettings: {
+        hudPosition: 'top',
+        controlsStyle: 'buttons',
+        screenShake: true,
+        scanlines: true,
+        soundEnabled: true,
+      },
+      notificationSettings: {
+        friendScores: true,
+        tournaments: true,
+        pushEnabled: true,
+        dailyMissions: true,
+      },
+      createdAt: new Date().toISOString(),
+      lastActive: new Date().toISOString(),
+    };
+
+    this.saveLocalUser(newUser);
+    encryptedActivityService.addActivity(userId, {
+      type: 'account_registered',
+      title: 'Pendaftaran Akun Baru',
+      score: 0,
+      distance: 0,
+      obstaclesDodged: 0,
+      bountyEarned: 0,
+      difficulty: 'NORMAL',
+      details: `Akun baru ${newUser.username} berhasil dibuat dan siap dimainkan!`,
+    });
+
+    return { success: true, user: newUser };
   },
 
   async verifyPassword(userId: string, password: string): Promise<{ success?: boolean; error?: string }> {
     try {
-      const res = await fetch('/api/auth/verify-password', {
+      const res = await this.request('/api/auth/verify-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, password }),
@@ -261,7 +464,7 @@ export const api = {
 
   async verify2FA(userId: string, code: string): Promise<{ success?: boolean; user?: UserProfile; error?: string }> {
     try {
-      const res = await fetch('/api/auth/verify-2fa', {
+      const res = await this.request('/api/auth/verify-2fa', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, code }),
@@ -278,7 +481,7 @@ export const api = {
 
   async biometricLogin(userId?: string): Promise<{ success?: boolean; user?: UserProfile; message?: string; error?: string }> {
     try {
-      const res = await fetch('/api/auth/biometric', {
+      const res = await this.request('/api/auth/biometric', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
@@ -299,7 +502,7 @@ export const api = {
 
   async guestLogin(): Promise<{ success?: boolean; user?: UserProfile; error?: string }> {
     try {
-      const res = await fetch('/api/auth/guest', {
+      const res = await this.request('/api/auth/guest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -360,7 +563,7 @@ export const api = {
 
   async updateProfile(userId: string, updates: Partial<UserProfile>): Promise<{ success?: boolean; user?: UserProfile; error?: string }> {
     try {
-      const res = await fetch('/api/profile', {
+      const res = await this.request('/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, updates }),
@@ -430,7 +633,7 @@ export const api = {
     });
 
     try {
-      const res = await fetch('/api/scores', {
+      const res = await this.request('/api/scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(enrichedPayload),
@@ -450,7 +653,22 @@ export const api = {
         localStorage.setItem(LOCAL_STORAGE_PENDING_SCORES, JSON.stringify(pending));
       } catch (e) {}
 
-      return { success: true, rank: 99, isRegistered: true };
+      // Perbarui statistik lokal langsung
+      if (local) {
+        local.stats.gamesPlayed += 1;
+        local.stats.totalDistance += enrichedPayload.distance;
+        local.stats.obstaclesDodged += enrichedPayload.obstaclesDodged;
+        local.stats.powerUpsCollected += enrichedPayload.powerUpsCollected;
+        local.stats.nearMisses += enrichedPayload.nearMisses;
+        local.stats.empUsed += enrichedPayload.empUsed;
+        if (enrichedPayload.bossKilled) local.stats.bossKills += 1;
+        if (enrichedPayload.bestCombo > local.stats.bestCombo) local.stats.bestCombo = enrichedPayload.bestCombo;
+        if (enrichedPayload.score > local.stats.highScore) local.stats.highScore = enrichedPayload.score;
+        local.stats.totalBounty += Math.floor(enrichedPayload.score / 10) + (enrichedPayload.bossKilled ? 500 : 0);
+        this.saveLocalUser(local);
+      }
+
+      return { success: true, rank: 1, userStats: local?.stats, isRegistered: true };
     }
   },
 
@@ -462,7 +680,7 @@ export const api = {
       if (!Array.isArray(list) || list.length === 0) return;
 
       const user = this.getLocalUser();
-      const res = await fetch('/api/scores/batch', {
+      const res = await this.request('/api/scores/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user?.id, scores: list }),
@@ -488,16 +706,61 @@ export const api = {
       if (difficulty) params.append('difficulty', difficulty);
       if (search) params.append('search', search);
 
-      const res = await fetch(`/api/leaderboard?${params.toString()}`);
-      return await res.json();
-    } catch (err) {
-      return { leaderboard: [], total: 0 };
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const res = await this.request(`/api/leaderboard?${params.toString()}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const isHtml = res.headers.get('content-type')?.includes('text/html');
+
+      if (res.ok && !isHtml) {
+        const data = await res.json();
+        if (Array.isArray(data.leaderboard)) {
+          return data;
+        }
+      }
+    } catch (err) {}
+
+    // Fallback: Bentuk papan peringkat dari semua akun terdaftar di penyimpanan lokal
+    const map = getStoredUsersMap();
+    const localUser = this.getLocalUser();
+    if (localUser && localUser.username) {
+      map[localUser.username.toLowerCase()] = localUser;
     }
+
+    let localEntries: LeaderboardEntry[] = Object.values(map)
+      .filter(u => u && u.username && !u.id.startsWith('guest_') && !u.id.startsWith('offline_'))
+      .map(u => ({
+        id: 'sc_' + u.id,
+        userId: u.id,
+        username: u.username,
+        avatar: u.avatar || '🏎️',
+        title: u.title || 'RACER',
+        carColor: u.carColor || '#00f0ff',
+        score: u.stats?.highScore || 0,
+        distance: u.stats?.totalDistance || 0,
+        bestCombo: u.stats?.bestCombo || 0,
+        difficulty: 'NORMAL' as DifficultyLevel,
+        timestamp: u.lastActive || new Date().toISOString(),
+      }));
+
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase();
+      localEntries = localEntries.filter(e => e.username.toLowerCase().includes(q));
+    }
+
+    localEntries.sort((a, b) => b.score - a.score);
+
+    return {
+      leaderboard: localEntries.slice(0, 100),
+      total: localEntries.length,
+    };
   },
 
   async getAnalytics(userId?: string): Promise<AnalyticsData> {
     try {
-      const res = await fetch(`/api/analytics?userId=${userId || ''}`);
+      const res = await this.request(`/api/analytics?userId=${userId || ''}`);
       return await res.json();
     } catch (err) {
       // Fallback dummy analytics
@@ -512,7 +775,7 @@ export const api = {
 
   async getTournaments(userId?: string): Promise<Tournament[]> {
     try {
-      const res = await fetch(`/api/tournaments?userId=${userId || ''}`);
+      const res = await this.request(`/api/tournaments?userId=${userId || ''}`);
       const data = await res.json();
       return data.tournaments || [];
     } catch (err) {
@@ -522,7 +785,7 @@ export const api = {
 
   async registerTournament(id: string, userId: string): Promise<boolean> {
     try {
-      const res = await fetch(`/api/tournaments/${id}/register`, {
+      const res = await this.request(`/api/tournaments/${id}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
@@ -536,7 +799,7 @@ export const api = {
 
   async getNotifications(userId?: string): Promise<NotificationItem[]> {
     try {
-      const res = await fetch(`/api/notifications?userId=${userId || ''}`);
+      const res = await this.request(`/api/notifications?userId=${userId || ''}`);
       const data = await res.json();
       return data.notifications || [];
     } catch (err) {
@@ -546,7 +809,7 @@ export const api = {
 
   async markNotificationRead(userId?: string, notifId?: string): Promise<void> {
     try {
-      await fetch('/api/notifications/read', {
+      await this.request('/api/notifications/read', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, notifId }),

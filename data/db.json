@@ -87,6 +87,94 @@
       },
       "createdAt": "2026-09-16T02:02:40.304Z",
       "lastActive": "2026-09-16T02:02:40.304Z"
+    },
+    "usr_1790563935551_9vovb": {
+      "id": "usr_1790563935551_9vovb",
+      "username": "taya",
+      "email": "taya@cyberpursuit.local",
+      "passwordHash": "taya123",
+      "avatar": "💎",
+      "title": "DRIFT MASTER",
+      "carColor": "#f8fafc",
+      "carModel": "nissan_gtr",
+      "trailEffect": "amber_sparks",
+      "twoFactorEnabled": false,
+      "biometricEnabled": false,
+      "achievements": [],
+      "stats": {
+        "highScore": 162703,
+        "gamesPlayed": 3,
+        "totalDistance": 8765,
+        "obstaclesDodged": 258,
+        "powerUpsCollected": 43,
+        "bestCombo": 41,
+        "totalBounty": 32224,
+        "maxLevel": 1,
+        "bossKills": 3,
+        "nearMisses": 29,
+        "empUsed": 11,
+        "multiplayerWins": 0,
+        "multiplayerMatches": 0
+      },
+      "layoutSettings": {
+        "hudPosition": "top",
+        "controlsStyle": "buttons",
+        "screenShake": true,
+        "scanlines": true,
+        "soundEnabled": true
+      },
+      "notificationSettings": {
+        "friendScores": true,
+        "tournaments": true,
+        "pushEnabled": true,
+        "dailyMissions": true
+      },
+      "createdAt": "2026-09-28T02:52:15.551Z",
+      "lastActive": "2026-10-01T07:28:51.144Z"
+    },
+    "usr_1790840235378_zg7ud": {
+      "id": "usr_1790840235378_zg7ud",
+      "username": "TestDriver",
+      "email": "testdriver@cyberpursuit.local",
+      "passwordHash": "123",
+      "avatar": "🏎️",
+      "title": "ROOKIE RACER",
+      "carColor": "#00f0ff",
+      "carModel": "civic_fl5",
+      "trailEffect": "cyan_plasma",
+      "twoFactorEnabled": false,
+      "biometricEnabled": false,
+      "achievements": [],
+      "stats": {
+        "highScore": 0,
+        "gamesPlayed": 0,
+        "totalDistance": 0,
+        "obstaclesDodged": 0,
+        "powerUpsCollected": 0,
+        "bestCombo": 0,
+        "totalBounty": 0,
+        "maxLevel": 1,
+        "bossKills": 0,
+        "nearMisses": 0,
+        "empUsed": 0,
+        "multiplayerWins": 0,
+        "multiplayerMatches": 0
+      },
+      "layoutSettings": {
+        "hudPosition": "top",
+        "controlsStyle": "buttons",
+        "screenShake": true,
+        "scanlines": true,
+        "soundEnabled": true
+      },
+      "notificationSettings": {
+        "friendScores": true,
+        "tournaments": true,
+        "pushEnabled": true,
+        "dailyMissions": true
+      },
+      "createdAt": "2026-10-01T07:37:15.379Z",
+      "lastActive": "2026-10-01T07:37:26.589Z"
     }
   },
   "scores": [
@@ -105,6 +193,15 @@
     }
   ],
   "notifications": [
+    {
+      "id": "notif-1790840235379",
+      "userId": "usr_1790840235378_zg7ud",
+      "type": "system",
+      "title": "Selamat Datang di Escape Police!",
+      "message": "Halo TestDriver, akun barumu siap! Pacu mobilmu dan capai puncak leaderboard.",
+      "timestamp": "2026-10-01T07:37:15.379Z",
+      "read": false
+    },
     {
       "id": "notif-1789524160304",
       "userId": "usr_1789524160303_8eqrd",
