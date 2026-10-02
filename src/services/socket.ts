@@ -100,7 +100,20 @@ class SocketClient {
           timeout: 4000,
         });
 
+        const fallbackTimeout = setTimeout(() => {
+          if (!this.isConnected && !this.isP2P) {
+            this.isP2P = true;
+            this.isConnected = true;
+            this.trigger('connect', true);
+            while (this.sendQueue.length > 0) {
+              const item = this.sendQueue.shift();
+              peerMultiplayer.send(item);
+            }
+          }
+        }, 2500);
+
         this.socket.on('connect', () => {
+          clearTimeout(fallbackTimeout);
           this.isConnected = true;
           this.isP2P = false;
           this.trigger('connect', true);
@@ -109,7 +122,7 @@ class SocketClient {
             this.emit('auth_register', { userId: this.currentUserId });
           }
 
-          // Flush any queued messages
+          // Flush any queued messages to the live server
           while (this.sendQueue.length > 0) {
             const item = this.sendQueue.shift();
             this.send(item);
@@ -128,6 +141,7 @@ class SocketClient {
         });
 
         this.socket.on('connect_error', () => {
+          clearTimeout(fallbackTimeout);
           // If server cannot be reached (e.g. static host like Vercel),
           // activate resilient WebRTC Peer-to-Peer mode!
           this.isP2P = true;
@@ -203,7 +217,7 @@ class SocketClient {
   public send(payload: any) {
     if (!payload) return;
 
-    // Route to Socket.IO if connected to a live server
+    // 1. Route to Socket.IO if connected to a live server
     if (this.socket && this.socket.connected) {
       const eventName = payload.type || 'message';
       try {
@@ -214,10 +228,14 @@ class SocketClient {
       }
     }
 
-    // Otherwise route through WebRTC Peer-to-Peer
-    if (this.isP2P || !this.socket || !this.socket.connected) {
-      peerMultiplayer.send(payload);
+    // 2. If Socket.IO is currently connecting, queue the message so it emits the moment it connects
+    if (this.socket && !this.isP2P && !this.socket.connected) {
+      this.sendQueue.push(payload);
+      return;
     }
+
+    // 3. Otherwise route through WebRTC Peer-to-Peer
+    peerMultiplayer.send(payload);
   }
 
   public emit(event: string, data?: any) {

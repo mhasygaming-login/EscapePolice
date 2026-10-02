@@ -48,6 +48,12 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
   const [currentRoom, setCurrentRoom] = useState<MultiplayerRoom | null>(null);
   const [roomCodeInput, setRoomCodeInput] = useState(initialRoomCode || '');
   const [customRoomCode, setCustomRoomCode] = useState('');
+
+  useEffect(() => {
+    if (initialRoomCode) {
+      setRoomCodeInput(initialRoomCode.trim().toUpperCase());
+    }
+  }, [initialRoomCode]);
   const [newRoomName, setNewRoomName] = useState(`${user?.username || 'Pembalap'}'s Arena`);
   const [newRoomDiff, setNewRoomDiff] = useState<DifficultyLevel>('NORMAL');
   const [copiedLink, setCopiedLink] = useState(false);

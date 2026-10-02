@@ -1,5 +1,6 @@
 import Peer, { DataConnection } from 'peerjs';
 import { MultiplayerRoom, MultiplayerPlayerState, DifficultyLevel } from '../types/game';
+import { api } from './api';
 
 type EventCallback = (data: any) => void;
 
@@ -353,6 +354,16 @@ export class PeerMultiplayerService {
 
         this.currentRoom.players[guestUserId] = guestPlayer;
 
+        // Record guest into local player registry for Leaderboard
+        api.recordPeerPlayer({
+          userId: guestUserId,
+          username: guestPlayer.username,
+          avatar: guestPlayer.avatar,
+          carColor: guestPlayer.carColor,
+          carModel: guestPlayer.carModel,
+          difficulty: this.currentRoom.difficulty,
+        });
+
         // Broadcast updated room state to all guests and host UI
         this.broadcastToGuests({
           type: 'room_state',
@@ -382,6 +393,19 @@ export class PeerMultiplayerService {
         };
 
         this.trigger('opponent_sync', syncPayload);
+
+        if (syncPayload.score || syncPayload.distance) {
+          api.recordPeerPlayer({
+            userId: syncPayload.userId,
+            username: syncPayload.username,
+            avatar: syncPayload.avatar,
+            carColor: syncPayload.carColor,
+            carModel: syncPayload.carModel,
+            score: syncPayload.score,
+            distance: syncPayload.distance,
+            bestCombo: syncPayload.combo,
+          });
+        }
 
         // Forward to any other guests in the room
         for (const [id, c] of this.connections) {
@@ -432,6 +456,20 @@ export class PeerMultiplayerService {
     switch (msg.type) {
       case 'room_state':
         this.currentRoom = msg.room;
+        if (msg.room?.players) {
+          Object.values(msg.room.players).forEach((p: any) => {
+            if (p && p.id !== this.currentUserId) {
+              api.recordPeerPlayer({
+                userId: p.id,
+                username: p.username,
+                avatar: p.avatar,
+                carColor: p.carColor,
+                carModel: p.carModel,
+                difficulty: msg.room.difficulty,
+              });
+            }
+          });
+        }
         this.trigger('room_state', { room: msg.room });
         break;
 
@@ -444,6 +482,18 @@ export class PeerMultiplayerService {
         break;
 
       case 'opponent_sync':
+        if (msg.score || msg.distance) {
+          api.recordPeerPlayer({
+            userId: msg.userId,
+            username: msg.username,
+            avatar: msg.avatar,
+            carColor: msg.carColor,
+            carModel: msg.carModel,
+            score: msg.score,
+            distance: msg.distance,
+            bestCombo: msg.combo,
+          });
+        }
         this.trigger('opponent_sync', msg);
         break;
 

@@ -19,8 +19,8 @@ export function getPublicGameUrl(roomCode?: string): string {
   try {
     if (typeof window !== 'undefined' && window.location) {
       const origin = window.location.origin;
-      // Use current window.location for any deployment domain (e.g. *.vercel.app, custom domains, or local)
-      if (origin && !origin.includes('ais-dev-') && origin !== 'null' && origin.startsWith('http')) {
+      // If deployed on a real public host (e.g. *.vercel.app, custom domain, or public Cloud Run)
+      if (!isDevEnvironment() && origin && origin !== 'null' && origin.startsWith('http')) {
         baseUrl = `${origin}${window.location.pathname.replace(/\/$/, '')}`;
       }
     }

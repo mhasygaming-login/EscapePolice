@@ -26,7 +26,22 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   initialTab = 'login',
   onLoginSuccess,
 }) => {
-  const [tab, setTab] = useState<'login' | 'register'>(initialTab);
+  // Check for room invitation in URL query or hash
+  const invitedRoomCode = React.useMemo(() => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('room') || params.get('join');
+      if (code) return code.trim().toUpperCase();
+      if (window.location.hash) {
+        const match = window.location.hash.match(/room=([A-Za-z0-9_-]+)/i);
+        if (match) return match[1].trim().toUpperCase();
+      }
+    } catch {}
+    return null;
+  }, []);
+
+  const [tab, setTab] = useState<'login' | 'register'>(invitedRoomCode ? 'register' : initialTab);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -110,6 +125,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
         {/* Auth Card Box */}
         <div className="bg-[#0c0d1c]/90 border border-white/15 rounded-3xl p-6 sm:p-7 shadow-[0_0_50px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+          {invitedRoomCode && (
+            <div className="mb-5 p-3.5 rounded-2xl bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-fuchsia-500/20 border border-cyan-400/40 text-center animate-pulse">
+              <div className="flex items-center justify-center gap-2 text-cyan-300 font-display font-black text-xs tracking-wider uppercase">
+                <Gamepad2 className="w-4 h-4 text-cyan-400" />
+                <span>Undangan Balap Teman!</span>
+              </div>
+              <p className="text-xs text-gray-200 mt-1">
+                Kamu diundang ke Ruangan: <span className="font-mono font-bold text-amber-400 text-sm">#{invitedRoomCode}</span>
+              </p>
+              <p className="text-[11px] text-cyan-200/90 mt-0.5">
+                Daftarkan nama pembalapmu untuk langsung masuk ke arena balap bersama temanmu!
+              </p>
+            </div>
+          )}
+
           {/* Tab Switcher */}
           <div className="flex bg-black/60 p-1 rounded-2xl border border-white/10 mb-6">
             <button

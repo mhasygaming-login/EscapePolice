@@ -807,6 +807,87 @@ export const api = {
     }
   },
 
+  recordPeerPlayer(info: {
+    userId: string;
+    username: string;
+    avatar?: string;
+    title?: string;
+    carColor?: string;
+    carModel?: string;
+    score?: number;
+    distance?: number;
+    bestCombo?: number;
+    difficulty?: DifficultyLevel;
+  }): void {
+    if (!info || !info.username) return;
+    const cleanUsername = info.username.trim();
+    if (!cleanUsername || cleanUsername.toLowerCase().startsWith('guest_') || cleanUsername.toLowerCase().startsWith('tamu')) return;
+    const map = getStoredUsersMap();
+    const key = cleanUsername.toLowerCase();
+    const existing = map[key] || {
+      id: info.userId || 'peer_' + Date.now(),
+      username: cleanUsername,
+      email: `${cleanUsername.toLowerCase()}@cyberpursuit.local`,
+      avatar: info.avatar || '🏎️',
+      title: info.title || 'RACER',
+      carColor: info.carColor || '#ff007f',
+      carModel: info.carModel || 'civic_fl5',
+      trailEffect: 'cyan_plasma',
+      twoFactorEnabled: false,
+      biometricEnabled: false,
+      achievements: ['first'],
+      stats: {
+        highScore: info.score || 0,
+        gamesPlayed: 1,
+        totalDistance: info.distance || 0,
+        obstaclesDodged: 0,
+        powerUpsCollected: 0,
+        bestCombo: info.bestCombo || 0,
+        totalBounty: Math.floor((info.score || 0) / 10),
+        maxLevel: 1,
+        bossKills: 0,
+        nearMisses: 0,
+        empUsed: 0,
+        multiplayerWins: 0,
+        multiplayerMatches: 1,
+      },
+      layoutSettings: {
+        hudPosition: 'top',
+        controlsStyle: 'buttons',
+        screenShake: true,
+        scanlines: true,
+        soundEnabled: true,
+      },
+      notificationSettings: {
+        friendScores: true,
+        tournaments: true,
+        pushEnabled: true,
+        dailyMissions: true,
+      },
+      createdAt: new Date().toISOString(),
+      lastActive: new Date().toISOString(),
+    };
+
+    if (info.score !== undefined && info.score > (existing.stats?.highScore || 0)) {
+      existing.stats.highScore = info.score;
+    }
+    if (info.distance !== undefined) {
+      existing.stats.totalDistance = Math.max(existing.stats.totalDistance || 0, info.distance);
+    }
+    if (info.bestCombo !== undefined) {
+      existing.stats.bestCombo = Math.max(existing.stats.bestCombo || 0, info.bestCombo);
+    }
+    if (info.avatar) existing.avatar = info.avatar;
+    if (info.carColor) existing.carColor = info.carColor;
+    if (info.carModel) existing.carModel = info.carModel;
+    existing.lastActive = new Date().toISOString();
+
+    map[key] = existing;
+    try {
+      localStorage.setItem(LOCAL_STORAGE_REGISTERED_USERS, JSON.stringify(map));
+    } catch (e) {}
+  },
+
   async markNotificationRead(userId?: string, notifId?: string): Promise<void> {
     try {
       await this.request('/api/notifications/read', {
