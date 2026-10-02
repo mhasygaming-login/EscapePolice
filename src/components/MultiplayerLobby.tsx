@@ -94,7 +94,25 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
     const unbindRoomState = socket.on('room_state', (data: any) => {
       setCurrentRoom(data.room);
       if (data.room.status === 'in_game' || data.room.status === 'countdown') {
-        sound.play('win');
+        sound.play('click');
+        onStartMatch(data.room);
+      }
+    });
+
+    const unbindCountdown = socket.on('countdown_tick', (data: any) => {
+      if (data.count === 0) {
+        sound.play('nitro');
+      } else {
+        sound.play('click');
+      }
+      if (data.room) {
+        onStartMatch(data.room);
+      }
+    });
+
+    const unbindRaceStart = socket.on('race_start', (data: any) => {
+      sound.play('nitro');
+      if (data.room) {
         onStartMatch(data.room);
       }
     });
@@ -126,6 +144,8 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
     return () => {
       unbindRoomList();
       unbindRoomState();
+      unbindCountdown();
+      unbindRaceStart();
       unbindAction();
       unbindError();
       clearInterval(interval);
@@ -154,7 +174,11 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
 
   const handleStartGame = () => {
     sound.play('click');
-    socket.send({ type: 'start_game' });
+    if (!currentRoom) return;
+    socket.send({
+      type: 'start_game',
+      code: currentRoom.code,
+    });
   };
 
   const handleLeaveRoom = () => {
@@ -212,14 +236,26 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
     handleCopyInviteLink();
   };
 
-  const isHost = currentRoom && user ? currentRoom.players[user.id]?.isHost : false;
-  const myPlayerState = currentRoom && user ? currentRoom.players[user.id] : null;
-
   const playerList = currentRoom
     ? (Object.values(currentRoom.players) as MultiplayerPlayerState[])
     : [];
+
+  const myPlayerState = currentRoom && user
+    ? currentRoom.players[user.id] ||
+      playerList.find(
+        p => p.id === user.id || p.username.toLowerCase() === user.username.toLowerCase()
+      ) ||
+      null
+    : null;
+
+  const isHost = Boolean(
+    myPlayerState?.isHost ||
+    (currentRoom && playerList.length > 0 && playerList[0].id === user?.id) ||
+    (currentRoom && playerList.length > 0 && playerList[0].username.toLowerCase() === user?.username.toLowerCase()) ||
+    (currentRoom && !playerList.some(p => p.isHost))
+  );
+
   const readyCount = playerList.filter(p => p.status === 'ready').length;
-  const canStart = playerList.length >= 1 && (playerList.length === 1 || readyCount >= playerList.length - 1);
 
   return (
     <div className="w-full max-w-5xl mx-auto py-3 px-3 sm:px-6">
@@ -423,21 +459,21 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
                 {myPlayerState?.status === 'ready' ? 'Batal Siap' : 'Saya Siap!'}
               </button>
 
-              {isHost && (
+              {isHost ? (
                 <button
                   type="button"
                   onClick={handleStartGame}
-                  disabled={!canStart}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-display font-extrabold text-xs uppercase tracking-wider transition-all min-h-[44px] ${
-                    canStart
-                      ? 'bg-gradient-to-r from-fuchsia-500 to-cyan-500 text-white shadow-lg shadow-fuchsia-500/25 hover:scale-105 active:scale-95 cursor-pointer'
-                      : 'bg-white/10 text-gray-500 cursor-not-allowed opacity-50'
-                  }`}
-                  title={canStart ? 'Mulai Balapan Sekarang' : 'Tunggu pemain siap'}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-display font-extrabold text-xs uppercase tracking-wider transition-all min-h-[44px] bg-gradient-to-r from-fuchsia-500 to-cyan-500 text-white shadow-lg shadow-fuchsia-500/25 hover:scale-105 active:scale-95 cursor-pointer"
+                  title="Mulai Balapan Sekarang Bersama Teman"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
                   Mulai Balapan!
                 </button>
+              ) : (
+                <div className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-cyan-500/20 text-cyan-300 font-display font-bold text-xs uppercase tracking-wider min-h-[44px]">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                  <span>Menunggu Host Memulai...</span>
+                </div>
               )}
             </div>
           </div>

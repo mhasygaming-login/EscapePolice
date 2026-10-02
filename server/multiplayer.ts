@@ -216,27 +216,39 @@ export function setupMultiplayerServer(
   function evaluateRaceOutcome(room: Room) {
     if (room.status !== 'in_game' || room.players.size === 0) return;
 
-    // 1. Check distance victory
+    // 1. Check if any player has completed the race or reached target distance
     for (const [id, p] of room.players) {
-      if (p.status === 'playing' && p.distance >= room.targetDistance) {
+      if ((p.status === 'finished' || p.distance >= room.targetDistance) && p.status !== 'crashed') {
+        p.status = 'finished';
         finishRace(room, id, `Menyentuh Garis Finish (${room.targetDistance}m)!`);
         return;
       }
     }
 
-    // 2. Check survivor status
+    // 2. Multi-player race evaluations
     if (room.players.size > 1) {
-      const activePlayers = Array.from(room.players.values()).filter((pl) => pl.status === 'playing');
-      if (activePlayers.length === 1) {
-        finishRace(room, activePlayers[0].id, 'Satu-satunya yang Bertahan Melawan Armada Polisi!');
-        return;
-      } else if (activePlayers.length === 0) {
-        // All crashed: Highest distance wins
+      const playingPlayers = Array.from(room.players.values()).filter((pl) => pl.status === 'playing');
+      const crashedPlayers = Array.from(room.players.values()).filter((pl) => pl.status === 'crashed');
+      const finishedPlayers = Array.from(room.players.values()).filter((pl) => pl.status === 'finished');
+
+      // If everyone is done (no one left actively playing)
+      if (playingPlayers.length === 0) {
+        // If someone finished, top finished player wins; otherwise top score among all
         let topPlayer = Array.from(room.players.values())[0];
         for (const pl of room.players.values()) {
-          if (pl.distance > topPlayer.distance) topPlayer = pl;
+          const isBetter =
+            (pl.status === 'finished' && topPlayer.status !== 'finished') ||
+            (pl.score > (topPlayer.score || 0)) ||
+            (pl.score === (topPlayer.score || 0) && pl.distance > topPlayer.distance);
+          if (isBetter) topPlayer = pl;
         }
-        finishRace(room, topPlayer?.id, 'Jarak Terjauh Sebelum Tabrakan!');
+        finishRace(room, topPlayer?.id, 'Skor & Jarak Tertinggi dalam Balapan!');
+        return;
+      }
+
+      // If only 1 player remains playing and all other opponents crashed
+      if (playingPlayers.length === 1 && crashedPlayers.length === room.players.size - 1 && finishedPlayers.length === 0) {
+        finishRace(room, playingPlayers[0].id, 'Satu-satunya yang Bertahan Melawan Armada Polisi!');
         return;
       }
     }
@@ -450,8 +462,9 @@ export function setupMultiplayerServer(
 
         case 'start_game':
         case 'rematch_room': {
-          if (!currentRoomCode) return;
-          const room = activeRooms.get(currentRoomCode);
+          const roomCodeToUse = currentRoomCode || data.code || data.roomCode;
+          if (!roomCodeToUse) return;
+          const room = activeRooms.get(roomCodeToUse);
           if (!room) return;
           startRaceCountdown(room);
           break;
@@ -604,16 +617,35 @@ export function setupMultiplayerServer(
         }
 
         case 'player_action': {
-          if (!currentRoomCode) return;
-          const room = activeRooms.get(currentRoomCode);
+          const roomCodeToUse = currentRoomCode || data.code || data.roomCode;
+          if (!roomCodeToUse) return;
+          const room = activeRooms.get(roomCodeToUse);
           if (!room) return;
+
+          if (currentUserId && room.players.has(currentUserId)) {
+            const p = room.players.get(currentUserId)!;
+            if (data.action === 'crashed') {
+              p.status = 'crashed';
+              p.hp = 0;
+            } else if (data.action === 'completed') {
+              p.status = 'finished';
+            }
+            if (data.score !== undefined) p.score = Math.floor(data.score);
+            if (data.distance !== undefined) p.distance = Math.floor(data.distance);
+          }
 
           socket.to(room.code).emit('opponent_action', {
             userId: currentUserId,
             username: data.username,
             action: data.action,
             value: data.value,
+            score: data.score,
+            distance: data.distance,
           });
+
+          if (data.action === 'crashed' || data.action === 'completed') {
+            evaluateRaceOutcome(room);
+          }
           break;
         }
 

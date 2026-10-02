@@ -422,9 +422,14 @@ export class PeerMultiplayerService {
           username: msg.username || 'Teman',
           action: msg.action,
           value: msg.value,
+          score: msg.score,
+          distance: msg.distance,
         };
         this.trigger('opponent_action', actionPayload);
         this.broadcastToGuests({ type: 'opponent_action', ...actionPayload }, guestUserId);
+        if (msg.action === 'completed' && this.isHost) {
+          this.handleRaceFinish(guestUserId, `${msg.username || 'Teman'} Mencapai Garis Finish!`);
+        }
         return;
       }
 
@@ -559,13 +564,21 @@ export class PeerMultiplayerService {
    * HOST: Starts the race with a 3-second countdown
    */
   public startRace() {
-    if (!this.isHost || !this.currentRoom) return;
+    if (!this.currentRoom) return;
+    this.isHost = true;
 
     if (this.countdownTimer) clearInterval(this.countdownTimer);
 
     let count = 3;
     this.currentRoom.status = 'countdown';
     this.currentRoom.countdownSeconds = count;
+
+    // Immediately notify both Host and Guests to switch to the Game Canvas!
+    this.broadcastToGuests({
+      type: 'room_state',
+      room: this.currentRoom,
+    });
+    this.trigger('room_state', { room: this.currentRoom });
 
     const tick = () => {
       this.broadcastToGuests({
@@ -737,8 +750,13 @@ export class PeerMultiplayerService {
             username: this.currentUsername,
             action: payload.action,
             value: payload.value,
+            score: payload.score,
+            distance: payload.distance,
           };
           this.broadcastToGuests({ type: 'opponent_action', ...actionPayload });
+          if (payload.action === 'completed') {
+            this.handleRaceFinish(this.currentUserId, 'Kamu Mencapai Garis Finish!');
+          }
         } else if (this.hostConnection?.open) {
           this.hostConnection.send({
             type: 'player_action',
@@ -746,6 +764,8 @@ export class PeerMultiplayerService {
             username: this.currentUsername,
             action: payload.action,
             value: payload.value,
+            score: payload.score,
+            distance: payload.distance,
           });
         }
         break;

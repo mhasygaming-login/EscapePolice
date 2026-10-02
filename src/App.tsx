@@ -183,9 +183,21 @@ export default function App() {
       }
     });
 
+    const unbindCountdown = socket.on('countdown_tick', (data: any) => {
+      if (data?.room) setActiveRoom(data.room);
+      setActiveTab('game');
+    });
+
+    const unbindRaceStart = socket.on('race_start', (data: any) => {
+      if (data?.room) setActiveRoom(data.room);
+      setActiveTab('game');
+    });
+
     return () => {
       unbindNotif();
       unbindRoomState();
+      unbindCountdown();
+      unbindRaceStart();
     };
   }, [currentUser?.id]);
 

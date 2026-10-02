@@ -24,6 +24,8 @@ import {
   Shield,
   Magnet,
   Trophy,
+  Crown,
+  Medal,
   Flame,
   Swords,
   Users,
@@ -106,6 +108,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const miniMapRef = useRef<HTMLCanvasElement>(null);
 
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'PAUSED' | 'GAMEOVER'>('START');
+  const gameStateRef = useRef(gameState);
+  gameStateRef.current = gameState;
   const [difficulty, setInternalDifficulty] = useState<DifficultyLevel>(externalDifficulty || 'NORMAL');
 
   // Map state
@@ -153,6 +157,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const [empCharges, setEmpCharges] = useState(2);
   const [opponents, setOpponents] = useState<Record<string, MultiplayerPlayerState>>({});
   const [multiplayerWinner, setMultiplayerWinner] = useState<string | null>(null);
+  const [multiplayerFinishReason, setMultiplayerFinishReason] = useState<string | null>(null);
   const [multiplayerCountdown, setMultiplayerCountdown] = useState<{ count: number; message: string } | null>(null);
   const [spectating, setSpectating] = useState(false);
   const [latestLeaderboardRank, setLatestLeaderboardRank] = useState<number | null>(null);
@@ -257,6 +262,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       } else if (data.action === 'crashed') {
         addToast(`💥 ${data.username || 'TEMAN'} MENGALAMI TABRAKAN!`, 'rose');
         sound.play('crash');
+      } else if (data.action === 'completed') {
+        addToast(`🏁 ${data.username || 'TEMAN'} TELAH FINISH!`, 'emerald');
+        sound.play('win');
       } else if (data.action === 'chat') {
         addToast(`💬 ${data.username || 'TEMAN'}: ${data.value}`, 'amber');
         sound.play('coin');
@@ -266,7 +274,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const unbindRoomState = socket.on('room_state', (data: any) => {
       if (!data?.room) return;
       if (data.room.status === 'in_game') {
-        if (gameState !== 'PLAYING') {
+        if (gameStateRef.current !== 'PLAYING') {
           setSpectating(false);
           setMultiplayerWinner(null);
           startGameRef.current();
@@ -286,7 +294,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         sound.play('nitro');
         setSpectating(false);
         setMultiplayerWinner(null);
-        if (gameState !== 'PLAYING') {
+        if (gameStateRef.current !== 'PLAYING') {
           startGameRef.current();
         }
         setTimeout(() => setMultiplayerCountdown(null), 1500);
@@ -296,10 +304,21 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const unbindRaceFinish = socket.on('race_finish', (data: any) => {
       setMultiplayerWinner(data.winnerId || null);
       if (data.reason) {
+        setMultiplayerFinishReason(data.reason);
         addToast(`🏁 ${data.reason}`, 'amber');
       }
+      if (data.room?.players) {
+        const updatedOpponents: Record<string, MultiplayerPlayerState> = {};
+        for (const [pId, pl] of Object.entries(data.room.players)) {
+          if (pId !== (userRef.current?.id || user?.id)) {
+            updatedOpponents[pId] = pl as MultiplayerPlayerState;
+          }
+        }
+        setOpponents(prev => ({ ...prev, ...updatedOpponents }));
+        opponentsRef.current = { ...opponentsRef.current, ...updatedOpponents };
+      }
       sound.play('win');
-      if (gameState === 'PLAYING') {
+      if (gameStateRef.current === 'PLAYING') {
         finishGameAndSaveRef.current('completed');
       }
     });
@@ -312,7 +331,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       unbindCountdown();
       unbindRaceFinish();
     };
-  }, [multiplayerRoom?.code, user?.id, gameState, addToast]);
+  }, [multiplayerRoom?.code, user?.id, addToast]);
 
   // Internal mutable refs for 60fps canvas loop
   const loopRef = useRef<{
@@ -700,7 +719,23 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     });
 
     if (multiplayerRoomRef.current) {
-      socket.send({ type: 'player_action', action: 'crashed' });
+      const isCrash = reason === 'crashed';
+      socket.send({
+        type: 'player_action',
+        action: isCrash ? 'crashed' : 'completed',
+        score: finalScoreVal,
+        distance: Math.floor(state.distance),
+        username: userRef.current?.username || user?.username,
+      });
+      socket.send({
+        type: 'player_sync',
+        status: isCrash ? 'crashed' : 'finished',
+        hp: isCrash ? 0 : Math.max(1, state.player.hp),
+        score: finalScoreVal,
+        distance: Math.floor(state.distance),
+        username: userRef.current?.username || user?.username,
+        avatar: userRef.current?.avatar || user?.avatar,
+      });
     }
   }, [difficulty, user]);
 
@@ -2638,137 +2673,202 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         <div className="absolute inset-0 bg-[#06060e]/95 backdrop-blur-md z-30 flex flex-col items-center justify-center p-4 sm:p-6 text-center overflow-y-auto">
           {multiplayerRoom ? (
             /* Dedicated Multiplayer Duel Results Screen */
-            <div className="w-full max-w-md bg-[#0b0c19] border border-cyan-500/30 rounded-2xl p-5 shadow-2xl animate-fade-in my-auto">
-              <div className="text-3xl mb-1">
-                {multiplayerWinner === user?.id ? '👑' : '🏁'}
-              </div>
-              <h2 className="text-xl sm:text-2xl font-display font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-white to-fuchsia-400">
-                {multiplayerWinner === user?.id
-                  ? 'KAMU JUARA 1!'
-                  : multiplayerWinner
-                  ? 'DUEL SELESAI'
-                  : 'MOBILMU TABRAKAN'}
-              </h2>
-              <p className="text-xs text-gray-400 mt-1">
-                {multiplayerWinner === user?.id
-                  ? 'Selamat! Kamu memenangkan balapan room ini!'
-                  : multiplayerWinner
-                  ? `Pemenang: ${
-                      multiplayerRoom.players?.[multiplayerWinner]?.username ||
-                      opponents[multiplayerWinner]?.username ||
-                      'Pembalap'
-                    }`
-                  : 'Skor kamu telah dicatat. Balapan lagi bersama teman?'}
-              </p>
+            <div className="w-full max-w-lg bg-[#0b0c19]/95 border-2 border-cyan-500/40 rounded-3xl p-5 sm:p-6 shadow-[0_0_60px_rgba(0,240,255,0.25)] animate-fade-in my-auto backdrop-blur-xl text-left">
+              {(() => {
+                const myEntry = {
+                  id: user?.id,
+                  username: user?.username || 'Kamu',
+                  avatar: user?.avatar || '🏎️',
+                  score: score,
+                  distance: distance,
+                  status: hp > 0 ? 'completed' : 'crashed',
+                  isMe: true,
+                };
+                const allPlayers = [
+                  myEntry,
+                  ...(Object.values(opponents) as MultiplayerPlayerState[]).map(o => ({
+                    id: o.id,
+                    username: o.username,
+                    avatar: o.avatar || '🏎️',
+                    score: o.score || 0,
+                    distance: o.distance || 0,
+                    status: o.status,
+                    isMe: false,
+                  })),
+                ];
 
-              {/* Standings List */}
-              <div className="my-4 space-y-2 text-left">
-                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-1">
-                  Klasemen Akhir Pemain
-                </div>
-                {(() => {
-                  const myEntry = {
-                    id: user?.id,
-                    username: `${user?.username || 'Kamu'} (Kamu)`,
-                    avatar: user?.avatar || '🏎️',
-                    score: score,
-                    distance: distance,
-                    status: hp > 0 ? 'playing' : 'crashed',
-                    isMe: true,
-                  };
-                  const allPlayers = [myEntry, ...(Object.values(opponents) as MultiplayerPlayerState[]).map(o => ({ ...o, isMe: false }))];
-                  allPlayers.sort((a, b) => b.score - a.score);
+                // Sort by highest score descending, then distance
+                allPlayers.sort((a, b) => {
+                  if (b.score !== a.score) return b.score - a.score;
+                  return b.distance - a.distance;
+                });
 
-                  return allPlayers.map((pl, idx) => (
-                    <div
-                      key={pl.id || idx}
-                      className={`flex items-center justify-between p-2.5 rounded-xl border ${
-                        pl.id === multiplayerWinner
-                          ? 'bg-amber-500/15 border-amber-500/50 shadow-md shadow-amber-500/10'
-                          : pl.isMe
-                          ? 'bg-cyan-500/10 border-cyan-500/30'
-                          : 'bg-white/5 border-white/10'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="font-display font-black text-xs text-amber-400 w-5 text-center">
-                          #{idx + 1}
-                        </span>
-                        <span className="text-base">{pl.avatar || '🏎️'}</span>
+                const topPlayer = allPlayers[0];
+                const runnerUp = allPlayers[1];
+                const isMeTop = topPlayer?.isMe;
+                const scoreDiff = runnerUp ? Math.max(0, topPlayer.score - runnerUp.score) : 0;
+
+                return (
+                  <div>
+                    {/* Header Announcement */}
+                    <div className="text-center pb-3 border-b border-white/10">
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/50 text-amber-300 mb-2 shadow-lg shadow-amber-500/20">
+                        <Crown className="w-6 h-6 text-amber-400" />
+                      </div>
+                      <h2 className="text-xl sm:text-2xl font-display font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-white to-cyan-300 uppercase">
+                        {isMeTop ? '🎉 Kamu Juara 1!' : `🏁 ${topPlayer?.username} Juara 1!`}
+                      </h2>
+                      <p className="text-xs text-gray-300 mt-1 max-w-sm mx-auto">
+                        {isMeTop
+                          ? 'Luar biasa! Kamu meraih skor tertinggi dalam duel balap ini!'
+                          : multiplayerFinishReason || `${topPlayer?.username} memimpin dengan skor tertinggi!`
+                        }
+                      </p>
+                    </div>
+
+                    {/* Spotlight Box: Pemain Skor Paling Tinggi */}
+                    <div className="my-4 p-4 rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/10 to-cyan-500/20 border-2 border-amber-400/70 shadow-lg shadow-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-14 h-14 rounded-2xl bg-amber-400/20 border-2 border-amber-400 flex items-center justify-center text-3xl shrink-0 shadow-md">
+                          {topPlayer?.avatar || '🏎️'}
+                        </div>
                         <div>
-                          <div className="text-xs font-display font-bold text-white flex items-center gap-1.5">
-                            {pl.username}
-                            {pl.id === multiplayerWinner && (
-                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-400 text-black font-extrabold">
-                                JUARA 1
-                              </span>
-                            )}
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400 text-black font-display font-black text-[9px] uppercase tracking-wider mb-1">
+                            <Crown className="w-3 h-3" /> SKOR PALING TINGGI
                           </div>
-                          <div className="text-[10px] text-gray-400">
-                            {pl.status === 'crashed' ? (
-                              <span className="text-rose-400 font-semibold">Tabrakan</span>
-                            ) : (
-                              <span className="text-emerald-400 font-semibold">Selesai</span>
-                            )}
+                          <div className="text-base font-display font-black text-white truncate max-w-[200px]">
+                            {topPlayer?.username} {topPlayer?.isMe ? <span className="text-cyan-400 text-xs font-bold">(Kamu)</span> : ''}
+                          </div>
+                          <div className="text-[11px] text-gray-300">
+                            Jarak: <span className="text-white font-mono font-bold">{topPlayer?.distance.toLocaleString()}m</span> • {topPlayer?.status === 'crashed' ? <span className="text-rose-400">Tabrakan</span> : <span className="text-emerald-400">Finish</span>}
                           </div>
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <div className="font-display font-extrabold text-sm text-cyan-400">
-                          {pl.score}
+                      <div className="text-left sm:text-right border-t sm:border-t-0 border-white/10 pt-2 sm:pt-0">
+                        <div className="text-2xl sm:text-3xl font-display font-black text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]">
+                          {topPlayer?.score.toLocaleString()}
                         </div>
-                        <div className="text-[9px] text-gray-400 uppercase">Poin</div>
+                        <div className="text-[10px] font-bold text-gray-300 uppercase tracking-wider">POIN TERTINGGI</div>
+                        {scoreDiff > 0 && (
+                          <div className="text-[10px] text-emerald-400 font-semibold mt-0.5">
+                            +{scoreDiff.toLocaleString()} selisih poin
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ));
-                })()}
-              </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.play('click');
-                    if (onRematchMultiplayer) {
-                      onRematchMultiplayer();
-                    } else {
-                      startGame();
-                    }
-                  }}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-cyan-500 text-white font-display font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-fuchsia-500/25 active:scale-95 cursor-pointer"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" /> Balapan Lagi
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.play('click');
-                    if (onReturnToLobby) {
-                      onReturnToLobby();
-                    } else {
-                      setGameState('START');
-                    }
-                  }}
-                  className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-display font-bold text-xs uppercase border border-white/15 cursor-pointer flex items-center justify-center gap-1"
-                >
-                  <Users className="w-3.5 h-3.5" /> Ke Lobby
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.play('click');
-                    if (onLeaveMultiplayer) {
-                      onLeaveMultiplayer();
-                    }
-                    setGameState('START');
-                  }}
-                  className="px-3 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-display font-bold text-xs uppercase border border-rose-500/20 cursor-pointer"
-                >
-                  Keluar
-                </button>
-              </div>
+                    {/* Standings List */}
+                    <div className="space-y-2 mb-4">
+                      <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-1 flex items-center justify-between">
+                        <span>Peringkat Akhir Pertandingan</span>
+                        <span>{allPlayers.length} Pembalap</span>
+                      </div>
+
+                      {allPlayers.map((pl, idx) => (
+                        <div
+                          key={pl.id || idx}
+                          className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
+                            idx === 0
+                              ? 'bg-amber-500/15 border-amber-500/60 shadow-md shadow-amber-500/15'
+                              : pl.isMe
+                              ? 'bg-cyan-500/10 border-cyan-500/40'
+                              : 'bg-white/5 border-white/10'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className={`font-display font-black text-sm w-6 text-center ${
+                              idx === 0 ? 'text-amber-400 text-base' : idx === 1 ? 'text-gray-300' : 'text-gray-500'
+                            }`}>
+                              #{idx + 1}
+                            </span>
+                            <span className="text-xl">{pl.avatar || '🏎️'}</span>
+                            <div>
+                              <div className="text-xs sm:text-sm font-display font-bold text-white flex items-center gap-1.5">
+                                {pl.username} {pl.isMe ? <span className="text-cyan-400 text-[10px]">(Kamu)</span> : ''}
+                                {idx === 0 && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400 text-black font-extrabold flex items-center gap-0.5">
+                                    <Crown className="w-2.5 h-2.5" /> JUARA 1
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-gray-400 flex items-center gap-2 mt-0.5">
+                                <span>Jarak: <strong className="text-gray-200">{pl.distance.toLocaleString()}m</strong></span>
+                                <span>•</span>
+                                <span>
+                                  {pl.status === 'crashed' ? (
+                                    <span className="text-rose-400 font-semibold">💥 Tabrakan</span>
+                                  ) : (
+                                    <span className="text-emerald-400 font-semibold">✓ Finish</span>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <div className={`font-display font-extrabold text-base sm:text-lg ${
+                              idx === 0 ? 'text-amber-400' : 'text-cyan-400'
+                            }`}>
+                              {pl.score.toLocaleString()}
+                            </div>
+                            <div className="text-[9px] text-gray-400 uppercase tracking-wider">Poin</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-col sm:flex-row gap-2.5 pt-4 border-t border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sound.play('click');
+                          if (onRematchMultiplayer) {
+                            onRematchMultiplayer();
+                          } else {
+                            startGame();
+                          }
+                        }}
+                        className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-fuchsia-500 via-purple-600 to-cyan-500 text-white font-display font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-fuchsia-500/25 active:scale-95 cursor-pointer min-h-[44px]"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        <span>Tanding Ulang (Rematch)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sound.play('click');
+                          if (onReturnToLobby) {
+                            onReturnToLobby();
+                          } else {
+                            setGameState('START');
+                          }
+                        }}
+                        className="py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-display font-bold text-xs uppercase border border-white/15 cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px]"
+                      >
+                        <Users className="w-4 h-4 text-cyan-400" />
+                        <span>Ke Lobi Room</span>
+                      </button>
+
+                      {onOpenLeaderboard && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sound.play('click');
+                            onOpenLeaderboard();
+                          }}
+                          className="py-3 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-display font-bold text-xs uppercase border border-white/10 cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px]"
+                          title="Lihat Papan Peringkat Global"
+                        >
+                          <Trophy className="w-4 h-4 text-amber-400" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ) : (
             /* Solo Game Over Overlay - Exact Futuristic Glassmorphic Reference Design */

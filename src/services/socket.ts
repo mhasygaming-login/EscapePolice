@@ -185,8 +185,11 @@ class SocketClient {
           });
         }
 
-        // Catch-all for any custom server events
+        // Catch-all for any extra/custom server events (prevent double triggering core events)
         this.socket.onAny((event: string, ...args: any[]) => {
+          if (coreEvents.includes(event) || event === 'connect' || event === 'disconnect' || event === 'connect_error' || event === 'pong_check') {
+            return;
+          }
           const payload = args.length > 0 ? args[0] : null;
           this.trigger(event, payload);
         });
