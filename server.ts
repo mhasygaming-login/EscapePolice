@@ -23,6 +23,19 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json({ limit: '1mb' }));
+app.use(express.static(path.join(process.cwd(), 'public')));
+
+app.get('/favicon.ico', (req, res) => {
+  const icoPath = path.join(process.cwd(), 'public', 'favicon.ico');
+  if (fs.existsSync(icoPath)) {
+    return res.sendFile(icoPath);
+  }
+  const fallback = path.join(process.cwd(), 'public', 'cyber_pursuit_logo.jpg');
+  if (fs.existsSync(fallback)) {
+    return res.sendFile(fallback);
+  }
+  res.status(204).end();
+});
 
 // Ensure data directory exists
 const DATA_DIR = path.join(process.cwd(), 'data');
