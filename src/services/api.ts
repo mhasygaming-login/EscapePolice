@@ -78,8 +78,8 @@ export const api = {
       if (user.id && !user.id.startsWith('guest_') && !user.id.startsWith('offline_')) {
         localStorage.setItem(LOCAL_STORAGE_ACTIVE_SESSION, user.id);
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      // Local storage unavailable or full
     }
   },
 
@@ -204,7 +204,7 @@ export const api = {
       localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
       return { success: true, message: 'Berhasil keluar sesi. Progres tersimpan aman di Cloud.' };
     } catch (e) {
-      console.error('Logout error:', e);
+      console.warn('Logout error:', e);
       return { success: false };
     }
   },

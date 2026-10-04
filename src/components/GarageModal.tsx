@@ -98,7 +98,7 @@ export const GarageModal: React.FC<GarageModalProps> = ({ user, onUpdateUser, on
 
   const handleRevEngine = () => {
     sound.ensureContext();
-    sound.play('nearmiss');
+    sound.playEngineRev(selectedModel);
   };
 
   // Live 2D Vehicle Canvas Render
@@ -468,7 +468,7 @@ export const GarageModal: React.FC<GarageModalProps> = ({ user, onUpdateUser, on
                     type="button"
                     onClick={() => {
                       setSelectedModel(car.id);
-                      sound.play('click');
+                      sound.playEngineRev(car.id);
                     }}
                     className={`group p-3 sm:p-3.5 rounded-2xl text-left border transition-all cursor-pointer relative overflow-hidden flex items-center justify-between gap-3 ${
                       isSelected

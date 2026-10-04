@@ -302,10 +302,16 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+app.post('/api/client-log', (req, res) => {
+  const { type, message, filename, lineno } = req.body || {};
+  console.log(`[CLIENT-LOG] [${type}]:`, message, filename ? `(${filename}:${lineno})` : '');
+  res.json({ ok: true });
+});
+
 app.get('/api/profile', (req, res) => {
   const { userId, username } = req.query;
   if ((!userId || typeof userId !== 'string') && (!username || typeof username !== 'string')) {
-    return res.status(400).json({ error: 'userId atau username diperlukan' });
+    return res.json({ success: false, user: null, message: 'Belum ada sesi aktif' });
   }
 
   let user = typeof userId === 'string' ? db.users[userId] : undefined;
@@ -314,7 +320,7 @@ app.get('/api/profile', (req, res) => {
   }
 
   if (!user) {
-    return res.status(404).json({ error: 'User tidak ditemukan' });
+    return res.json({ success: false, user: null, message: 'User tidak ditemukan' });
   }
   res.json({ success: true, user });
 });
@@ -323,7 +329,7 @@ app.get('/api/profile', (req, res) => {
 app.post(['/api/profile/sync', '/api/sync/cloud'], (req, res) => {
   const { user, pendingScores } = req.body;
   if (!user || typeof user !== 'object' || !user.id || !user.username) {
-    return res.status(400).json({ error: 'Data user tidak valid' });
+    return res.json({ success: false, message: 'Tidak ada data user untuk disinkronkan' });
   }
 
   const userId = String(user.id);
@@ -571,12 +577,12 @@ app.post('/api/auth/verify-password', (req, res) => {
   const cleanPassword = (password || '').trim();
 
   if (!userId) {
-    return res.status(400).json({ error: 'User ID diperlukan!' });
+    return res.json({ success: true, message: 'Sesi sudah bersih' });
   }
 
   const user = db.users[userId];
   if (!user) {
-    return res.status(404).json({ error: 'Pengguna tidak ditemukan.' });
+    return res.json({ success: true, message: 'Sesi sudah bersih' });
   }
 
   // Jika akun memiliki password terdaftar

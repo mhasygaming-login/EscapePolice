@@ -93,11 +93,11 @@ class SocketClient {
       try {
         this.socket = io(targetUrl, {
           path: '/socket.io',
-          transports: ['websocket', 'polling'],
+          transports: ['polling', 'websocket'],
           reconnection: true,
-          reconnectionAttempts: 4,
+          reconnectionAttempts: 5,
           reconnectionDelay: 1000,
-          timeout: 4000,
+          timeout: 5000,
         });
 
         const fallbackTimeout = setTimeout(() => {

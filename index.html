@@ -4,12 +4,69 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Escape the Police: Cyber Pursuit</title>
+    <script>
+      (function() {
+        const origError = console.error;
+        console.error = function(...args) {
+          const text = args.map(a => (typeof a === 'object' ? (a && a.message ? a.message : JSON.stringify(a)) : String(a))).join(' ');
+          if (
+            text.includes('WebSocket') ||
+            text.includes('websocket') ||
+            text.includes('[vite]') ||
+            text.includes('HMR') ||
+            text.includes('ws://') ||
+            text.includes('wss://')
+          ) {
+            return;
+          }
+          try {
+            fetch('/api/client-log', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'console.error', message: text })
+            }).catch(() => {});
+          } catch {}
+          origError.apply(console, args);
+        };
+        window.addEventListener('error', function(e) {
+          const msg = e && e.message ? e.message : String(e);
+          if (msg.includes('WebSocket') || msg.includes('[vite]') || msg.includes('HMR')) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          try {
+            fetch('/api/client-log', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'window.error', message: msg, filename: e.filename, lineno: e.lineno })
+            }).catch(() => {});
+          } catch {}
+        }, true);
+        window.addEventListener('unhandledrejection', function(e) {
+          const reason = e && e.reason ? (e.reason.message || String(e.reason)) : String(e);
+          if (reason.includes('WebSocket') || reason.includes('[vite]') || reason.includes('HMR')) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          try {
+            fetch('/api/client-log', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'unhandledrejection', message: reason })
+            }).catch(() => {});
+          } catch {}
+        });
+      })();
+    </script>
     <meta name="description" content="Retro-futuristic police pursuit racing game with real-time multiplayer, global leaderboards, avatar & vehicle customization, cloud sync, and tournament analytics." />
     <meta name="theme-color" content="#05050a" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="CyberPursuit" />
+    <link rel="icon" href="/favicon.ico" />
     <link rel="icon" type="image/jpeg" href="/cyber_pursuit_logo.jpg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta property="og:title" content="Escape the Police: Cyber Pursuit" />

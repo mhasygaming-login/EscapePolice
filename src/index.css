@@ -11,6 +11,12 @@
   --ep-border-strong: #0397aa;
   --ep-text: #ffffff;
   --ep-text-muted: #8f97a5;
+  --ep-modal-bg: #090c18;
+  --ep-modal-header: #081521;
+  --ep-card-bg: #0c0f1d;
+  --ep-card-border: #242736;
+  --ep-chip-bg: #0a3a4b;
+  --ep-btn-muted: #252734;
   --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.15);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);

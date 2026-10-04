@@ -144,7 +144,7 @@ export const encryptedActivityService = {
         localStorage.setItem(`${STORAGE_KEY}_${userId}`, encrypted);
       }
     } catch (err) {
-      console.error('Failed to save encrypted activity:', err);
+      console.warn('Failed to save encrypted activity:', err);
     }
   },
 

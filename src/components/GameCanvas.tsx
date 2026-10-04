@@ -659,12 +659,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     setLatestLeaderboardRank(null);
     setScoreSavedStatus('idle');
     setGameState('PLAYING');
-  }, [generateMission, difficulty]);
+    sound.startEngine(userRef.current?.carModel || user?.carModel || 'civic_fl5');
+  }, [generateMission, difficulty, user?.carModel]);
 
   startGameRef.current = startGame;
 
   const finishGameAndSave = useCallback((reason: 'completed' | 'crashed' = 'completed') => {
     sound.ensureContext();
+    sound.stopEngine();
     const state = loopRef.current;
     if (state.animationId) {
       cancelAnimationFrame(state.animationId);
@@ -985,9 +987,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     sound.ensureContext();
     if (gameState === 'PLAYING') {
       sound.play('click');
+      sound.stopEngine();
       setGameState('PAUSED');
     } else if (gameState === 'PAUSED') {
       sound.play('click');
+      sound.startEngine(userRef.current?.carModel || user?.carModel || 'civic_fl5');
       setGameState('PLAYING');
     }
   };
@@ -1129,6 +1133,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       // Smooth camera & world speed interpolation for silky progressive acceleration
       state.smoothSpeed = (state.smoothSpeed || currentSpeed) + (currentSpeed - (state.smoothSpeed || currentSpeed)) * 0.18;
       const renderSpeed = state.smoothSpeed;
+
+      // Real-time Procedural Physical Car Engine Sound Synthesizer
+      sound.updateEngine(
+        renderSpeed,
+        isMovingForward,
+        isMovingBackward,
+        p.nitroTimer > 0,
+        Boolean(p.isDrifting)
+      );
 
       // Real Tire Friction Skid Marks Left on Asphalt ("gesekan ban pada jalan yg berbekas")
       // Left on asphalt when steering firmly without any bubble/circle particles
@@ -2240,6 +2253,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     return () => {
       isRunning = false;
       cancelAnimationFrame(state.animationId);
+      sound.stopEngine();
     };
   }, [gameState, difficulty, generateMission, addToast]);
 
