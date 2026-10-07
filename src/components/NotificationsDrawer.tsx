@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { NotificationItem, UserProfile } from '../types/game';
-import { sound } from '../services/audio';
+import { NotificationItem, UserProfile } from '../types';
+import { sound } from '../services';
 import { Bell, CheckCheck, X, Trophy, Swords, Zap, Info, ShieldAlert } from 'lucide-react';
 
 interface NotificationsDrawerProps {

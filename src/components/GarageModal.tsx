@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserProfile } from '../types/game';
-import { api } from '../services/api';
-import { sound } from '../services/audio';
+import { UserProfile } from '../types';
+import { api, sound, CAR_CATALOG, getCarModel, drawCar2D, CarModelData } from '../services';
 import {
   Palette,
   Sparkles,
@@ -14,7 +13,6 @@ import {
   Activity,
   Gamepad2,
 } from 'lucide-react';
-import { CAR_CATALOG, getCarModel, drawCar2D, CarModelData } from '../services/cars';
 import { BrandLogo } from './BrandLogo';
 
 interface GarageModalProps {

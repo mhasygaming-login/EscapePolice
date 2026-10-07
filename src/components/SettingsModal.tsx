@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
-import { UserProfile } from '../types/game';
-import { api } from '../services/api';
-import { sound } from '../services/audio';
-import { socket } from '../services/socket';
+import { UserProfile } from '../types';
+import { api, sound, socket } from '../services';
 import {
   getServerBaseUrl,
   getCustomServerUrl,
   setCustomServerUrl,
   DEFAULT_CLOUD_BACKEND_URL,
-} from '../utils/serverUrl';
+} from '../utils';
 import {
   Settings,
   Sliders,

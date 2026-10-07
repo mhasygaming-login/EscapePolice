@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserProfile, MultiplayerRoom, DifficultyLevel, MultiplayerPlayerState } from '../types/game';
-import { socket } from '../services/socket';
-import { sound } from '../services/audio';
-import { getCarModel } from '../services/cars';
+import { UserProfile, MultiplayerRoom, DifficultyLevel, MultiplayerPlayerState } from '../types';
+import { socket, sound, getCarModel } from '../services';
 import { BrandLogo } from './BrandLogo';
-import { getPublicGameUrl, copyTextToClipboard } from '../utils/share';
+import { getPublicGameUrl, copyTextToClipboard } from '../utils';
 import {
   Users,
   Plus,
@@ -27,6 +25,7 @@ import {
   Smartphone,
   Laptop,
   ExternalLink,
+  WifiOff,
 } from 'lucide-react';
 
 interface MultiplayerLobbyProps {
@@ -256,6 +255,40 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
   );
 
   const readyCount = playerList.filter(p => p.status === 'ready').length;
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return (
+      <div className="w-full max-w-2xl mx-auto py-10 px-4 text-center">
+        <div className="rounded-3xl bg-[#0b0c18] border border-amber-500/30 p-8 sm:p-10 shadow-2xl space-y-5">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-400/40 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-500/20">
+            <WifiOff className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-amber-400">
+              Koneksi Jaringan Terputus
+            </div>
+            <h2 className="text-xl sm:text-2xl font-display font-black text-white">
+              MODE MULTIPLAYER MEMERLUKAN INTERNET
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-300 max-w-md mx-auto leading-relaxed">
+              Anda sedang berada dalam <strong>Mode Offline</strong>. Anda tetap dapat menikmati seluruh fitur Balapan Tunggal, Semua Map, Kustomisasi Mobil, dan Misi Bos!
+            </p>
+          </div>
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                sound.play('click');
+                onBackToSolo();
+              }}
+              className="px-6 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/25 active:scale-95 transition-all cursor-pointer"
+            >
+              Kembali ke Balapan Offline
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-5xl mx-auto py-3 px-3 sm:px-6">

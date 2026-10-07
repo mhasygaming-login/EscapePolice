@@ -1,16 +1,24 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { UserProfile, DifficultyLevel, MultiplayerRoom, MultiplayerPlayerState } from '../types/game';
-import { GameMapId, CameraViewMode, getMapData } from '../types/maps';
-import { roadsideScenery2D } from '../services/roadsideScenery2d';
-import { sound } from '../services/audio';
-import { api } from '../services/api';
-import { socket } from '../services/socket';
-import { drawCar2D, getCarModel } from '../services/cars';
 import {
+  UserProfile,
+  DifficultyLevel,
+  MultiplayerRoom,
+  MultiplayerPlayerState,
+  GameMapId,
+  CameraViewMode,
+  getMapData,
+} from '../types';
+import {
+  sound,
+  api,
+  socket,
+  drawCar2D,
+  getCarModel,
+  roadsideScenery2D,
   drawPoliceCar2D,
   drawPoliceMotorcycle2D,
   PoliceCarVariant,
-} from '../services/policeVehicles';
+} from '../services';
 import { PoliceFleetModal } from './PoliceFleetModal';
 import { MainGameLobby } from './MainGameLobby';
 import {

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Tournament, UserProfile } from '../types/game';
-import { api } from '../services/api';
-import { sound } from '../services/audio';
+import { Tournament, UserProfile } from '../types';
+import { api, sound } from '../services';
 import { Calendar, Clock, Trophy, Share2, PlusCircle, Check, Users, ExternalLink, Gamepad2 } from 'lucide-react';
 
 interface TournamentsModalProps {

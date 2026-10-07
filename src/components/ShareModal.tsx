@@ -13,7 +13,7 @@ import {
   Smartphone,
   Laptop
 } from 'lucide-react';
-import { getPublicGameUrl, copyTextToClipboard, PUBLIC_APP_URL } from '../utils/share';
+import { getPublicGameUrl, copyTextToClipboard, PUBLIC_APP_URL } from '../utils';
 
 interface ShareModalProps {
   isOpen: boolean;

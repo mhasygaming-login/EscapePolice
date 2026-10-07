@@ -5,26 +5,26 @@ import {
   DifficultyLevel,
   NotificationItem,
   ActiveTab,
-} from './types/game';
-import { GameMapId } from './types/maps';
-import { api } from './services/api';
-import { socket } from './services/socket';
-import { sound } from './services/audio';
-import { Navbar } from './components/Navbar';
-import { GameCanvas } from './components/GameCanvas';
-import { MultiplayerLobby } from './components/MultiplayerLobby';
-import { LeaderboardModal } from './components/LeaderboardModal';
-import { GarageModal } from './components/GarageModal';
-import { TournamentsModal } from './components/TournamentsModal';
-import { AnalyticsModal } from './components/AnalyticsModal';
-import { MapSelectModal } from './components/MapSelectModal';
-import { AuthModal } from './components/AuthModal';
-import { SettingsModal } from './components/SettingsModal';
-import { NotificationsDrawer } from './components/NotificationsDrawer';
-import { AuthScreen } from './components/AuthScreen';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { ShareModal } from './components/ShareModal';
-import { OfflineIndicator } from './components/OfflineIndicator';
+  GameMapId,
+} from './types';
+import { api, socket, sound } from './services';
+import {
+  Navbar,
+  GameCanvas,
+  MultiplayerLobby,
+  LeaderboardModal,
+  GarageModal,
+  TournamentsModal,
+  AnalyticsModal,
+  MapSelectModal,
+  AuthModal,
+  SettingsModal,
+  NotificationsDrawer,
+  AuthScreen,
+  ErrorBoundary,
+  ShareModal,
+  OfflineIndicator,
+} from './components';
 
 export default function App() {
   // Navigation
@@ -94,10 +94,14 @@ export default function App() {
   // Initialize user & session
   useEffect(() => {
     const initApp = async () => {
-      // Auto-load profile if valid registered session exists
+      // Auto-load profile if valid registered or offline session exists
       const profile = await api.getProfile();
-      if (profile && !profile.id.startsWith('guest_') && !profile.id.startsWith('offline_') && !profile.id.startsWith('anon')) {
+      if (profile) {
         setCurrentUser(profile);
+      } else if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        // Mode offline tanpa internet: langsung berikan pengemudi offline agar game langsung bisa dimainkan
+        const offlineDriver = api.getOrCreateOfflineUser();
+        setCurrentUser(offlineDriver);
       } else {
         setCurrentUser(null);
       }

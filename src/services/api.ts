@@ -1,6 +1,6 @@
-import { UserProfile, LeaderboardEntry, Tournament, NotificationItem, AnalyticsData, DifficultyLevel } from '../types/game';
+import { UserProfile, LeaderboardEntry, Tournament, NotificationItem, AnalyticsData, DifficultyLevel } from '../types';
 import { encryptedActivityService } from './encryptedActivity';
-import { buildApiUrl, DEFAULT_CLOUD_BACKEND_URL } from '../utils/serverUrl';
+import { buildApiUrl, DEFAULT_CLOUD_BACKEND_URL } from '../utils';
 
 const LOCAL_STORAGE_USER_KEY = 'cyber_pursuit_cached_user';
 const LOCAL_STORAGE_ACTIVE_SESSION = 'cyber_pursuit_active_session';
@@ -91,25 +91,80 @@ export const api = {
     }
   },
 
+  getOrCreateOfflineUser(): UserProfile {
+    const existing = this.getLocalUser();
+    if (existing) return existing;
+    const offlineDriver: UserProfile = {
+      id: 'offline_driver_' + Date.now(),
+      username: 'CyberDriver_Offline',
+      email: 'offline@driver.local',
+      avatar: '🏎️',
+      title: 'STREET GHOST',
+      carColor: '#00F0FF',
+      carModel: 'civic_fl5',
+      trailEffect: 'cyan_plasma',
+      twoFactorEnabled: false,
+      biometricEnabled: false,
+      achievements: ['first'],
+      stats: {
+        highScore: 0,
+        gamesPlayed: 0,
+        totalDistance: 0,
+        obstaclesDodged: 0,
+        powerUpsCollected: 0,
+        bestCombo: 0,
+        totalBounty: 100,
+        maxLevel: 1,
+        bossKills: 0,
+        nearMisses: 0,
+        empUsed: 0,
+        multiplayerWins: 0,
+        multiplayerMatches: 0,
+      },
+      layoutSettings: {
+        hudPosition: 'top',
+        controlsStyle: 'buttons',
+        screenShake: true,
+        scanlines: true,
+        soundEnabled: true,
+      },
+      notificationSettings: {
+        friendScores: true,
+        tournaments: true,
+        pushEnabled: true,
+        dailyMissions: true,
+      },
+      createdAt: new Date().toISOString(),
+      lastActive: new Date().toISOString(),
+    };
+    this.saveLocalUser(offlineDriver);
+    return offlineDriver;
+  },
+
   async getProfile(): Promise<UserProfile | null> {
     const local = this.getLocalUser();
-    const activeUserId = this.getActiveSessionUserId() || local?.id;
 
-    // Hanya pengguna yang terdaftar secara valid
-    if (!activeUserId || activeUserId.startsWith('guest_') || activeUserId.startsWith('offline_') || activeUserId.startsWith('anon')) {
-      return null;
+    // Mode Offline: langsung kembalikan profil lokal dari memori perangkat
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return local;
+    }
+
+    const activeUserId = this.getActiveSessionUserId() || local?.id;
+    if (!activeUserId) {
+      return local;
     }
 
     // Kembalikan profil lokal langsung agar loading sekejap
-    if (local && local.id === activeUserId) {
-      // Background sync jika online
-      this.syncCloudData().catch(() => {});
+    if (local && (local.id === activeUserId || activeUserId.startsWith('offline_') || activeUserId.startsWith('guest_'))) {
+      if (local.id.startsWith('usr_')) {
+        this.syncCloudData().catch(() => {});
+      }
       return local;
     }
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
       const res = await this.request(`/api/profile?userId=${encodeURIComponent(activeUserId)}`, {
         signal: controller.signal,
       });
@@ -600,7 +655,7 @@ export const api = {
     bossKilled?: boolean;
     empUsed?: number;
     nearMisses?: number;
-  }): Promise<{ success?: boolean; rank?: number; score?: LeaderboardEntry; userStats?: any; isRegistered?: boolean }> {
+  }): Promise<{ success?: boolean; rank?: number; score?: LeaderboardEntry; userStats?: any; isRegistered?: boolean; isOffline?: boolean }> {
     const local = this.getLocalUser();
     const enrichedPayload = {
       userId: payload.userId || local?.id || 'guest',
@@ -632,12 +687,40 @@ export const api = {
       details: `Combo x${payload.bestCombo}, PowerUp: ${payload.powerUpsCollected}${payload.bossKilled ? ', Boss Kalah!' : ''}`,
     });
 
+    // Jika sedang offline, langsung simpan secara lokal tanpa menunggu network timeout
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      try {
+        const pending = JSON.parse(localStorage.getItem(LOCAL_STORAGE_PENDING_SCORES) || '[]');
+        pending.push(enrichedPayload);
+        localStorage.setItem(LOCAL_STORAGE_PENDING_SCORES, JSON.stringify(pending));
+      } catch (e) {}
+
+      if (local) {
+        local.stats.gamesPlayed += 1;
+        local.stats.totalDistance += enrichedPayload.distance;
+        local.stats.obstaclesDodged += enrichedPayload.obstaclesDodged;
+        local.stats.powerUpsCollected += enrichedPayload.powerUpsCollected;
+        local.stats.nearMisses += enrichedPayload.nearMisses;
+        local.stats.empUsed += enrichedPayload.empUsed;
+        if (enrichedPayload.bossKilled) local.stats.bossKills += 1;
+        if (enrichedPayload.bestCombo > local.stats.bestCombo) local.stats.bestCombo = enrichedPayload.bestCombo;
+        if (enrichedPayload.score > local.stats.highScore) local.stats.highScore = enrichedPayload.score;
+        local.stats.totalBounty += Math.floor(enrichedPayload.score / 10) + (enrichedPayload.bossKilled ? 500 : 0);
+        this.saveLocalUser(local);
+      }
+      return { success: true, rank: 1, userStats: local?.stats, isRegistered: true, isOffline: true };
+    }
+
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
       const res = await this.request('/api/scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(enrichedPayload),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       const data = await res.json();
       // Also update local cached user stats
       if (local && data.userStats) {
@@ -668,7 +751,7 @@ export const api = {
         this.saveLocalUser(local);
       }
 
-      return { success: true, rank: 1, userStats: local?.stats, isRegistered: true };
+      return { success: true, rank: 1, userStats: local?.stats, isRegistered: true, isOffline: true };
     }
   },
 
@@ -730,7 +813,7 @@ export const api = {
     }
 
     let localEntries: LeaderboardEntry[] = Object.values(map)
-      .filter(u => u && u.username && !u.id.startsWith('guest_') && !u.id.startsWith('offline_'))
+      .filter(u => u && u.username)
       .map(u => ({
         id: 'sc_' + u.id,
         userId: u.id,

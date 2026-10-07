@@ -1,5 +1,5 @@
 import Peer, { DataConnection } from 'peerjs';
-import { MultiplayerRoom, MultiplayerPlayerState, DifficultyLevel } from '../types/game';
+import { MultiplayerRoom, MultiplayerPlayerState, DifficultyLevel } from '../types';
 import { api } from './api';
 
 type EventCallback = (data: any) => void;

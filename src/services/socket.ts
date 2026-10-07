@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
-import { NotificationItem } from '../types/game';
-import { getServerBaseUrl, DEFAULT_CLOUD_BACKEND_URL } from '../utils/serverUrl';
+import { NotificationItem } from '../types';
+import { getServerBaseUrl, DEFAULT_CLOUD_BACKEND_URL } from '../utils';
 import { peerMultiplayer } from './peerMultiplayer';
 
 type MessageHandler = (data: any) => void;

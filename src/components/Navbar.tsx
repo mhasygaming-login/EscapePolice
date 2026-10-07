@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserProfile, ActiveTab } from '../types/game';
+import { UserProfile, ActiveTab } from '../types';
 import {
   Trophy,
   Users,
@@ -191,6 +191,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Sisi Kanan Utility Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Status Mode Offline */}
+          {!isOnline && (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider"
+              title="Game sedang berjalan dalam Mode Offline (Semua skor & progres tersimpan di perangkat)"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              <span>OFFLINE</span>
+            </div>
+          )}
+
           {/* Audio Mute Toggle */}
           <button
             onClick={onToggleSound}

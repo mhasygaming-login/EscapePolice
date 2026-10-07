@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   drawPoliceCar2D,
   drawPoliceMotorcycle2D,
-  PoliceCarVariant
-} from '../services/policeVehicles';
+  PoliceCarVariant,
+  sound
+} from '../services';
 import { Shield, Siren, X, Zap, ChevronRight, Gauge } from 'lucide-react';
-import { sound } from '../services/audio';
 
 interface PoliceFleetModalProps {
   isOpen: boolean;

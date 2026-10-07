@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { LeaderboardEntry, UserProfile } from '../types/game';
-import { api } from '../services/api';
-import { sound } from '../services/audio';
-import { socket } from '../services/socket';
+import { LeaderboardEntry, UserProfile } from '../types';
+import { api, sound, socket } from '../services';
 import { Trophy, Medal, Search, RefreshCw, Flame, ShieldCheck, Radio, UserPlus, Gamepad2 } from 'lucide-react';
 
 interface LeaderboardModalProps {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { usePWAInstall } from '../hooks/usePWAInstall';
+import { usePWAInstall } from '../hooks';
 import { Download, Smartphone, X, CheckCircle2 } from 'lucide-react';
-import { sound } from '../services/audio';
+import { sound } from '../services';
 
 export const PWAInstallButton: React.FC<{ className?: string }> = ({ className = '' }) => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();

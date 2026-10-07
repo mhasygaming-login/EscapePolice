@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { GameMapId, MAPS_LIST } from '../types/maps';
-import { sound } from '../services/audio';
+import { GameMapId, MAPS_LIST } from '../types';
+import { sound } from '../services';
 import {
   Compass,
   Building2,

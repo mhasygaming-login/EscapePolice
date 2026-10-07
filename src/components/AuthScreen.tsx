@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { UserProfile } from '../types/game';
-import { api } from '../services/api';
-import { sound } from '../services/audio';
+import { UserProfile } from '../types';
+import { api, sound } from '../services';
+import { useOnlineStatus } from '../hooks';
 import {
   Lock,
   User,
@@ -14,7 +14,8 @@ import {
   Gamepad2,
   KeyRound,
   Eye,
-  EyeOff
+  EyeOff,
+  WifiOff
 } from 'lucide-react';
 
 interface AuthScreenProps {
@@ -41,6 +42,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     return null;
   }, []);
 
+  const isOnline = useOnlineStatus();
   const [tab, setTab] = useState<'login' | 'register'>(invitedRoomCode ? 'register' : initialTab);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -314,6 +316,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
           {/* Mode Offline / Tanpa Akun */}
           <div className="mt-6 pt-5 border-t border-white/10 flex flex-col items-center gap-2.5">
+            {!isOnline && (
+              <div className="w-full mb-1 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-start gap-2.5 text-xs text-amber-200">
+                <WifiOff className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold text-amber-300">Koneksi Internet Terputus</div>
+                  <div className="text-[11px] text-amber-200/80 mt-0.5">
+                    Game dapat dimainkan 100% secara offline! Klik tombol di bawah untuk langsung balapan.
+                  </div>
+                </div>
+              </div>
+            )}
             <button
               type="button"
               onClick={async () => {
@@ -323,13 +336,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   onLoginSuccess(guestRes.user);
                 }
               }}
-              className="text-xs text-cyan-400 hover:text-cyan-300 font-display font-bold uppercase tracking-wider flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-cyan-500/10 transition-colors cursor-pointer"
+              className={`w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 font-display font-black text-xs uppercase tracking-wider transition-all cursor-pointer ${
+                !isOnline
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-lg shadow-amber-500/30 hover:brightness-110 active:scale-95 animate-pulse'
+                  : 'bg-white/5 hover:bg-cyan-500/15 border border-white/10 hover:border-cyan-400/40 text-cyan-400 hover:text-cyan-300'
+              }`}
             >
-              <Gamepad2 className="w-3.5 h-3.5" />
-              <span>Main Mode Offline (Tanpa Akun)</span>
+              <Gamepad2 className="w-4 h-4" />
+              <span>Main Mode Offline (Tanpa Internet)</span>
             </button>
-            <p className="text-[11px] text-gray-500 text-center">
-              Dapat dimainkan tanpa internet. Skor & progres dapat disinkronkan ke Cloud saat online.
+            <p className="text-[11px] text-gray-400 text-center">
+              Dapat dimainkan tanpa internet. Skor & progres otomatis tersimpan di perangkat dan disinkronkan saat online.
             </p>
           </div>
         </div>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile, AnalyticsData } from '../types/game';
-import { api } from '../services/api';
-import { sound } from '../services/audio';
+import { UserProfile, AnalyticsData } from '../types';
+import { api, sound } from '../services';
 import { BarChart3, TrendingUp, Zap, Target, Flame, Clock, Award, Gamepad2 } from 'lucide-react';
 
 interface AnalyticsModalProps {

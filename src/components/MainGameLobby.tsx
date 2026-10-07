@@ -1,7 +1,6 @@
 import React from 'react';
-import { UserProfile, DifficultyLevel } from '../types/game';
-import { GameMapId, getMapData } from '../types/maps';
-import { getCarModel } from '../services/cars';
+import { UserProfile, DifficultyLevel, GameMapId, getMapData } from '../types';
+import { getCarModel } from '../services';
 import { InteractiveSelector, DifficultyId } from './ui/interactive-selector';
 
 interface MainGameLobbyProps {
