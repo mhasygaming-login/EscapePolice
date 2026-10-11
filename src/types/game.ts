@@ -105,6 +105,7 @@ export interface MultiplayerPlayerState {
   avatar: string;
   carColor: string;
   carModel: string;
+  laneIndex?: number;
   x: number;
   y: number;
   speed?: number;
@@ -149,4 +150,66 @@ export interface AnalyticsData {
     highestBounty: number;
     topDifficulty: string;
   };
+}
+
+// ----------------------------------------------------
+// GHOST REPLAY (DATA-DRIVEN TELEMETRY REPLAY) TYPES
+// ----------------------------------------------------
+
+export interface ReplayPlayerSnapshot {
+  id: string;
+  username: string;
+  avatar: string;
+  carColor: string;
+  carModel: string;
+  laneIndex?: number;
+  x: number;
+  y: number;
+  speed: number;
+  distance: number;
+  steer: number;
+  gas?: boolean;
+  brake?: boolean;
+  nitro?: boolean;
+  hp: number;
+  score: number;
+  status: 'playing' | 'crashed' | 'finished';
+}
+
+export interface ReplayObstacleSnapshot {
+  x: number;
+  y: number;
+  type: string;
+  model?: string;
+  color?: string;
+}
+
+export interface ReplayFrame {
+  t: number; // Timestamp relatif dalam millisecond dari saat GO
+  players: Record<string, ReplayPlayerSnapshot>;
+  obstacles?: ReplayObstacleSnapshot[];
+}
+
+export interface RaceReplay {
+  id: string;
+  roomCode?: string;
+  matchName: string;
+  difficulty: DifficultyLevel;
+  mapId: string;
+  targetDistance?: number;
+  winnerId?: string;
+  winnerName?: string;
+  durationMs: number;
+  playerSummary: {
+    id: string;
+    username: string;
+    avatar: string;
+    carColor: string;
+    carModel: string;
+    finalScore: number;
+    finalDistance: number;
+    status: 'crashed' | 'finished';
+  }[];
+  frames: ReplayFrame[];
+  createdAt: string;
 }

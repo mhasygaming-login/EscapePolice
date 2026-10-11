@@ -321,7 +321,6 @@ export function drawPoliceCar2D(ctx: CanvasRenderingContext2D, options: DrawPoli
 
   // 9. Rear Trunk / Hatch & Taillights
   const trunkY = cabinY + cabinH;
-  const trunkH = halfH - trunkY;
 
   if (variant === 'sports') {
     // GT Wing / Pursuit Spoiler

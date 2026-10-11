@@ -5,21 +5,70 @@
   --ep-nav: #07090f;
   --ep-surface: #0d121d;
   --ep-surface-glass: rgba(10, 15, 22, 0.78);
-  --ep-accent: #00e5ff;
-  --ep-accent-glow: rgba(0, 229, 255, 0.35);
+  --ep-accent: #00b8db;
+  --ep-accent-glow: rgba(0, 184, 219, 0.35);
   --ep-border: #0a4c5b;
   --ep-border-strong: #0397aa;
   --ep-text: #ffffff;
   --ep-text-muted: #8f97a5;
   --ep-modal-bg: #090c18;
   --ep-modal-header: #081521;
-  --ep-card-bg: #0c0f1d;
-  --ep-card-border: #242736;
+  --ep-card-bg: #0c0d1b;
+  --ep-card-border: #30313d;
+  --ep-tab-inactive-bg: #04050b;
+  --ep-field-bg: #e8f0fe;
+  --ep-field-icon: #9fa7b5;
+  --ep-note-bg: #091b2c;
+  --ep-note-text: #74b2be;
+  --ep-cyan: #00b8db;
+  --ep-magenta: #e12afb;
+  --ep-title-escape: #00e5ff;
+  --ep-title-police: #f2a6ff;
+  --ep-badge-bg: #061928;
+  --ep-badge-text: #01caed;
   --ep-chip-bg: #0a3a4b;
   --ep-btn-muted: #252734;
   --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.15);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ripple {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(0.9); }
+}
+
+@keyframes orbit {
+  0% { transform: rotate(0deg) translateY(calc(var(--radius, 50) * 1px)) rotate(0deg); }
+  100% { transform: rotate(360deg) translateY(calc(var(--radius, 50) * 1px)) rotate(-360deg); }
+}
+
+.animate-ripple {
+  animation: ripple 2s ease calc(var(--i, 0) * 0.2s) infinite;
+}
+
+.animate-orbit {
+  animation: orbit calc(var(--duration, 20) * 1s) linear infinite;
+}
+
+/* Sapuan lightbar cyan↔magenta di belakang logo */
+.beacon-sweep {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    var(--ep-cyan) 40deg,
+    transparent 90deg,
+    transparent 180deg,
+    var(--ep-magenta) 220deg,
+    transparent 270deg,
+    transparent 360deg
+  );
+  mix-blend-mode: screen;
+  animation: beacon-spin 3s linear infinite;
+}
+
+@keyframes beacon-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Animasi header & elemen transisi lembut */

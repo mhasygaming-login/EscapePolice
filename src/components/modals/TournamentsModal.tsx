@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Tournament, UserProfile } from '../types';
-import { api, sound } from '../services';
-import { Calendar, Clock, Trophy, Share2, PlusCircle, Check, Users, ExternalLink, Gamepad2 } from 'lucide-react';
+import { Tournament, UserProfile } from '../../types';
+import { api, sound } from '../../services';
+import { Calendar, Clock, Trophy, Share2, Check, Users, ExternalLink, Gamepad2 } from 'lucide-react';
 
 interface TournamentsModalProps {
   user: UserProfile | null;
@@ -128,8 +128,17 @@ export const TournamentsModal: React.FC<TournamentsModalProps> = ({ user, onBack
       </div>
 
       {/* Tournament Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-        {tournaments.map(t => {
+      {loading ? (
+        <div className="py-12 text-center text-sm font-mono text-cyan-400 animate-pulse">
+          Memuat jadwal turnamen resmi...
+        </div>
+      ) : tournaments.length === 0 ? (
+        <div className="py-12 text-center text-sm font-mono text-gray-400">
+          Belum ada turnamen aktif saat ini.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {tournaments.map(t => {
           const startDate = new Date(t.startTime);
           const endDate = new Date(t.endTime);
           const isLive = Date.now() >= startDate.getTime() && Date.now() <= endDate.getTime();
@@ -253,6 +262,7 @@ export const TournamentsModal: React.FC<TournamentsModalProps> = ({ user, onBack
           );
         })}
       </div>
+      )}
     </div>
   );
 };

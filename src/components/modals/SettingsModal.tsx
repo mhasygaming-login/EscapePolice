@@ -1,30 +1,23 @@
 import React, { useState } from 'react';
-import { UserProfile } from '../types';
-import { api, sound, socket } from '../services';
+import { UserProfile } from '../../types';
+import { api, sound, socket } from '../../services';
 import {
   getServerBaseUrl,
   getCustomServerUrl,
   setCustomServerUrl,
   DEFAULT_CLOUD_BACKEND_URL,
-} from '../utils';
+} from '../../utils';
 import {
-  Settings,
   Sliders,
   Bell,
   Monitor,
-  Volume2,
   X,
   Check,
   LogOut,
   Shield,
   ShieldCheck,
-  User,
-  KeyRound,
-  UserCheck,
-  Globe,
   Server,
   Wifi,
-  RefreshCw,
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';

@@ -1,6 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-import { NotificationItem } from '../types';
-import { getServerBaseUrl, DEFAULT_CLOUD_BACKEND_URL } from '../utils';
+import { getServerBaseUrl } from '../utils';
 import { peerMultiplayer } from './peerMultiplayer';
 
 type MessageHandler = (data: any) => void;
@@ -15,7 +14,6 @@ class SocketClient {
   public ping: number = 0;
   private pingInterval: any = null;
   private activeServerUrl: string = '';
-  private triedFallback: boolean = false;
   private p2pEventsWired: boolean = false;
 
   constructor() {
@@ -66,7 +64,6 @@ class SocketClient {
     peerMultiplayer.cleanup();
     this.isConnected = false;
     this.isP2P = false;
-    this.triedFallback = false;
     if (newUrl) {
       this.activeServerUrl = newUrl;
     }

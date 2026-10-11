@@ -5,9 +5,8 @@ import {
   MultiplayerRoom,
   MultiplayerPlayerState,
   GameMapId,
-  CameraViewMode,
   getMapData,
-} from '../types';
+} from '../../types';
 import {
   sound,
   api,
@@ -18,34 +17,27 @@ import {
   drawPoliceCar2D,
   drawPoliceMotorcycle2D,
   PoliceCarVariant,
-} from '../services';
-import { PoliceFleetModal } from './PoliceFleetModal';
+} from '../../services';
+import { PoliceFleetModal } from '../modals/PoliceFleetModal';
 import { MainGameLobby } from './MainGameLobby';
+import { BustedScreen } from './BustedScreen';
 import {
   Play,
   RotateCcw,
   Volume2,
   VolumeX,
   Pause,
-  AlertTriangle,
   Zap,
-  Shield,
-  Magnet,
   Trophy,
   Crown,
-  Medal,
   Flame,
   Swords,
   Users,
-  AlertCircle,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   ChevronDown,
-  Siren,
-  Compass,
-  Snowflake,
+  Film,
 } from 'lucide-react';
 
 interface GameCanvasProps {
@@ -55,6 +47,7 @@ interface GameCanvasProps {
   onLeaveMultiplayer?: () => void;
   onRematchMultiplayer?: () => void;
   onReturnToLobby?: () => void;
+  onWatchReplay?: (replayId?: string) => void;
   difficulty?: DifficultyLevel;
   onChangeDifficulty?: (diff: DifficultyLevel) => void;
   onOpenMultiplayer?: () => void;
@@ -70,13 +63,6 @@ const diffSettings = {
   NORMAL: { baseSpeed: 5, spawnBase: 59, obstacleSpeedMul: 1, traffic: 1, ai: 1 },
   HARD: { baseSpeed: 6.5, spawnBase: 46, obstacleSpeedMul: 1.3, traffic: 1.2, ai: 1.25 },
   MAXXX: { baseSpeed: 8, spawnBase: 34, obstacleSpeedMul: 1.65, traffic: 1.45, ai: 1.6 },
-};
-
-const diffDescriptions = {
-  EASY: 'Musuh lebih santai & lambat. Cocok untuk pemanasan.',
-  NORMAL: 'Kecepatan & kepadatan musuh seimbang.',
-  HARD: 'Jalanan penuh sirene & helikopter. Untuk yang cari tantangan.',
-  MAXXX: 'Armada AI taktis, drone tempur, interceptor brutal. Tanpa ampun.',
 };
 
 // Roadway geometry scaled to ensure visible, vibrant roadside scenery on both shoulders
@@ -102,9 +88,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   onLeaveMultiplayer,
   onRematchMultiplayer,
   onReturnToLobby,
+  onWatchReplay,
   difficulty: externalDifficulty,
   onChangeDifficulty,
-  onOpenMultiplayer,
   onOpenGarage,
   onOpenLeaderboard,
   selectedMapId = 'kota',
@@ -119,6 +105,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const gameStateRef = useRef(gameState);
   gameStateRef.current = gameState;
   const [difficulty, setInternalDifficulty] = useState<DifficultyLevel>(externalDifficulty || 'NORMAL');
+  const [lastReplayId, setLastReplayId] = useState<string | null>(null);
 
   // Map state
   const [internalMapId, setInternalMapId] = useState<GameMapId>(selectedMapId);
@@ -151,14 +138,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const [maxHp] = useState(5);
   const [level, setLevel] = useState(1);
   const [combo, setCombo] = useState(0);
-  const [heat, setHeat] = useState(0);
   const [bountyEarned, setBountyEarned] = useState(0);
   const [distance, setDistance] = useState(0);
   const [dodgedCount, setDodgedCount] = useState(0);
-  const [powerupsCount, setPowerupsCount] = useState(0);
-  const [bestComboRun, setBestComboRun] = useState(0);
   const [missionText, setMissionText] = useState('MISI: —');
-  const [bossInfo, setBossInfo] = useState<{ active: boolean; hp: number; maxHp: number } | null>(null);
   const [toasts, setToasts] = useState<{ id: string; text: string; color: string }[]>([]);
   const [activePowers, setActivePowers] = useState<{ label: string; time: number; color: string }[]>([]);
   const [nitroEnergy, setNitroEnergy] = useState(50);
@@ -167,7 +150,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const [multiplayerWinner, setMultiplayerWinner] = useState<string | null>(null);
   const [multiplayerFinishReason, setMultiplayerFinishReason] = useState<string | null>(null);
   const [multiplayerCountdown, setMultiplayerCountdown] = useState<{ count: number; message: string } | null>(null);
-  const [spectating, setSpectating] = useState(false);
   const [latestLeaderboardRank, setLatestLeaderboardRank] = useState<number | null>(null);
   const [scoreSavedStatus, setScoreSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'unregistered'>('idle');
   const [showFleetModal, setShowFleetModal] = useState(false);
@@ -179,6 +161,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   multiplayerRoomRef.current = multiplayerRoom;
   const opponentsRef = useRef<Record<string, MultiplayerPlayerState>>({});
   opponentsRef.current = opponents;
+  const localReplayFramesRef = useRef<any[]>([]);
+  const raceStartedAtRef = useRef<number>(0);
   const highScoreRef = useRef(highScore);
   highScoreRef.current = highScore;
   const onScoreSubmittedRef = useRef(onScoreSubmitted);
@@ -236,10 +220,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           avatar: data.avatar || '🏎️',
           carColor: data.carColor || '#ff2d6b',
           carModel: data.carModel || 'civic_fl5',
+          laneIndex: data.laneIndex ?? opponentsRef.current[data.userId]?.laneIndex,
           x: data.x,
           y: data.y,
           speed: data.speed ?? 0,
           distance: data.distance ?? 0,
+          steer: data.steer ?? 0,
+          gas: !!data.gas,
+          brake: !!data.brake,
+          nitro: !!data.nitro,
           score: data.score,
           hp: data.hp,
           combo: data.combo,
@@ -283,9 +272,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (!data?.room) return;
       if (data.room.status === 'in_game') {
         if (gameStateRef.current !== 'PLAYING') {
-          setSpectating(false);
-          setMultiplayerWinner(null);
-          startGameRef.current();
+          handleAuthoritativeRaceStart({ room: data.room, initialPlayers: data.room.players });
         }
       } else if (data.room.status === 'finished') {
         setMultiplayerWinner(data.room.winnerId || null);
@@ -293,24 +280,159 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
     });
 
+    const handleAuthoritativeRaceStart = (data: any) => {
+      if (raceStartedAtRef.current && Date.now() - raceStartedAtRef.current < 2000) {
+        return;
+      }
+      raceStartedAtRef.current = Date.now();
+
+      setMultiplayerCountdown({ count: 0, message: data.message || 'GO! BALAPAN DIMULAI!' });
+      sound.play('nitro');
+      setMultiplayerWinner(null);
+
+      const canvas = canvasRef.current;
+      const w = canvas?.width || 720;
+      const h = canvas?.height || 560;
+      const geom = getRoadGeometry(w);
+
+      // Re-inisialisasi bersih: ambil state awal fresh yang dikirimkan server tepat saat GO
+      const rawPlayers = data.initialPlayers || data.room?.players;
+      const freshOpponents: Record<string, MultiplayerPlayerState> = {};
+      let myAssignedLane = 0;
+
+      if (rawPlayers) {
+        for (const [pId, pl] of Object.entries(rawPlayers)) {
+          const oppState = pl as MultiplayerPlayerState;
+          if (pId === (userRef.current?.id || user?.id)) {
+            myAssignedLane = oppState.laneIndex ?? 0;
+          } else {
+            const lane = oppState.laneIndex ?? 1;
+            const startX = geom.laneCenters[lane] ? geom.laneCenters[lane] - 22 : geom.roadLeft + geom.roadWidth / 2 - 22;
+            freshOpponents[pId] = {
+              ...oppState,
+              laneIndex: lane,
+              x: startX,
+              y: h - 140,
+              speed: 0,
+              distance: 0,
+              steer: 0,
+              gas: false,
+              brake: false,
+              nitro: false,
+              hp: 3,
+              score: 0,
+              combo: 0,
+              status: 'playing',
+            };
+          }
+        }
+      }
+
+      // Pastikan state lama remote player digantikan sepenuhnya dengan state awal fresh
+      setOpponents(freshOpponents);
+      opponentsRef.current = freshOpponents;
+
+      // Mulai balapan lokal & letakkan posisi mobil pemain lokal di lane grid yang ditentukan server
+      startGameRef.current();
+
+      const myStartX = geom.laneCenters[myAssignedLane] ? geom.laneCenters[myAssignedLane] - 22 : geom.roadLeft + geom.roadWidth / 2 - 22;
+      if (loopRef.current.player) {
+        loopRef.current.player.x = myStartX;
+        loopRef.current.player.y = h - 140;
+        loopRef.current.player.vx = 0;
+        loopRef.current.player.vy = 0;
+        loopRef.current.player.speed = 0;
+        loopRef.current.player.driftAngle = 0;
+        loopRef.current.player.isDrifting = false;
+        loopRef.current.player.nitroTimer = 0;
+      }
+      loopRef.current.skidMarks = [];
+      loopRef.current.particles = [];
+      loopRef.current.floatingTexts = [];
+
+      // Kirim balik konfirmasi posisi awal lokal segera ke server
+      socket.send({
+        type: 'player_sync',
+        code: multiplayerRoomRef.current?.code,
+        userId: userRef.current?.id || user?.id,
+        username: userRef.current?.username || user?.username,
+        avatar: userRef.current?.avatar || user?.avatar,
+        carColor: userRef.current?.carColor || user?.carColor,
+        carModel: userRef.current?.carModel || user?.carModel,
+        laneIndex: myAssignedLane,
+        x: myStartX,
+        y: h - 140,
+        speed: 0,
+        distance: 0,
+        steer: 0,
+        gas: false,
+        brake: false,
+        nitro: false,
+        score: 0,
+        hp: 3,
+        combo: 0,
+        status: 'playing',
+      });
+
+      setTimeout(() => setMultiplayerCountdown(null), 1500);
+    };
+
     const unbindCountdown = socket.on('countdown_tick', (data: any) => {
       if (data.count > 0) {
         setMultiplayerCountdown({ count: data.count, message: data.message || `${data.count}` });
-        sound.play('click');
-      } else {
-        setMultiplayerCountdown({ count: 0, message: 'GO! BALAPAN DIMULAI!' });
-        sound.play('nitro');
-        setSpectating(false);
-        setMultiplayerWinner(null);
-        if (gameStateRef.current !== 'PLAYING') {
-          startGameRef.current();
+        if (!data.isBuffer && !data.isArmed) {
+          sound.play('click');
         }
-        setTimeout(() => setMultiplayerCountdown(null), 1500);
+
+        // Tampilkan posisi grid awal remote player saat countdown berlangsung
+        const rawPlayers = data.initialPlayers || data.room?.players;
+        if (rawPlayers) {
+          const freshOpponents: Record<string, MultiplayerPlayerState> = {};
+          const canvas = canvasRef.current;
+          const w = canvas?.width || 720;
+          const h = canvas?.height || 560;
+          const geom = getRoadGeometry(w);
+
+          for (const [pId, pl] of Object.entries(rawPlayers)) {
+            if (pId !== (userRef.current?.id || user?.id)) {
+              const oppState = pl as MultiplayerPlayerState;
+              const lane = oppState.laneIndex ?? 1;
+              const startX = geom.laneCenters[lane] ? geom.laneCenters[lane] - 22 : geom.roadLeft + geom.roadWidth / 2 - 22;
+              freshOpponents[pId] = {
+                ...oppState,
+                laneIndex: lane,
+                x: startX,
+                y: h - 140,
+                speed: 0,
+                distance: 0,
+                steer: 0,
+                gas: false,
+                brake: false,
+                nitro: false,
+                hp: 3,
+                score: 0,
+                status: 'countdown',
+              };
+            }
+          }
+          setOpponents(freshOpponents);
+          opponentsRef.current = freshOpponents;
+        }
+      } else {
+        // COUNT === 0: SINYAL "GO" AUTHORITATIVE DARI SERVER
+        handleAuthoritativeRaceStart(data);
       }
+    });
+
+    const unbindRaceStart = socket.on('race_start', (data: any) => {
+      handleAuthoritativeRaceStart(data);
     });
 
     const unbindRaceFinish = socket.on('race_finish', (data: any) => {
       setMultiplayerWinner(data.winnerId || null);
+      if (data.replayId) {
+        setLastReplayId(data.replayId);
+      }
       if (data.reason) {
         setMultiplayerFinishReason(data.reason);
         addToast(`🏁 ${data.reason}`, 'amber');
@@ -337,6 +459,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       unbindAction();
       unbindRoomState();
       unbindCountdown();
+      unbindRaceStart();
       unbindRaceFinish();
     };
   }, [multiplayerRoom?.code, user?.id, addToast]);
@@ -653,16 +776,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     loopRef.current.level = 1;
     loopRef.current.boss = null;
     loopRef.current.bossTimer = 0;
+    localReplayFramesRef.current = [];
 
     generateMission();
     setScore(0);
     setHp(startingHp);
     setLevel(1);
     setCombo(0);
-    setHeat(0);
     setNitroEnergy(50);
     setEmpCharges(2);
-    setBossInfo(null);
     setMultiplayerWinner(null);
     setLatestLeaderboardRank(null);
     setScoreSavedStatus('idle');
@@ -691,8 +813,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     setHp(state.player.hp);
     setDistance(Math.floor(state.distance));
     setDodgedCount(state.obstaclesDodged);
-    setPowerupsCount(state.powerUpsCollected);
-    setBestComboRun(state.bestCombo);
     setBountyEarned(Math.floor(state.bounty));
 
     setScoreSavedStatus('saving');
@@ -747,7 +867,50 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         avatar: userRef.current?.avatar || user?.avatar,
       });
     }
-  }, [difficulty, user]);
+
+    // Simpan Ghost Replay Telemetri Balapan
+    if (localReplayFramesRef.current.length > 5) {
+      const repId = 'replay_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+      const isMulti = !!multiplayerRoomRef.current;
+      const recData = {
+        id: repId,
+        roomCode: multiplayerRoomRef.current?.code,
+        matchName: isMulti ? `Duel ${multiplayerRoomRef.current?.name}` : `Balapan Solo (${difficulty})`,
+        difficulty,
+        mapId: mapIdRef.current || 'kota',
+        targetDistance: multiplayerRoomRef.current?.targetDistance || (Math.round(state.distance) + 200),
+        winnerId: multiplayerWinner || (reason === 'completed' ? (userRef.current?.id || 'player') : null),
+        winnerName: userRef.current?.username || 'Pembalap',
+        durationMs: Math.round(state.frameCount * 16.66),
+        playerSummary: [
+          {
+            id: userRef.current?.id || 'player',
+            username: userRef.current?.username || 'Kamu',
+            avatar: userRef.current?.avatar || '🏎️',
+            carColor: userRef.current?.carColor || '#00f0ff',
+            carModel: userRef.current?.carModel || 'civic_fl5',
+            distance: Math.round(state.distance),
+            score: finalScoreVal,
+            status: reason,
+          },
+          ...Object.values(opponentsRef.current).map(op => ({
+            id: op.id,
+            username: op.username,
+            avatar: op.avatar || '🏎️',
+            carColor: op.carColor,
+            carModel: op.carModel,
+            distance: Math.round(op.distance),
+            score: Math.round(op.score || 0),
+            status: op.status,
+          }))
+        ],
+        frames: localReplayFramesRef.current,
+        createdAt: new Date().toISOString(),
+      };
+      api.saveReplay(recData).catch(() => {});
+      setLastReplayId(repId);
+    }
+  }, [difficulty, user, multiplayerWinner]);
 
   const finishGameAndSaveRef = useRef(finishGameAndSave);
   finishGameAndSaveRef.current = finishGameAndSave;
@@ -774,7 +937,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (e.code === 'Space' || e.key === 'Shift') {
         if (gameState === 'PLAYING') {
           activateNitro();
-        } else if (gameState === 'START' || gameState === 'GAMEOVER') {
+        } else if ((gameState === 'START' || gameState === 'GAMEOVER') && !multiplayerRoomRef.current) {
           startGame();
         }
       }
@@ -794,9 +957,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
       if (e.key === 'Enter') {
-        if (gameState === 'START') startGame();
-        else if (gameState === 'GAMEOVER') startGame();
-        else if (gameState === 'PAUSED') togglePause();
+        if ((gameState === 'START' || gameState === 'GAMEOVER') && !multiplayerRoomRef.current) {
+          startGame();
+        } else if (gameState === 'PAUSED') {
+          togglePause();
+        }
       }
     };
 
@@ -968,21 +1133,79 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.fillRect(roadLeft + roadWidth / 2 - 2, 0, 4, canvas.height);
       ctx.globalAlpha = 1;
 
-      // Cruising Player Car Preview
+      // Cruising Player Car Preview or Multiplayer Starting Grid Preview
       const previewCarModel = userRef.current?.carModel || user?.carModel || 'civic_fl5';
       const previewCarColor = userRef.current?.carColor || user?.carColor || '#f8fafc';
-      drawCar2D(ctx, {
-        x: roadLeft + roadWidth / 2,
-        y: canvas.height - 120 + Math.sin(offset * 0.15) * 1.5,
-        width: 44,
-        height: 82,
-        model: previewCarModel,
-        color: previewCarColor,
-        isNitro: false,
-        frameCount: Math.floor(offset),
-        showShadow: true,
-        showUnderglow: true,
-      });
+
+      if (multiplayerRoomRef.current) {
+        const { laneCenters } = getRoadGeometry(canvas.width);
+        const myData = multiplayerRoomRef.current.players?.[userRef.current?.id || user?.id || ''];
+        const myLane = myData?.laneIndex ?? 0;
+        const myX = laneCenters[myLane] ? laneCenters[myLane] : roadLeft + roadWidth / 2;
+
+        // Render Opponents waiting on starting grid
+        const oppList = Object.values(opponentsRef.current) as MultiplayerPlayerState[];
+        for (const opp of oppList) {
+          if (opp.id === (userRef.current?.id || user?.id)) continue;
+          const oppLane = opp.laneIndex ?? 1;
+          const oppX = laneCenters[oppLane] ? laneCenters[oppLane] : roadLeft + roadWidth / 2;
+          const oppY = canvas.height - 120 + Math.sin((offset + 20) * 0.15) * 1.5;
+
+          drawCar2D(ctx, {
+            x: oppX,
+            y: oppY,
+            width: 44,
+            height: 82,
+            model: opp.carModel || 'civic_fl5',
+            color: opp.carColor || '#ff2d6b',
+            isNitro: false,
+            frameCount: Math.floor(offset),
+            showShadow: true,
+            showUnderglow: true,
+          });
+
+          ctx.font = 'bold 10px Orbitron, sans-serif';
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${opp.avatar || '🏎️'} ${opp.username}`, oppX, oppY - 48);
+        }
+
+        // Render Local Player waiting on starting grid
+        drawCar2D(ctx, {
+          x: myX,
+          y: canvas.height - 120 + Math.sin(offset * 0.15) * 1.5,
+          width: 44,
+          height: 82,
+          model: previewCarModel,
+          color: previewCarColor,
+          isNitro: false,
+          frameCount: Math.floor(offset),
+          showShadow: true,
+          showUnderglow: true,
+        });
+
+        ctx.font = 'bold 10px Orbitron, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+          `${userRef.current?.avatar || user?.avatar || '🏎️'} ${userRef.current?.username || user?.username || 'Pembalap'} (Kamu)`,
+          myX,
+          canvas.height - 168
+        );
+      } else {
+        drawCar2D(ctx, {
+          x: roadLeft + roadWidth / 2,
+          y: canvas.height - 120 + Math.sin(offset * 0.15) * 1.5,
+          width: 44,
+          height: 82,
+          model: previewCarModel,
+          color: previewCarColor,
+          isNitro: false,
+          frameCount: Math.floor(offset),
+          showShadow: true,
+          showUnderglow: true,
+        });
+      }
 
       animId = requestAnimationFrame(drawStartPreview);
     };
@@ -1251,6 +1474,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       // Multiplayer sync throttle (every 3 frames ~20Hz)
       if (multiplayerRoom && state.frameCount % 3 === 0) {
+        const turnMax = p.maxTurnSpeed || 5.8;
+        const currentSteer = Math.max(-1, Math.min(1, p.vx / turnMax));
         socket.send({
           type: 'player_sync',
           x: p.x,
@@ -1260,6 +1485,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           score: Math.floor(state.score),
           hp: p.hp,
           combo: state.combo,
+          steer: Number(currentSteer.toFixed(2)),
+          gas: !!(state.keys['ArrowUp'] || state.keys['KeyW']),
+          brake: !!(state.keys['ArrowDown'] || state.keys['KeyS']),
+          nitro: p.nitroTimer > 0,
           status: p.hp > 0 ? 'playing' : 'crashed',
           carColor: userRef.current?.carColor || '#f8fafc',
           carModel: userRef.current?.carModel || 'civic_fl5',
@@ -1274,6 +1503,64 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             winnerId: userRef.current?.id || 'player',
             reason: `${userRef.current?.username || 'Kamu'} mencapai garis finish terlebih dahulu!`
           });
+        }
+      }
+
+      // Rekam Ghost Replay Telemetry tiap ~100ms (setiap 6 frame di 60fps)
+      if (state.frameCount % 6 === 0) {
+        const turnMax = p.maxTurnSpeed || 5.8;
+        const currentSteer = Math.max(-1, Math.min(1, p.vx / turnMax));
+        const myId = userRef.current?.id || 'player';
+        const snapshot: Record<string, any> = {
+          [myId]: {
+            id: myId,
+            username: userRef.current?.username || 'Kamu',
+            avatar: userRef.current?.avatar || '🏎️',
+            carColor: userRef.current?.carColor || '#00f0ff',
+            carModel: userRef.current?.carModel || 'civic_fl5',
+            x: Math.round(p.x),
+            y: Math.round(p.y),
+            speed: Math.round(currentSpeed),
+            distance: Math.round(state.distance),
+            steer: Number(currentSteer.toFixed(2)),
+            gas: !!(state.keys['ArrowUp'] || state.keys['KeyW']),
+            brake: !!(state.keys['ArrowDown'] || state.keys['KeyS']),
+            nitro: p.nitroTimer > 0,
+            hp: p.hp,
+            score: Math.round(state.score),
+            status: p.hp > 0 ? 'playing' : 'crashed',
+          }
+        };
+
+        if (multiplayerRoom) {
+          for (const [opId, op] of Object.entries(opponentsRef.current)) {
+            snapshot[opId] = {
+              id: op.id,
+              username: op.username,
+              avatar: op.avatar || '🏎️',
+              carColor: op.carColor || '#ff2d6b',
+              carModel: op.carModel || 'civic_fl5',
+              laneIndex: op.laneIndex,
+              x: Math.round(op.x),
+              y: Math.round(op.y),
+              speed: Math.round(op.speed),
+              distance: Math.round(op.distance),
+              steer: op.steer || 0,
+              nitro: !!op.nitro,
+              hp: op.hp ?? 3,
+              score: Math.round(op.score || 0),
+              status: op.status,
+            };
+          }
+        }
+
+        localReplayFramesRef.current.push({
+          t: Math.round(state.frameCount * 16.66),
+          players: snapshot,
+        });
+
+        if (localReplayFramesRef.current.length > 3600) {
+          localReplayFramesRef.current.shift();
         }
       }
 
@@ -1337,7 +1624,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             : 0;
 
         // 3-lane compact road positions
-        const { roadWidth, roadLeft, roadRight, laneW, laneCenters } = getRoadGeometry(canvas.width);
+        const { roadLeft, roadRight, laneCenters } = getRoadGeometry(canvas.width);
         const initialLane = Math.floor(Math.random() * 3);
         const spawnX = Math.max(roadLeft + 10, Math.min(roadRight - 10 - w, laneCenters[initialLane] - w / 2));
 
@@ -1937,9 +2224,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           const oppX = opp.x + 22;
           const oppY = opp.y + 41;
 
-          if (opp.status === 'playing' || opp.status === 'ready') {
+          if (opp.status === 'playing' || opp.status === 'ready' || opp.status === 'countdown') {
             ctx.save();
             ctx.translate(oppX, oppY);
+            const oppSteerAngle = (opp.steer || 0) * 0.12;
+            ctx.rotate(oppSteerAngle);
 
             drawCar2D(ctx, {
               x: 0,
@@ -1948,11 +2237,34 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               height: 82,
               model: opp.carModel || 'civic_fl5',
               color: opp.carColor || '#ff2d6b',
-              isNitro: false,
+              isNitro: !!opp.nitro,
               frameCount: state.frameCount,
               showShadow: true,
               showUnderglow: true,
             });
+
+            // If opponent is using nitro, draw animated nitro plumes
+            if (opp.nitro) {
+              ctx.save();
+              const flameFlicker = Math.sin(state.frameCount * 0.4) * 3;
+              const flameLen = 18 + flameFlicker;
+              ctx.shadowBlur = 14;
+              ctx.shadowColor = '#00f0ff';
+              ctx.fillStyle = '#00e5ff';
+              ctx.beginPath();
+              ctx.moveTo(-13, 38);
+              ctx.lineTo(-7, 38);
+              ctx.lineTo(-10, 38 + flameLen);
+              ctx.closePath();
+              ctx.fill();
+              ctx.beginPath();
+              ctx.moveTo(7, 38);
+              ctx.lineTo(13, 38);
+              ctx.lineTo(10, 38 + flameLen);
+              ctx.closePath();
+              ctx.fill();
+              ctx.restore();
+            }
 
             // Opponent nametag with Avatar
             ctx.font = 'bold 10px Orbitron, sans-serif';
@@ -2228,11 +2540,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         setScore(Math.floor(state.score));
         setHp(p.hp);
         setCombo(state.combo);
-        setHeat(Math.floor(state.heat));
         setDistance(Math.floor(state.distance));
         setDodgedCount(state.obstaclesDodged);
-        setPowerupsCount(state.powerUpsCollected);
-        setBestComboRun(state.bestCombo);
         setBountyEarned(Math.floor(state.bounty));
 
         // Active Power pills
@@ -2592,7 +2901,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       )}
 
       {/* START OVERLAY MENU - FUTURISTIC CYBERPUNK MAIN GAME LOBBY */}
-      {gameState === 'START' && (
+      {gameState === 'START' && !multiplayerRoom && (
         <div className="absolute inset-0 z-30 flex items-center justify-center">
           <MainGameLobby
             user={user}
@@ -2692,7 +3001,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       {/* GAME OVER / MATCH FINISHED OVERLAY */}
       {gameState === 'GAMEOVER' && (
-        <div className="absolute inset-0 bg-[#06060e]/95 backdrop-blur-md z-30 flex flex-col items-center justify-center p-4 sm:p-6 text-center overflow-y-auto">
+        <div className={`absolute inset-0 z-30 flex flex-col ${multiplayerRoom ? 'bg-[#06060e]/95 backdrop-blur-md items-center justify-center p-4 sm:p-6 text-center overflow-y-auto' : 'overflow-hidden p-0'}`}>
           {multiplayerRoom ? (
             /* Dedicated Multiplayer Duel Results Screen */
             <div className="w-full max-w-lg bg-[#0b0c19]/95 border-2 border-cyan-500/40 rounded-3xl p-5 sm:p-6 shadow-[0_0_60px_rgba(0,240,255,0.25)] animate-fade-in my-auto backdrop-blur-xl text-left">
@@ -2874,6 +3183,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                         <span>Ke Lobi Room</span>
                       </button>
 
+                      {onWatchReplay && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sound.play('click');
+                            onWatchReplay(lastReplayId || undefined);
+                          }}
+                          className="py-3 px-4 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-display font-bold text-xs uppercase border border-cyan-400/40 cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px] transition-all active:scale-95"
+                        >
+                          <Film className="w-4 h-4 text-cyan-400" />
+                          <span>Tonton Replay</span>
+                        </button>
+                      )}
+
                       {onOpenLeaderboard && (
                         <button
                           type="button"
@@ -2893,274 +3216,28 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               })()}
             </div>
           ) : (
-            /* Solo Game Over Overlay - Exact Futuristic Glassmorphic Reference Design */
-            <div className="relative w-full h-full flex flex-col items-center justify-between overflow-y-auto scrollbar-none px-3 py-2 sm:px-4 sm:py-3 select-none">
-              {/* 1. Atmospheric Police Lights & Diagonal Tire Track Textures in Background */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                {/* Top-Left Red Police Siren Flasher Glow */}
-                <div className="absolute -top-16 -left-10 w-96 h-64 rounded-full bg-red-600/25 blur-3xl animate-pulse" />
-                {/* Top-Right Blue Police Siren Flasher Glow */}
-                <div className="absolute -top-16 -right-10 w-96 h-64 rounded-full bg-blue-600/25 blur-3xl animate-pulse" style={{ animationDelay: '500ms' }} />
-
-                {/* Diagonal Tire Tracks Background Pattern (Left Side) */}
-                <svg
-                  className="absolute -left-14 -bottom-10 w-80 h-80 opacity-20 text-white/40 rotate-[-22deg] mix-blend-overlay"
-                  viewBox="0 0 200 200"
-                  fill="none"
-                >
-                  {Array.from({ length: 14 }).map((_, idx) => (
-                    <g key={idx} transform={`translate(0, ${idx * 15})`}>
-                      <path d="M18 10L58 22L68 18L28 6Z" fill="currentColor" />
-                      <path d="M142 10L102 22L92 18L132 6Z" fill="currentColor" />
-                      <rect x="73" y="10" width="14" height="5" rx="1" fill="currentColor" />
-                    </g>
-                  ))}
-                </svg>
-
-                {/* Diagonal Tire Tracks Background Pattern (Right Side) */}
-                <svg
-                  className="absolute -right-14 top-4 w-96 h-96 opacity-20 text-white/40 rotate-[32deg] mix-blend-overlay"
-                  viewBox="0 0 200 200"
-                  fill="none"
-                >
-                  {Array.from({ length: 16 }).map((_, idx) => (
-                    <g key={idx} transform={`translate(0, ${idx * 15})`}>
-                      <path d="M18 10L58 22L68 18L28 6Z" fill="currentColor" />
-                      <path d="M142 10L102 22L92 18L132 6Z" fill="currentColor" />
-                      <rect x="73" y="10" width="14" height="5" rx="1" fill="currentColor" />
-                    </g>
-                  ))}
-                </svg>
-              </div>
-
-              {/* 2. Main Center Content Container */}
-              <div className="relative z-10 w-full max-w-lg flex flex-col items-center justify-center my-auto pt-2 pb-4">
-                {/* Header: Siren Icon with Red Radiation Rays */}
-                <div className="flex flex-col items-center mb-1">
-                  <div className="relative mb-2">
-                    <svg
-                      className="w-12 h-12 drop-shadow-[0_0_16px_rgba(255,59,92,0.9)]"
-                      viewBox="0 0 48 48"
-                      fill="none"
-                    >
-                      {/* Red Neon Radiation Rays on Top */}
-                      <path d="M24 3V8" stroke="#FF3B5C" strokeWidth="2.8" strokeLinecap="round" />
-                      <path d="M13 7L16.5 11.5" stroke="#FF3B5C" strokeWidth="2.8" strokeLinecap="round" />
-                      <path d="M35 7L31.5 11.5" stroke="#FF3B5C" strokeWidth="2.8" strokeLinecap="round" />
-                      {/* Cyan Siren Dome Body */}
-                      <path
-                        d="M15 36C15 27 18 16 24 16C30 16 33 27 33 36"
-                        stroke="#00E5FF"
-                        strokeWidth="2.6"
-                        strokeLinecap="round"
-                      />
-                      <line
-                        x1="17"
-                        y1="25"
-                        x2="31"
-                        y2="25"
-                        stroke="#00E5FF"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeOpacity="0.8"
-                      />
-                      <rect
-                        x="11"
-                        y="36"
-                        width="26"
-                        height="6"
-                        rx="2"
-                        stroke="#00E5FF"
-                        strokeWidth="2.6"
-                      />
-                    </svg>
-                  </div>
-
-                  {/* Title: TERTANGKAP */}
-                  <h2 className="text-xl sm:text-2xl font-display font-black uppercase text-[#FF3B5C] tracking-[0.22em] drop-shadow-[0_0_18px_rgba(255,59,92,0.85)]">
-                    TERTANGKAP
-                  </h2>
-
-                  {/* Big Score: 750 */}
-                  <div className="text-5xl sm:text-6xl font-display font-black text-white tracking-widest my-2 drop-shadow-[0_0_15px_rgba(255,255,255,0.35)]">
-                    {score}
-                  </div>
-                </div>
-
-                {/* Section Statistik (Grid 3 Kolom - Glass Cards) */}
-                <div className="w-full grid grid-cols-3 gap-2.5 sm:gap-3 my-2.5">
-                  {/* Card 1: Speedometer | Jarak */}
-                  <div className="relative rounded-2xl p-3 sm:p-4 bg-white/[0.04] backdrop-blur-md border border-cyan-500/30 flex items-center justify-start gap-2.5 sm:gap-3 shadow-[0_0_20px_rgba(0,229,255,0.12)] overflow-hidden group">
-                    <div className="absolute -top-6 -right-6 w-14 h-14 rounded-full bg-cyan-400/10 blur-xl pointer-events-none" />
-                    {/* Speedometer Icon */}
-                    <div className="shrink-0">
-                      <svg
-                        className="w-7 h-7 sm:w-8 sm:h-8 text-[#00E5FF] drop-shadow-[0_0_8px_rgba(0,229,255,0.7)]"
-                        viewBox="0 0 36 36"
-                        fill="none"
-                      >
-                        <path d="M7 25A13 13 0 1 1 29 25" stroke="#00E5FF" strokeWidth="2.2" strokeLinecap="round" />
-                        <line x1="18" y1="21" x2="24" y2="15" stroke="#00E5FF" strokeWidth="2.4" strokeLinecap="round" />
-                        <circle cx="18" cy="21" r="2.2" fill="#00E5FF" />
-                        <line x1="10" y1="18" x2="12" y2="18" stroke="#00E5FF" strokeWidth="1.6" strokeLinecap="round" strokeOpacity="0.7" />
-                        <line x1="18" y1="10" x2="18" y2="12" stroke="#00E5FF" strokeWidth="1.6" strokeLinecap="round" strokeOpacity="0.7" />
-                        <line x1="26" y1="18" x2="24" y2="18" stroke="#00E5FF" strokeWidth="1.6" strokeLinecap="round" strokeOpacity="0.7" />
-                      </svg>
-                    </div>
-                    <div className="flex flex-col text-left">
-                      <span className="font-display font-black text-sm sm:text-lg text-[#00E5FF] tracking-tight leading-none">
-                        {distance}m
-                      </span>
-                      <span className="text-[10px] text-gray-400 font-bold tracking-widest uppercase mt-1">
-                        JARAK
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Card 2: Mobil Slalom | Dihindari */}
-                  <div className="relative rounded-2xl p-3 sm:p-4 bg-white/[0.04] backdrop-blur-md border border-fuchsia-500/30 flex items-center justify-start gap-2.5 sm:gap-3 shadow-[0_0_20px_rgba(208,66,255,0.12)] overflow-hidden group">
-                    <div className="absolute -top-6 -right-6 w-14 h-14 rounded-full bg-fuchsia-400/10 blur-xl pointer-events-none" />
-                    {/* Slalom Drift Car Icon */}
-                    <div className="shrink-0">
-                      <svg
-                        className="w-7 h-7 sm:w-8 sm:h-8 text-[#D042FF] drop-shadow-[0_0_8px_rgba(208,66,255,0.7)]"
-                        viewBox="0 0 36 36"
-                        fill="none"
-                      >
-                        <rect x="9" y="4" width="18" height="12" rx="3" stroke="#D042FF" strokeWidth="2" />
-                        <path d="M6 16H30V20C30 21 29 22 28 22H8C7 22 6 21 6 20V16Z" stroke="#D042FF" strokeWidth="2" />
-                        <circle cx="11" cy="18" r="1.5" fill="#D042FF" />
-                        <circle cx="25" cy="18" r="1.5" fill="#D042FF" />
-                        <path d="M7 26C11 26 13 28 17 28C21 28 23 26 27 26" stroke="#D042FF" strokeWidth="2" strokeLinecap="round" />
-                        <path d="M9 31C13 31 15 33 19 33C23 33 25 31 29 31" stroke="#D042FF" strokeWidth="2" strokeLinecap="round" />
-                      </svg>
-                    </div>
-                    <div className="flex flex-col text-left">
-                      <span className="font-display font-black text-sm sm:text-lg text-[#D042FF] tracking-tight leading-none">
-                        {dodgedCount}
-                      </span>
-                      <span className="text-[10px] text-gray-400 font-bold tracking-widest uppercase mt-1">
-                        DIHINDARI
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Card 3: Kantong Uang | Bounty */}
-                  <div className="relative rounded-2xl p-3 sm:p-4 bg-white/[0.04] backdrop-blur-md border border-amber-500/30 flex items-center justify-start gap-2.5 sm:gap-3 shadow-[0_0_20px_rgba(255,184,0,0.12)] overflow-hidden group">
-                    <div className="absolute -top-6 -right-6 w-14 h-14 rounded-full bg-amber-400/10 blur-xl pointer-events-none" />
-                    {/* Money Sack Icon */}
-                    <div className="shrink-0">
-                      <svg
-                        className="w-7 h-7 sm:w-8 sm:h-8 text-[#FFB800] drop-shadow-[0_0_8px_rgba(255,184,0,0.7)]"
-                        viewBox="0 0 36 36"
-                        fill="none"
-                      >
-                        <path d="M14 6L18 9L22 6L20 12H16L14 6Z" stroke="#FFB800" strokeWidth="1.8" strokeLinejoin="round" />
-                        <path d="M15 12H21" stroke="#FFB800" strokeWidth="2.5" strokeLinecap="round" />
-                        <path d="M12 13C9 16 7 21 8 26C9 30 13 32 18 32C23 32 27 30 28 26C29 21 27 16 24 13" stroke="#FFB800" strokeWidth="2" strokeLinecap="round" />
-                        <path d="M18 17V27M15.5 19.5C15.5 18.5 16.5 18 18 18C19.5 18 20.5 18.5 20.5 19.5C20.5 21 15.5 21.5 15.5 23C15.5 24 16.5 25 18 25C19.5 25 20.5 24.5 20.5 23.5" stroke="#FFB800" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </div>
-                    <div className="flex flex-col text-left">
-                      <span className="font-display font-black text-sm sm:text-lg text-[#FFB800] tracking-tight leading-none">
-                        +{bountyEarned}
-                      </span>
-                      <span className="text-[10px] text-gray-400 font-bold tracking-widest uppercase mt-1">
-                        BOUNTY
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Status Live: Capsule Bar */}
-                <div className="w-full py-2 px-4 rounded-full border border-emerald-500/40 bg-emerald-950/20 backdrop-blur-md flex items-center justify-center gap-2 my-2 shadow-[0_0_15px_rgba(0,230,118,0.15)]">
-                  <Trophy className="w-4 h-4 text-[#FFB800] shrink-0" />
-                  <span className="text-[#00E676] font-display font-bold text-xs tracking-wider uppercase">
-                    {latestLeaderboardRank
-                      ? `PERINGKAT #${latestLeaderboardRank} DI LEADERBOARD! (LIVE)`
-                      : scoreSavedStatus === 'saving'
-                      ? 'MENYIMPAN SKOR KE LEADERBOARD...'
-                      : 'SKOR TERCATAT RESMI DI LEADERBOARD'}
-                  </span>
-                </div>
-
-                {/* Section Tombol Utama (Stacked Center) */}
-                <div className="w-full flex flex-col items-center gap-2 mt-2">
-                  {/* Button Primary: Solid Cyan Glow + Icon Repeat */}
-                  <button
-                    id="btn-restart-game"
-                    type="button"
-                    onClick={startGame}
-                    onTouchEnd={(e) => {
-                      e.preventDefault();
-                      startGame();
-                    }}
-                    className="w-full py-3 px-6 rounded-xl bg-[#00E5FF] hover:bg-[#33EBFF] text-slate-950 font-display font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,229,255,0.4)] active:scale-95 transition-all cursor-pointer select-none"
-                  >
-                    <RotateCcw className="w-4 h-4 stroke-[3]" />
-                    <span>MAIN LAGI</span>
-                  </button>
-
-                  {/* Button Secondary: Glassmorphic + Border Gold + Icon Piala */}
-                  {onOpenLeaderboard && (
-                    <button
-                      id="btn-open-leaderboard-from-gameover"
-                      type="button"
-                      onClick={() => {
-                        sound.play('click');
-                        onOpenLeaderboard();
-                      }}
-                      className="w-full py-3 px-6 rounded-xl bg-white/[0.03] hover:bg-amber-500/10 border border-amber-500/50 text-amber-300 font-display font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(255,184,0,0.15)] active:scale-95 transition-all cursor-pointer"
-                    >
-                      <Trophy className="w-4 h-4 text-amber-400" />
-                      <span>LIHAT LEADERBOARD REAL-TIME</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* 3. Footer Bar (Fixed/Aligned Bottom) */}
-              <div className="relative z-10 w-full flex items-center justify-between pt-3 border-t border-white/10 mt-auto">
-                {/* Bottom-Left: Button Small "MENU" */}
-                <button
-                  id="btn-back-menu"
-                  type="button"
-                  onClick={() => {
-                    if (multiplayerRoom && onLeaveMultiplayer) {
-                      onLeaveMultiplayer();
-                    }
-                    setGameState('START');
-                  }}
-                  className="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-display font-bold text-xs uppercase tracking-wider border border-white/15 cursor-pointer transition-all active:scale-95"
-                >
-                  MENU
-                </button>
-
-                {/* Bottom-Right: Icon Snowflake (Cyan) + "MAP: PUNCAK SALJU" */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenMapSelect) {
-                      sound.play('click');
-                      onOpenMapSelect();
-                    }
-                  }}
-                  className="flex items-center gap-2 text-gray-300 hover:text-white cursor-pointer group transition-all"
-                  title="Klik untuk Ganti Peta"
-                >
-                  <span className="font-display font-bold text-xs tracking-wider uppercase text-gray-300 group-hover:text-white">
-                    MAP: {activeMap.name}
-                  </span>
-                  <div className="p-1 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 drop-shadow-[0_0_8px_rgba(0,229,255,0.8)]">
-                    {activeMap.id === 'salju' ? (
-                      <Snowflake className="w-4 h-4 stroke-[2.5]" />
-                    ) : (
-                      <span className="text-sm leading-none">{activeMap.icon}</span>
-                    )}
-                  </div>
-                </button>
-              </div>
-            </div>
+            /* Solo Game Over Overlay - Exact Target Dashboard Design */
+            <BustedScreen
+              score={score}
+              distance={distance}
+              dodgedCount={dodgedCount}
+              bountyEarned={bountyEarned}
+              highScore={highScore}
+              latestLeaderboardRank={latestLeaderboardRank}
+              scoreSavedStatus={scoreSavedStatus}
+              activeMap={activeMap}
+              lastReplayId={lastReplayId}
+              onRestart={startGame}
+              onOpenLeaderboard={onOpenLeaderboard}
+              onWatchReplay={onWatchReplay}
+              onBackToMenu={() => {
+                if (multiplayerRoom && onLeaveMultiplayer) {
+                  onLeaveMultiplayer();
+                }
+                setGameState('START');
+              }}
+              onOpenMapSelect={onOpenMapSelect}
+            />
           )}
         </div>
       )}

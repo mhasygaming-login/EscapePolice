@@ -8,7 +8,7 @@
 
 import { GameMapId, MapData } from '../types/maps';
 
-interface RoadsideObject {
+export interface RoadsideObject {
   type: string;
   laneSide: 'left' | 'right';
   relY: number; // 0 to 1 along a segment
@@ -58,7 +58,7 @@ export class RoadsideScenery2D {
     canvasHeight: number,
     roadLeft: number,
     roadRight: number,
-    roadWidth: number,
+    _roadWidth: number,
     worldY: number,
     map: MapData,
     frameCount: number,
@@ -102,7 +102,7 @@ export class RoadsideScenery2D {
    */
   private renderTerrainBase(
     ctx: CanvasRenderingContext2D,
-    canvasWidth: number,
+    _canvasWidth: number,
     canvasHeight: number,
     roadLeft: number,
     roadRight: number,
@@ -267,7 +267,7 @@ export class RoadsideScenery2D {
     leftWidth: number,
     rightWidth: number,
     worldY: number,
-    frameCount: number
+    _frameCount?: number
   ) {
     const cycle = SEGMENT_HEIGHT;
     const scrollY = worldY % cycle;
@@ -430,7 +430,7 @@ export class RoadsideScenery2D {
     leftWidth: number,
     rightWidth: number,
     worldY: number,
-    frameCount: number
+    _frameCount?: number
   ) {
     const cycle = SEGMENT_HEIGHT;
     const scrollY = worldY % cycle;
@@ -460,7 +460,6 @@ export class RoadsideScenery2D {
         const duneY = dy + (scrollY % 70);
         ctx.beginPath();
         const startX = side.isLeft ? 0 : roadRight + 14;
-        const endX = side.isLeft ? roadLeft - 14 : canvasHeight;
         ctx.moveTo(startX, duneY);
         ctx.bezierCurveTo(
           startX + side.w * 0.3,
@@ -683,7 +682,7 @@ export class RoadsideScenery2D {
     leftWidth: number,
     rightWidth: number,
     worldY: number,
-    frameCount: number
+    _frameCount?: number
   ) {
     const cycle = SEGMENT_HEIGHT;
     const scrollY = worldY % cycle;

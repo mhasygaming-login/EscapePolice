@@ -191,6 +191,10 @@ export class SoundEngine {
   private lastShiftTime: number = 0;
   private targetSpeed: number = 0;
 
+  public getTargetSpeed(): number {
+    return this.targetSpeed;
+  }
+
   public ensureContext(): AudioContext | null {
     try {
       if (!this.ctx && typeof window !== 'undefined') {
@@ -346,7 +350,7 @@ export class SoundEngine {
     isThrottle: boolean,
     isBraking: boolean,
     isNitro: boolean,
-    isDrifting: boolean
+    _isDrifting?: boolean
   ) {
     if (!this.engineActive || !this.ctx || this.muted) return;
 

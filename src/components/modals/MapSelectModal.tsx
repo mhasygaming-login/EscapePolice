@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { GameMapId, MAPS_LIST } from '../types';
-import { sound } from '../services';
+import { GameMapId } from '../../types';
+import { sound } from '../../services';
 import {
   Compass,
   Building2,
@@ -9,11 +9,10 @@ import {
   Sunset,
   TreePine,
   Check,
-  Play,
   X,
   type LucideIcon,
 } from 'lucide-react';
-import { CardStack, type CardStackItem } from './ui/card-stack';
+import { CardStack, type CardStackItem } from '../ui';
 
 interface ArenaItem extends CardStackItem {
   id: GameMapId;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   UserProfile,
   MultiplayerRoom,
@@ -24,6 +24,7 @@ import {
   ErrorBoundary,
   ShareModal,
   OfflineIndicator,
+  ReplayViewer,
 } from './components';
 
 export default function App() {
@@ -35,6 +36,10 @@ export default function App() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [authScreenTab, setAuthScreenTab] = useState<'login' | 'register'>('login');
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('NORMAL');
+
+  // Replay Viewer Modal State
+  const [isReplayViewerOpen, setIsReplayViewerOpen] = useState(false);
+  const [viewingReplayId, setViewingReplayId] = useState<string | null>(null);
 
   // Map Selection & 3D Camera Mode State
   const [selectedMapId, setSelectedMapId] = useState<GameMapId>(() => {
@@ -359,6 +364,10 @@ export default function App() {
               selectedMapId={selectedMapId}
               onSelectMap={handleSelectMap}
               onOpenMapSelect={() => setIsMapSelectOpen(true)}
+              onWatchReplay={(id) => {
+                setViewingReplayId(id || null);
+                setIsReplayViewerOpen(true);
+              }}
               onScoreSubmitted={async () => {
                 const updated = await api.getProfile();
                 if (updated) setCurrentUser(updated);
@@ -371,6 +380,10 @@ export default function App() {
               user={currentUser}
               initialRoomCode={initialInviteRoom}
               onStartMatch={handleStartMultiplayerMatch}
+              onOpenReplays={() => {
+                setViewingReplayId(null);
+                setIsReplayViewerOpen(true);
+              }}
               onBackToSolo={() => {
                 setActiveRoom(null);
                 setInitialInviteRoom(null);
@@ -460,6 +473,18 @@ export default function App() {
           setActiveTab('game');
         }}
       />
+
+      {/* Ghost Replay Telemetry Viewer */}
+      {isReplayViewerOpen && (
+        <ReplayViewer
+          replayId={viewingReplayId}
+          user={currentUser}
+          onClose={() => {
+            setIsReplayViewerOpen(false);
+            setViewingReplayId(null);
+          }}
+        />
+      )}
     </div>
   );
 }

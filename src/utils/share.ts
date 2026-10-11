@@ -54,7 +54,7 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
     textarea.style.pointerEvents = 'none';
     document.body.appendChild(textarea);
     textarea.select();
-    const successful = document.execCommand('copy');
+    const successful = (document as any).execCommand('copy');
     document.body.removeChild(textarea);
     return successful;
   } catch {

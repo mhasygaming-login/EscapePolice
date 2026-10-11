@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserProfile, MultiplayerRoom, DifficultyLevel, MultiplayerPlayerState } from '../types';
-import { socket, sound, getCarModel } from '../services';
-import { BrandLogo } from './BrandLogo';
-import { getPublicGameUrl, copyTextToClipboard } from '../utils';
+import { UserProfile, MultiplayerRoom, DifficultyLevel, MultiplayerPlayerState } from '../../types';
+import { socket, sound, getCarModel } from '../../services';
+import { BrandLogo } from '../layout/BrandLogo';
+import { getPublicGameUrl, copyTextToClipboard } from '../../utils';
 import {
   Users,
   Plus,
@@ -17,15 +17,12 @@ import {
   RotateCw,
   Crown,
   LogOut,
-  Car,
   Flame,
   Globe,
   MessageCircle,
-  Send,
-  Smartphone,
-  Laptop,
   ExternalLink,
   WifiOff,
+  Film,
 } from 'lucide-react';
 
 interface MultiplayerLobbyProps {
@@ -33,6 +30,7 @@ interface MultiplayerLobbyProps {
   initialRoomCode?: string | null;
   onStartMatch: (room: MultiplayerRoom) => void;
   onBackToSolo: () => void;
+  onOpenReplays?: () => void;
 }
 
 export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
@@ -40,6 +38,7 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
   initialRoomCode,
   onStartMatch,
   onBackToSolo,
+  onOpenReplays,
 }) => {
   const [rooms, setRooms] = useState<
     { code: string; name: string; status: string; difficulty: string; playerCount: number }[]
@@ -527,7 +526,17 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
                 Balapan real-time bersama teman lewat kode room atau gabung ke room publik.
               </p>
             </div>
-            <div className="sm:col-span-3 flex sm:justify-end">
+            <div className="sm:col-span-4 flex items-center sm:justify-end gap-2">
+              {onOpenReplays && (
+                <button
+                  type="button"
+                  onClick={onOpenReplays}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 text-xs font-bold text-cyan-300 hover:text-white transition-colors cursor-pointer min-h-[40px]"
+                >
+                  <Film className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Replay</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onBackToSolo}

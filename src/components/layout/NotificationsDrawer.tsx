@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { NotificationItem, UserProfile } from '../types';
-import { sound } from '../services';
-import { Bell, CheckCheck, X, Trophy, Swords, Zap, Info, ShieldAlert } from 'lucide-react';
+import { NotificationItem, UserProfile } from '../../types';
+import { sound } from '../../services';
+import { Bell, CheckCheck, X, Trophy, Zap, Info, ShieldAlert } from 'lucide-react';
 
 interface NotificationsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   notifications: NotificationItem[];
   onMarkAllRead: () => void;
-  user: UserProfile | null;
+  user?: UserProfile | null;
 }
 
 export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
@@ -16,7 +16,6 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
   onClose,
   notifications,
   onMarkAllRead,
-  user,
 }) => {
   const [pushStatus, setPushStatus] = useState<string>(() => {
     try {

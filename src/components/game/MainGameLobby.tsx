@@ -1,7 +1,7 @@
 import React from 'react';
-import { UserProfile, DifficultyLevel, GameMapId, getMapData } from '../types';
-import { getCarModel } from '../services';
-import { InteractiveSelector, DifficultyId } from './ui/interactive-selector';
+import { UserProfile, DifficultyLevel, GameMapId, getMapData } from '../../types';
+import { getCarModel } from '../../services';
+import { InteractiveSelector, DifficultyId } from '../ui';
 
 interface MainGameLobbyProps {
   user: UserProfile | null;
@@ -24,7 +24,6 @@ export const MainGameLobby: React.FC<MainGameLobbyProps> = ({
   onOpenPoliceFleet,
   selectedMapId = 'kota',
   onSelectMap,
-  onOpenMapSelect,
 }) => {
   const currentCar = getCarModel(user?.carModel || 'civic_fl5');
   const currentMap = getMapData(selectedMapId);
@@ -61,7 +60,7 @@ export const MainGameLobby: React.FC<MainGameLobbyProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center p-2 sm:p-3 md:p-4 overflow-y-auto select-none">
+    <div className="relative w-full h-full min-h-[100dvh] flex flex-col items-center justify-center p-2 sm:p-3 md:p-4 overflow-y-auto select-none">
       {/* 1. DYNAMIC THEMED MAP BACKGROUND */}
       <div className="absolute inset-0 z-0 bg-[#060812]">
         <img
@@ -75,9 +74,9 @@ export const MainGameLobby: React.FC<MainGameLobbyProps> = ({
         <div className="absolute inset-0 bg-gradient-to-b from-[#070814]/80 via-[#070814]/40 to-[#070814]/90 pointer-events-none" />
       </div>
 
-      {/* 2. HERO CARD CONTAINER WITH ACCORDION INTERACTIVE SELECTOR */}
+      {/* 2. HERO CARD CONTAINER WITH UNIFIED INTERACTIVE SELECTOR (AUTOLAYOUT & MAX BOUNDS) */}
       <div
-        className="relative z-10 w-full max-w-4xl my-auto overflow-hidden rounded-2xl sm:rounded-3xl border border-cyan-500/25 shadow-[0_0_60px_rgba(0,0,0,0.8),0_0_35px_rgba(0,229,255,0.18)] bg-[#080b15]/92 backdrop-blur-2xl"
+        className="relative z-10 w-full max-w-4xl lg:max-w-5xl my-auto rounded-2xl sm:rounded-3xl border border-cyan-500/25 shadow-[0_0_50px_rgba(0,0,0,0.8),0_0_30px_rgba(0,229,255,0.15)] bg-[#080b15]/90 backdrop-blur-2xl max-h-[96vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10"
       >
         <InteractiveSelector
           selectedMapId={selectedMapId}

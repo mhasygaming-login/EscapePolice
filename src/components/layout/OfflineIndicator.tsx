@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useOnlineStatus } from '../hooks';
-import { api } from '../services';
-import { UserProfile } from '../types';
+import { useOnlineStatus } from '../../hooks';
+import { api } from '../../services';
+import { UserProfile } from '../../types';
 import { WifiOff, CheckCircle2 } from 'lucide-react';
 
 interface OfflineIndicatorProps {

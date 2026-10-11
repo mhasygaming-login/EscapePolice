@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { LeaderboardEntry, UserProfile } from '../types';
-import { api, sound, socket } from '../services';
-import { Trophy, Medal, Search, RefreshCw, Flame, ShieldCheck, Radio, UserPlus, Gamepad2 } from 'lucide-react';
+import { LeaderboardEntry, UserProfile } from '../../types';
+import { api, sound, socket } from '../../services';
+import { Trophy, Search, RefreshCw, ShieldCheck, UserPlus, Gamepad2 } from 'lucide-react';
 
 interface LeaderboardModalProps {
   user: UserProfile | null;
@@ -49,7 +49,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user, onOpen
     };
   }, [period, difficultyFilter, user?.id]);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleSearchSubmit = (e: React.SyntheticEvent) => {
     e.preventDefault();
     fetchLeaderboard();
   };
@@ -66,7 +66,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user, onOpen
             </h1>
             <span className="inline-flex items-center gap-1.5 text-emerald-400 text-xs font-mono font-bold uppercase tracking-wider shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Real-Time Live
+              Real-Time Live ({lastUpdated.toLocaleTimeString()})
             </span>
           </div>
           <p className="text-xs text-gray-400 mt-1 max-w-2xl leading-relaxed">

@@ -25,7 +25,7 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(process.cwd(), 'public')));
 
-app.get('/favicon.ico', (req, res) => {
+app.get('/favicon.ico', (_req, res) => {
   const icoPath = path.join(process.cwd(), 'public', 'favicon.ico');
   if (fs.existsSync(icoPath)) {
     return res.sendFile(icoPath);
@@ -129,6 +129,7 @@ interface DB {
     prizeBounty: number;
     participants: string[];
   }[];
+  replays?: any[];
 }
 
 // Initial default database state (empty scores for clean registered player leaderboard)
@@ -136,6 +137,7 @@ let db: DB = {
   users: {},
   scores: [],
   notifications: [],
+  replays: [],
   tournaments: [
     {
       id: 'tourney-1',
@@ -216,10 +218,8 @@ function rebuildUserIndices() {
 }
 rebuildUserIndices();
 
-// Leaderboard in-memory sorted cache
-let cachedLeaderboard: StoredScore[] | null = null;
 function invalidateLeaderboardCache() {
-  cachedLeaderboard = null;
+  // Realtime hook for future cache invalidation
 }
 
 // ----------------------------------------------------
@@ -293,12 +293,12 @@ process.on('SIGTERM', () => {
 });
 
 // Initialize Real-time Socket.IO Multiplayer Game Server
-const { io, broadcastLeaderboardUpdate, sendUserNotification, broadcastGlobalAlert } = setupMultiplayerServer(server, db, saveDB);
+const { broadcastLeaderboardUpdate, sendUserNotification, broadcastGlobalAlert } = setupMultiplayerServer(server, db, saveDB);
 
 // REST API ROUTES
 // ----------------------------------------------------
 
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
@@ -714,7 +714,7 @@ app.post('/api/auth/biometric', (req, res) => {
 });
 
 // Guest Quick Play
-app.post('/api/auth/guest', (req, res) => {
+app.post('/api/auth/guest', (_req, res) => {
   const guestNumber = Math.floor(1000 + Math.random() * 9000);
   const guestId = 'guest_' + Date.now();
   const guestUser: StoredUser = {
@@ -1292,6 +1292,73 @@ app.get('/api/export-data', (req, res) => {
   res.send(JSON.stringify(report, null, 2));
 });
 
+// Client diagnostic logging endpoint
+app.post('/api/client-log', (_req, res) => {
+  res.status(204).end();
+});
+
+// ----------------------------------------------------
+// GHOST REPLAY (DATA-DRIVEN TELEMETRY) API ROUTES
+// ----------------------------------------------------
+
+// GET /api/replays - list available replays
+app.get('/api/replays', (req, res) => {
+  const { userId, roomCode } = req.query;
+  let list = db.replays || [];
+  if (typeof userId === 'string' && userId) {
+    list = list.filter(r => r.playerSummary?.some((p: any) => p.id === userId));
+  }
+  if (typeof roomCode === 'string' && roomCode) {
+    list = list.filter(r => r.roomCode === roomCode);
+  }
+  // Return metadata summary without heavy frame payload for swift listing
+  const summaryList = list.slice(0, 30).map(r => ({
+    id: r.id,
+    roomCode: r.roomCode,
+    matchName: r.matchName,
+    difficulty: r.difficulty,
+    mapId: r.mapId || 'kota',
+    targetDistance: r.targetDistance,
+    winnerId: r.winnerId,
+    winnerName: r.winnerName,
+    durationMs: r.durationMs,
+    playerSummary: r.playerSummary,
+    frameCount: r.frames?.length || 0,
+    createdAt: r.createdAt,
+  }));
+  res.json({ replays: summaryList });
+});
+
+// GET /api/replays/:id - get full replay with all telemetry frames
+app.get('/api/replays/:id', (req, res) => {
+  const { id } = req.params;
+  const replay = (db.replays || []).find(r => r.id === id);
+  if (!replay) {
+    return res.status(404).json({ error: 'Data replay tidak ditemukan' });
+  }
+  res.json({ replay });
+});
+
+// POST /api/replays - save custom / single-player replay
+app.post('/api/replays', (req, res) => {
+  const replayData = req.body;
+  if (!replayData || !replayData.id) {
+    return res.status(400).json({ error: 'Data replay tidak valid' });
+  }
+  if (!db.replays) db.replays = [];
+  const existingIdx = db.replays.findIndex(r => r.id === replayData.id);
+  if (existingIdx !== -1) {
+    db.replays[existingIdx] = replayData;
+  } else {
+    db.replays.unshift(replayData);
+  }
+  if (db.replays.length > 50) {
+    db.replays = db.replays.slice(0, 50);
+  }
+  saveDB();
+  res.json({ success: true, id: replayData.id });
+});
+
 // ----------------------------------------------------
 // VITE MIDDLEWARE / PRODUCTION STATIC FALLBACK
 // ----------------------------------------------------
@@ -1314,7 +1381,7 @@ async function setupVite() {
     ];
     const distPath = possiblePaths.find(p => fs.existsSync(path.join(p, 'index.html'))) || path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*', (_req, res) => {
       const indexPath = path.join(distPath, 'index.html');
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);

@@ -980,4 +980,47 @@ export const api = {
       });
     } catch (err) {}
   },
+
+  async getReplays(userId?: string, roomCode?: string): Promise<any[]> {
+    try {
+      const q = new URLSearchParams();
+      if (userId) q.set('userId', userId);
+      if (roomCode) q.set('roomCode', roomCode);
+      const res = await this.request(`/api/replays?${q.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        return data.replays || [];
+      }
+    } catch (err) {
+      console.warn('Gagal memuat daftar replay:', err);
+    }
+    return [];
+  },
+
+  async getReplay(id: string): Promise<any | null> {
+    try {
+      const res = await this.request(`/api/replays/${encodeURIComponent(id)}`);
+      if (res.ok) {
+        const data = await res.json();
+        return data.replay || null;
+      }
+    } catch (err) {
+      console.warn('Gagal memuat detail replay:', err);
+    }
+    return null;
+  },
+
+  async saveReplay(replayData: any): Promise<boolean> {
+    try {
+      const res = await this.request('/api/replays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(replayData),
+      });
+      return res.ok;
+    } catch (err) {
+      console.warn('Gagal menyimpan replay:', err);
+      return false;
+    }
+  },
 };

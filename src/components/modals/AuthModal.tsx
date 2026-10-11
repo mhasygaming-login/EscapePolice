@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile } from '../types';
-import { api, sound, encryptedActivityService, ActivityRecord } from '../services';
+import { UserProfile } from '../../types';
+import { api, sound, encryptedActivityService, ActivityRecord } from '../../services';
 import {
   Lock,
   User,
   X,
   ShieldCheck,
-  KeyRound,
   AlertCircle,
-  Clock,
   Sparkles,
-  Trophy,
   CheckCircle2,
   Trash2,
   RefreshCw,
@@ -69,10 +66,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleClearActivities = async () => {
+  const handleClearActivities = () => {
     if (!currentUser?.id) return;
     sound.play('click');
-    await encryptedActivityService.clearActivities(currentUser.id);
+    encryptedActivityService.clearActivities(currentUser.id);
     setActivities([]);
     setSuccessMsg('Riwayat aktivitas terenkripsi berhasil dibersihkan.');
     setTimeout(() => setSuccessMsg(''), 3000);
@@ -80,7 +77,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
@@ -103,7 +100,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');

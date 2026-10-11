@@ -32,6 +32,7 @@ export interface PlayerConnection {
   avatar: string;
   carColor: string;
   carModel: string;
+  laneIndex?: number;
   x: number;
   y: number;
   speed: number;
@@ -60,11 +61,15 @@ export interface Room {
   countdownSeconds?: number;
   countdownTimer?: NodeJS.Timeout;
   createdAt: number;
+  raceStartTime?: number;
+  recordingFrames?: any[];
+  recordingTimer?: NodeJS.Timeout;
+  lastSavedReplayId?: string;
 }
 
 export function setupMultiplayerServer(
   server: http.Server,
-  db: { users: Record<string, any>; scores: StoredScore[]; notifications: StoredNotification[] },
+  db: { users: Record<string, any>; scores: StoredScore[]; notifications: StoredNotification[]; replays?: any[] },
   saveDB: () => void
 ) {
   const io = new SocketIOServer(server, {
@@ -111,6 +116,7 @@ export function setupMultiplayerServer(
         avatar: p.avatar,
         carColor: p.carColor,
         carModel: p.carModel,
+        laneIndex: p.laneIndex ?? 0,
         x: p.x,
         y: p.y,
         speed: p.speed,
@@ -146,70 +152,256 @@ export function setupMultiplayerServer(
     io.to(room.code).emit('room_state', { room: serializeRoom(room) });
   }
 
-  // Authoritative Race Countdown Controller (3... 2... 1... GO!)
+  // Authoritative Race Countdown Controller (Server-Authoritative, Synchronization Buffer & Fresh Initial State)
   function startRaceCountdown(room: Room) {
     if (room.countdownTimer) {
-      clearInterval(room.countdownTimer);
+      clearTimeout(room.countdownTimer as any);
+      clearInterval(room.countdownTimer as any);
+      room.countdownTimer = undefined;
+    }
+
+    if (room.status === 'countdown' || room.status === 'in_game') {
+      return;
     }
 
     room.status = 'countdown';
-    room.countdownSeconds = 3;
     room.winnerId = undefined;
 
+    // Distribusi jalur start grid unik (0: Kiri, 2: Kanan, 1: Tengah)
+    const laneDistribution = [0, 2, 1];
+    let laneIdx = 0;
+    const initialPlayersPrep: Record<string, any> = {};
+
     for (const p of room.players.values()) {
+      const assignedLane = laneDistribution[laneIdx % laneDistribution.length];
+      p.laneIndex = assignedLane;
       p.status = 'countdown';
+      p.x = 0;
+      p.y = 0;
+      p.speed = 0;
       p.distance = 0;
+      p.steer = 0;
+      p.gas = false;
+      p.brake = false;
+      p.nitro = false;
       p.score = 0;
       p.hp = 3;
       p.combo = 0;
+
+      initialPlayersPrep[p.id] = {
+        id: p.id,
+        username: p.username,
+        avatar: p.avatar,
+        carColor: p.carColor,
+        carModel: p.carModel,
+        laneIndex: assignedLane,
+        x: 0,
+        y: 0,
+        speed: 0,
+        distance: 0,
+        lap: 1,
+        steer: 0,
+        gas: false,
+        brake: false,
+        nitro: false,
+        hp: 3,
+        score: 0,
+        combo: 0,
+        status: 'countdown',
+      };
+      laneIdx++;
     }
 
+    // Inisialisasi status countdown tanpa buffer jeda ekstra
+    room.countdownSeconds = 3;
     broadcastRoomState(room);
-    io.to(room.code).emit('countdown_tick', {
-      count: 3,
-      message: 'BERSIAP...',
-      room: serializeRoom(room),
-    });
 
-    room.countdownTimer = setInterval(() => {
-      if (!room.countdownSeconds) room.countdownSeconds = 0;
-      room.countdownSeconds -= 1;
+    let currentCount = 3;
 
-      if (room.countdownSeconds > 0) {
-        const msg = room.countdownSeconds === 2 ? 'SIAP-SIAP...' : 'INJAK GAS!';
-        io.to(room.code).emit('countdown_tick', {
-          count: room.countdownSeconds,
-          message: msg,
-          room: serializeRoom(room),
-        });
-        broadcastRoomState(room);
+    const executeCountdownStep = () => {
+      const message =
+        currentCount === 3
+          ? '3 - BERSIAP...'
+          : currentCount === 2
+          ? '2 - SIAP-SIAP...'
+          : '1 - INJAK GAS!';
+
+      room.countdownSeconds = currentCount;
+      io.to(room.code).emit('countdown_tick', {
+        count: currentCount,
+        message,
+        room: serializeRoom(room),
+        initialPlayers: initialPlayersPrep,
+      });
+      broadcastRoomState(room);
+
+      currentCount -= 1;
+
+      if (currentCount > 0) {
+        room.countdownTimer = setTimeout(executeCountdownStep, 1000) as any;
       } else {
-        // COUNTDOWN FINISHED -> BALAPAN DIMULAI!
-        if (room.countdownTimer) {
-          clearInterval(room.countdownTimer);
+        // Tepat setelah angka "1" tampil genap 1 detik (1000ms), langsung eksekusi GO tanpa jeda diam ekstra
+        room.countdownTimer = setTimeout(() => {
+          // EKSEKUSI AUTHORITATIVE "GO" & EMIT ULANG SELURUH STATE AWAL REMOTE PLAYER
+          room.status = 'in_game';
+          room.countdownSeconds = 0;
           room.countdownTimer = undefined;
-        }
-        room.status = 'in_game';
-        room.countdownSeconds = 0;
+          room.raceStartTime = Date.now();
+          room.recordingFrames = [];
 
-        for (const p of room.players.values()) {
-          p.status = 'playing';
-        }
+          const finalFreshPlayers: Record<string, any> = {};
+          let fIdx = 0;
+          for (const p of room.players.values()) {
+            p.status = 'playing';
+            p.speed = 0;
+            p.distance = 0;
+            p.steer = 0;
+            p.gas = false;
+            p.brake = false;
+            p.nitro = false;
+            p.hp = 3;
+            p.score = 0;
+            p.combo = 0;
+            if (p.laneIndex === undefined) {
+              p.laneIndex = laneDistribution[fIdx % laneDistribution.length];
+            }
 
-        io.to(room.code).emit('countdown_tick', {
-          count: 0,
-          message: 'GO! BALAPAN DIMULAI!',
-          room: serializeRoom(room),
-        });
+            finalFreshPlayers[p.id] = {
+              id: p.id,
+              username: p.username,
+              avatar: p.avatar,
+              carColor: p.carColor,
+              carModel: p.carModel,
+              laneIndex: p.laneIndex,
+              x: 0,
+              y: 0,
+              speed: 0,
+              distance: 0,
+              lap: 1,
+              steer: 0,
+              gas: false,
+              brake: false,
+              nitro: false,
+              hp: 3,
+              score: 0,
+              combo: 0,
+              status: 'playing',
+            };
+            fIdx++;
+          }
 
-        io.to(room.code).emit('race_start', {
-          targetDistance: room.targetDistance,
-          room: serializeRoom(room),
-        });
+          // Rekam frame pertama replay (t = 0)
+          const initialSnapshot: Record<string, any> = {};
+          for (const [id, p] of room.players) {
+            initialSnapshot[id] = {
+              id: p.id,
+              username: p.username,
+              avatar: p.avatar,
+              carColor: p.carColor,
+              carModel: p.carModel,
+              laneIndex: p.laneIndex,
+              x: Math.round(p.x),
+              y: Math.round(p.y),
+              speed: 0,
+              distance: 0,
+              steer: 0,
+              gas: false,
+              brake: false,
+              nitro: false,
+              hp: 3,
+              score: 0,
+              status: 'playing',
+            };
+          }
+          room.recordingFrames.push({ t: 0, players: initialSnapshot });
 
-        broadcastRoomState(room);
+          // Mulai perekaman telemetri replay tiap 100ms
+          if (room.recordingTimer) clearInterval(room.recordingTimer);
+          room.recordingTimer = setInterval(() => {
+            if (room.status !== 'in_game' || !room.raceStartTime) {
+              if (room.recordingTimer) clearInterval(room.recordingTimer);
+              return;
+            }
+            const relTime = Date.now() - room.raceStartTime;
+            const snapshot: Record<string, any> = {};
+            for (const [id, p] of room.players) {
+              snapshot[id] = {
+                id: p.id,
+                username: p.username,
+                avatar: p.avatar,
+                carColor: p.carColor,
+                carModel: p.carModel,
+                laneIndex: p.laneIndex,
+                x: Math.round(p.x),
+                y: Math.round(p.y),
+                speed: Math.round(p.speed),
+                distance: Math.round(p.distance),
+                steer: p.steer,
+                gas: p.gas,
+                brake: p.brake,
+                nitro: p.nitro,
+                hp: p.hp,
+                score: Math.round(p.score),
+                status: p.status,
+              };
+            }
+            if (room.recordingFrames) {
+              room.recordingFrames.push({ t: relTime, players: snapshot });
+              if (room.recordingFrames.length > 3600) {
+                room.recordingFrames.shift();
+              }
+            }
+          }, 100) as any;
+
+          // 1. Broadcast sinyal "GO" bersama state awal yang bersih dan terverifikasi
+          io.to(room.code).emit('countdown_tick', {
+            count: 0,
+            message: 'GO! BALAPAN DIMULAI!',
+            room: serializeRoom(room),
+            initialPlayers: finalFreshPlayers,
+            startTime: Date.now(),
+          });
+
+          // 2. Broadcast authoritative event race_start
+          io.to(room.code).emit('race_start', {
+            targetDistance: room.targetDistance,
+            room: serializeRoom(room),
+            initialPlayers: finalFreshPlayers,
+            startTime: Date.now(),
+          });
+
+          // 3. Emit ulang fresh opponent_sync untuk setiap player tepat saat GO
+          for (const freshP of Object.values(finalFreshPlayers)) {
+            io.to(room.code).emit('opponent_sync', {
+              userId: freshP.id,
+              username: freshP.username,
+              avatar: freshP.avatar,
+              carColor: freshP.carColor,
+              carModel: freshP.carModel,
+              laneIndex: freshP.laneIndex,
+              x: 0,
+              y: 0,
+              speed: 0,
+              distance: 0,
+              lap: 1,
+              steer: 0,
+              gas: false,
+              brake: false,
+              nitro: false,
+              score: 0,
+              hp: 3,
+              combo: 0,
+              status: 'playing',
+            });
+          }
+
+          broadcastRoomState(room);
+        }, 1000) as any;
       }
-    }, 1000);
+    };
+
+    // Mulai hitungan mundur langsung 3 -> 2 -> 1 -> GO tanpa jeda buffer awal
+    executeCountdownStep();
   }
 
   // Check race finish condition (first to reach targetDistance or last survivor)
@@ -257,12 +449,53 @@ export function setupMultiplayerServer(
   function finishRace(room: Room, winnerId?: string, reason?: string) {
     if (room.status === 'finished') return;
     if (room.countdownTimer) clearInterval(room.countdownTimer);
+    if (room.recordingTimer) {
+      clearInterval(room.recordingTimer);
+      room.recordingTimer = undefined;
+    }
 
     room.status = 'finished';
     room.winnerId = winnerId;
 
     for (const p of room.players.values()) {
       p.status = 'finished';
+    }
+
+    // Simpan data ghost replay autoritatif balapan ini ke database
+    if (room.recordingFrames && room.recordingFrames.length > 0) {
+      const replayId = 'replay_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      const winnerPlayer = winnerId ? room.players.get(winnerId) : undefined;
+      const replayRecord = {
+        id: replayId,
+        roomCode: room.code,
+        matchName: room.name,
+        difficulty: room.difficulty,
+        mapId: 'kota',
+        targetDistance: room.targetDistance,
+        winnerId: winnerId || null,
+        winnerName: winnerPlayer ? winnerPlayer.username : (winnerId ? 'Pemenang' : null),
+        durationMs: room.raceStartTime ? Date.now() - room.raceStartTime : 0,
+        playerSummary: Array.from(room.players.values()).map(p => ({
+          id: p.id,
+          username: p.username,
+          avatar: p.avatar,
+          carColor: p.carColor,
+          carModel: p.carModel,
+          distance: Math.round(p.distance),
+          score: Math.round(p.score),
+          status: p.status,
+        })),
+        frames: room.recordingFrames,
+        createdAt: new Date().toISOString(),
+      };
+
+      if (!db.replays) db.replays = [];
+      db.replays.unshift(replayRecord);
+      if (db.replays.length > 50) {
+        db.replays = db.replays.slice(0, 50);
+      }
+      room.lastSavedReplayId = replayId;
+      saveDB();
     }
 
     // Award stats & bounty to winner in database
@@ -284,6 +517,7 @@ export function setupMultiplayerServer(
     io.to(room.code).emit('race_finish', {
       winnerId,
       reason: reason || 'Balapan Selesai!',
+      replayId: room.lastSavedReplayId,
       room: serializeRoom(room),
     });
 
@@ -543,6 +777,7 @@ export function setupMultiplayerServer(
         }
 
         // Full Telemetry Sync Packet
+        case 'sync_player':
         case 'player_sync': {
           if (!currentRoomCode || !currentUserId) return;
           const room = activeRooms.get(currentRoomCode);
@@ -699,6 +934,7 @@ export function setupMultiplayerServer(
       'return_to_lobby',
       'player_input',
       'player_sync',
+      'sync_player',
       'collision',
       'player_action',
       'leave_room',

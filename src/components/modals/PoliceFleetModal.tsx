@@ -4,8 +4,8 @@ import {
   drawPoliceMotorcycle2D,
   PoliceCarVariant,
   sound
-} from '../services';
-import { Shield, Siren, X, Zap, ChevronRight, Gauge } from 'lucide-react';
+} from '../../services';
+import { Shield, Siren, X, Zap, ChevronRight } from 'lucide-react';
 
 interface PoliceFleetModalProps {
   isOpen: boolean;
@@ -255,6 +255,17 @@ export const PoliceFleetModal: React.FC<PoliceFleetModalProps> = ({ isOpen, onCl
           <div className="md:col-span-7 flex flex-col gap-4">
             {/* 2D Canvas Stage */}
             <div className="relative rounded-2xl border border-cyan-500/30 overflow-hidden bg-[#060a14] flex flex-col items-center justify-center p-3 shadow-inner">
+              <button
+                type="button"
+                onClick={() => {
+                  sound.play('click');
+                  setOrientation(prev => prev === 'down' ? 'up' : 'down');
+                }}
+                className="absolute top-2 right-2 px-2 py-1 rounded-lg bg-black/60 hover:bg-black/90 border border-white/20 text-[10px] font-mono text-cyan-300 flex items-center gap-1 cursor-pointer transition-all z-10"
+                title="Putar Orientasi Kendaraan"
+              >
+                <span>Putar: {orientation === 'down' ? 'Depan' : 'Belakang'}</span>
+              </button>
               <canvas
                 ref={canvasRef}
                 width={260}

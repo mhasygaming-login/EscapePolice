@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserProfile, ActiveTab } from '../types';
+import { UserProfile, ActiveTab } from '../../types';
 import {
   Trophy,
   Users,
@@ -12,7 +12,8 @@ import {
   Volume2,
   VolumeX,
   Settings,
-  Share2
+  Share2,
+  RotateCw
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -191,16 +192,28 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Sisi Kanan Utility Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Status Mode Offline */}
-          {!isOnline && (
-            <div
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider"
-              title="Game sedang berjalan dalam Mode Offline (Semua skor & progres tersimpan di perangkat)"
+          {/* Status Mode Offline / Syncing */}
+          {isSyncing ? (
+            <button
+              type="button"
+              onClick={onTriggerSync}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-[10px] font-mono font-bold uppercase tracking-wider cursor-pointer"
+              title="Sinkronisasi data sedang berlangsung - klik untuk paksa sinkron"
+            >
+              <RotateCw className="w-3 h-3 text-cyan-400 animate-spin" />
+              <span>SYNC</span>
+            </button>
+          ) : !isOnline ? (
+            <button
+              type="button"
+              onClick={onTriggerSync}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider cursor-pointer"
+              title="Game sedang berjalan dalam Mode Offline - klik untuk coba sambungkan"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
               <span>OFFLINE</span>
-            </div>
-          )}
+            </button>
+          ) : null}
 
           {/* Audio Mute Toggle */}
           <button

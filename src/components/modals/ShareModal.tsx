@@ -8,12 +8,11 @@ import {
   ExternalLink,
   MessageCircle,
   Send,
-  Users,
   Sparkles,
   Smartphone,
   Laptop
 } from 'lucide-react';
-import { getPublicGameUrl, copyTextToClipboard, PUBLIC_APP_URL } from '../utils';
+import { getPublicGameUrl, copyTextToClipboard, PUBLIC_APP_URL } from '../../utils';
 
 interface ShareModalProps {
   isOpen: boolean;

@@ -1,4 +1,4 @@
-import Peer, { DataConnection } from 'peerjs';
+import type { DataConnection } from 'peerjs';
 import { MultiplayerRoom, MultiplayerPlayerState, DifficultyLevel } from '../types';
 import { api } from './api';
 
@@ -32,6 +32,18 @@ export class PeerMultiplayerService {
 
   public isP2PActive: boolean = false;
   public connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'hosting' = 'disconnected';
+
+  public getPeerId(): string {
+    return this.peerId;
+  }
+
+  public getCurrentRoomCode(): string {
+    return this.currentRoomCode;
+  }
+
+  public getIsConnecting(): boolean {
+    return this.isConnecting;
+  }
 
   constructor() {
     // STUN config for robust NAT traversal across mobile networks and Wi-Fi
@@ -94,7 +106,7 @@ export class PeerMultiplayerService {
       },
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       let instance: any;
       if (preferredId) {
         instance = new PeerClass(preferredId, config);
@@ -561,54 +573,191 @@ export class PeerMultiplayerService {
   }
 
   /**
-   * HOST: Starts the race with a 3-second countdown
+   * HOST: Starts the race with server-authoritative synchronization buffer & 3-second countdown
    */
   public startRace() {
     if (!this.currentRoom) return;
+    if (this.currentRoom.status === 'countdown' || this.currentRoom.status === 'in_game') return;
     this.isHost = true;
 
-    if (this.countdownTimer) clearInterval(this.countdownTimer);
+    if (this.countdownTimer) {
+      clearTimeout(this.countdownTimer);
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
+    }
 
-    let count = 3;
+    const laneDistribution = [0, 2, 1];
+    let laneIdx = 0;
+    const initialPlayersPrep: Record<string, any> = {};
+
+    if (this.currentRoom.players) {
+      for (const p of Object.values(this.currentRoom.players)) {
+        const assignedLane = laneDistribution[laneIdx % laneDistribution.length];
+        p.laneIndex = assignedLane;
+        p.status = 'countdown';
+        p.x = 0;
+        p.y = 0;
+        p.speed = 0;
+        p.distance = 0;
+        p.steer = 0;
+        p.gas = false;
+        p.brake = false;
+        p.nitro = false;
+        p.hp = 3;
+        p.score = 0;
+        p.combo = 0;
+
+        initialPlayersPrep[p.id] = {
+          ...p,
+          laneIndex: assignedLane,
+          speed: 0,
+          distance: 0,
+          steer: 0,
+          gas: false,
+          brake: false,
+          nitro: false,
+          hp: 3,
+          score: 0,
+          combo: 0,
+          status: 'countdown',
+        };
+        laneIdx++;
+      }
+    }
+
     this.currentRoom.status = 'countdown';
-    this.currentRoom.countdownSeconds = count;
+    this.currentRoom.countdownSeconds = 3;
 
-    // Immediately notify both Host and Guests to switch to the Game Canvas!
     this.broadcastToGuests({
       type: 'room_state',
       room: this.currentRoom,
     });
     this.trigger('room_state', { room: this.currentRoom });
 
-    const tick = () => {
+    let count = 3;
+
+    const executeTick = () => {
+      const message =
+        count === 3
+          ? '3 - BERSIAP...'
+          : count === 2
+          ? '2 - SIAP-SIAP...'
+          : '1 - INJAK GAS!';
+
       this.broadcastToGuests({
         type: 'countdown_tick',
         count,
-        message: count > 0 ? `${count}` : 'GO! BALAPAN DIMULAI!',
+        message,
+        initialPlayers: initialPlayersPrep,
       });
       this.trigger('countdown_tick', {
         count,
-        message: count > 0 ? `${count}` : 'GO! BALAPAN DIMULAI!',
+        message,
+        initialPlayers: initialPlayersPrep,
       });
 
-      if (count <= 0) {
-        clearInterval(this.countdownTimer);
-        this.countdownTimer = null;
-        if (this.currentRoom) {
-          this.currentRoom.status = 'in_game';
-          this.broadcastToGuests({
-            type: 'room_state',
-            room: this.currentRoom,
-          });
-          this.trigger('room_state', { room: this.currentRoom });
-        }
+      count--;
+
+      if (count > 0) {
+        this.countdownTimer = setTimeout(executeTick, 1000);
       } else {
-        count--;
+        // Tepat setelah angka "1" tampil genap 1 detik (1000ms), langsung eksekusi GO tanpa jeda diam ekstra
+        this.countdownTimer = setTimeout(() => {
+          if (!this.currentRoom) return;
+          this.currentRoom.status = 'in_game';
+          this.currentRoom.countdownSeconds = 0;
+          this.countdownTimer = null;
+
+          const finalFreshPlayers: Record<string, any> = {};
+          let fIdx = 0;
+          for (const p of Object.values(this.currentRoom.players)) {
+            const lane = p.laneIndex ?? laneDistribution[fIdx % laneDistribution.length];
+            p.status = 'playing';
+            p.speed = 0;
+            p.distance = 0;
+            p.steer = 0;
+            p.gas = false;
+            p.brake = false;
+            p.nitro = false;
+            p.hp = 3;
+            p.score = 0;
+            p.combo = 0;
+            p.laneIndex = lane;
+
+            finalFreshPlayers[p.id] = {
+              ...p,
+              laneIndex: lane,
+              speed: 0,
+              distance: 0,
+              steer: 0,
+              gas: false,
+              brake: false,
+              nitro: false,
+              hp: 3,
+              score: 0,
+              combo: 0,
+              status: 'playing',
+            };
+            fIdx++;
+          }
+
+          // Sinyal "GO" Authoritative dengan Data Pemain Fresh
+          this.broadcastToGuests({
+            type: 'countdown_tick',
+            count: 0,
+            message: 'GO! BALAPAN DIMULAI!',
+            initialPlayers: finalFreshPlayers,
+            startTime: Date.now(),
+          });
+          this.trigger('countdown_tick', {
+            count: 0,
+            message: 'GO! BALAPAN DIMULAI!',
+            initialPlayers: finalFreshPlayers,
+            startTime: Date.now(),
+          });
+
+          this.broadcastToGuests({
+            type: 'race_start',
+            room: this.currentRoom,
+            initialPlayers: finalFreshPlayers,
+            startTime: Date.now(),
+          });
+          this.trigger('race_start', {
+            room: this.currentRoom,
+            initialPlayers: finalFreshPlayers,
+            startTime: Date.now(),
+          });
+
+          // Emit ulang fresh opponent_sync untuk setiap player tepat saat GO
+          for (const freshP of Object.values(finalFreshPlayers)) {
+            this.broadcastToGuests({
+              type: 'opponent_sync',
+              userId: freshP.id,
+              username: freshP.username,
+              avatar: freshP.avatar,
+              carColor: freshP.carColor,
+              carModel: freshP.carModel,
+              laneIndex: freshP.laneIndex,
+              x: 0,
+              y: 0,
+              speed: 0,
+              distance: 0,
+              steer: 0,
+              gas: false,
+              brake: false,
+              nitro: false,
+              score: 0,
+              hp: 3,
+              combo: 0,
+              status: 'playing',
+            });
+          }
+        }, 1000);
       }
     };
 
-    tick();
-    this.countdownTimer = setInterval(tick, 1000);
+    // Langsung eksekusi 3 tanpa jeda buffer awal
+    executeTick();
   }
 
   /**

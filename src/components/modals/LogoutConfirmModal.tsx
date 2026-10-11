@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { UserProfile } from '../types/game';
-import { api } from '../services/api';
-import { sound } from '../services/audio';
+import { UserProfile } from '../../types';
+import { api } from '../../services/api';
+import { sound } from '../../services/audio';
 import {
-  ShieldAlert,
   Lock,
   LogOut,
   X,
@@ -42,7 +41,7 @@ export const LogoutConfirmModal: React.FC<LogoutConfirmModalProps> = ({
     onClose();
   };
 
-  const handleConfirm = async (e: React.FormEvent) => {
+  const handleConfirm = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setError('');
 

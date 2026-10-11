@@ -1,18 +1,20 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
-  Flame,
-  Gauge,
-  Leaf,
-  Play,
-  Siren,
-  Skull,
   Building2,
   Snowflake,
+  Flame,
   Trees,
   Mountain,
-  MapPin,
-  ShieldAlert,
+  Leaf,
+  Gauge,
+  Skull,
+  Play,
+  Siren,
   Car,
+  ChevronLeft,
+  ChevronRight,
+  ShieldAlert,
+  MapPin,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -35,20 +37,20 @@ export interface SelectorOption {
   gradientOverlay: string;
 }
 
-// Map Background Images
+// Background Images Peta
 const MAP_IMG_KOTA = "/maps/kota.jpg";
 const MAP_IMG_SALJU = "/maps/salju.jpg";
 const MAP_IMG_PADANG_PASIR = "/maps/padang_pasir.jpg";
 const MAP_IMG_HUTAN = "/maps/hutan.jpg";
 const MAP_IMG_PEGUNUNGAN = "/maps/pegunungan.jpg";
 
-// Difficulty Background Images (User Custom Assets)
+// Background Images Tingkat Kesulitan
 const DIFF_IMG_SANTAI = "/difficulties/santai.jpg";
 const DIFF_IMG_NORMAL = "/difficulties/normal.jpg";
 const DIFF_IMG_SULIT = "/difficulties/sulit.jpg";
 const DIFF_IMG_MAXXX = "/difficulties/maxxx.jpg";
 
-// 5 Pilihan Peta (Maps) - Visual Vibes Profesional
+// 5 Pilihan Arena Peta
 export const MAP_SELECTOR_OPTIONS: SelectorOption[] = [
   {
     id: "kota",
@@ -62,7 +64,7 @@ export const MAP_SELECTOR_OPTIONS: SelectorOption[] = [
     icon: Building2,
     color: "#00f0ff",
     gradientOverlay:
-      "linear-gradient(180deg, rgba(0, 240, 255, 0.12) 0%, rgba(7, 9, 20, 0.92) 100%)",
+      "linear-gradient(180deg, rgba(0, 240, 255, 0.1) 0%, rgba(7, 9, 20, 0.9) 100%)",
   },
   {
     id: "salju",
@@ -76,7 +78,7 @@ export const MAP_SELECTOR_OPTIONS: SelectorOption[] = [
     icon: Snowflake,
     color: "#38bdf8",
     gradientOverlay:
-      "linear-gradient(180deg, rgba(56, 189, 248, 0.15) 0%, rgba(8, 16, 32, 0.92) 100%)",
+      "linear-gradient(180deg, rgba(56, 189, 248, 0.1) 0%, rgba(8, 16, 32, 0.9) 100%)",
   },
   {
     id: "padang_pasir",
@@ -90,13 +92,13 @@ export const MAP_SELECTOR_OPTIONS: SelectorOption[] = [
     icon: Flame,
     color: "#fb923c",
     gradientOverlay:
-      "linear-gradient(180deg, rgba(251, 146, 60, 0.15) 0%, rgba(24, 12, 8, 0.92) 100%)",
+      "linear-gradient(180deg, rgba(251, 146, 60, 0.1) 0%, rgba(24, 12, 8, 0.9) 100%)",
   },
   {
     id: "hutan",
     title: "HUTAN NEON",
     shortLabel: "HUTAN",
-    subtitle: "Hutan Hujan Tropis",
+    subtitle: "Hutan Tropis",
     description: "Pohon purba rimbun berpadu pilar neon hijau dan aspal basah",
     badge: "TROPIS",
     image: MAP_IMG_HUTAN,
@@ -104,13 +106,13 @@ export const MAP_SELECTOR_OPTIONS: SelectorOption[] = [
     icon: Trees,
     color: "#34d399",
     gradientOverlay:
-      "linear-gradient(180deg, rgba(52, 211, 153, 0.15) 0%, rgba(6, 22, 16, 0.92) 100%)",
+      "linear-gradient(180deg, rgba(52, 211, 153, 0.1) 0%, rgba(6, 22, 16, 0.9) 100%)",
   },
   {
     id: "pegunungan",
     title: "PEGUNUNGAN",
     shortLabel: "GUNUNG",
-    subtitle: "Skyline Canyon Pass",
+    subtitle: "Canyon Skyline",
     description: "Jalanan berliku tajam di lereng tebing tinggi menembus awan",
     badge: "CANYON",
     image: MAP_IMG_PEGUNUNGAN,
@@ -118,7 +120,7 @@ export const MAP_SELECTOR_OPTIONS: SelectorOption[] = [
     icon: Mountain,
     color: "#c084fc",
     gradientOverlay:
-      "linear-gradient(180deg, rgba(192, 132, 252, 0.15) 0%, rgba(20, 10, 32, 0.92) 100%)",
+      "linear-gradient(180deg, rgba(192, 132, 252, 0.1) 0%, rgba(20, 10, 32, 0.9) 100%)",
   },
 ];
 
@@ -129,70 +131,70 @@ export const DIFFICULTY_SELECTOR_OPTIONS: SelectorOption[] = [
     title: "SANTAI",
     shortLabel: "SANTAI",
     subtitle: "Mode Santai",
-    description: "Trafik lengang, polisi ramah berpatroli santai tanpa terburu-buru",
+    description: "Trafik lengang, polisi berpatroli dengan kecepatan standar",
     badge: "EASY",
     image: DIFF_IMG_SANTAI,
     position: "center center",
     icon: Leaf,
     color: "#34d399",
     gradientOverlay:
-      "linear-gradient(180deg, rgba(52, 211, 153, 0.12) 0%, rgba(7, 9, 20, 0.92) 100%)",
+      "linear-gradient(180deg, rgba(52, 211, 153, 0.1) 0%, rgba(6, 22, 16, 0.9) 100%)",
   },
   {
     id: "normal",
     title: "NORMAL",
     shortLabel: "NORMAL",
-    subtitle: "Tantangan Standar",
-    description: "Kecepatan balapan seimbang dengan formasi armada patroli reguler",
-    badge: "BALANCED",
+    subtitle: "Standar Kota",
+    description: "Kecepatan imbang, barikade jalan aktif dan taktik pengejaran",
+    badge: "NORMAL",
     image: DIFF_IMG_NORMAL,
     position: "center center",
     icon: Gauge,
-    color: "#00e5ff",
+    color: "#00f0ff",
     gradientOverlay:
-      "linear-gradient(180deg, rgba(0, 229, 255, 0.12) 0%, rgba(7, 9, 20, 0.92) 100%)",
+      "linear-gradient(180deg, rgba(0, 240, 255, 0.1) 0%, rgba(7, 9, 20, 0.9) 100%)",
   },
   {
     id: "sulit",
     title: "SULIT",
     shortLabel: "SULIT",
-    subtitle: "Kejaran Agresif",
-    description: "Polisi agresif, barikade kawat berduri (*Spike Strip*) & unit SUV tangguh",
-    badge: "CHALLENGE",
+    subtitle: "Agresif Brutal",
+    description: "Helikopter patroli, taktik pit manuver & spike strip jalanan",
+    badge: "HARD",
     image: DIFF_IMG_SULIT,
     position: "center center",
     icon: Flame,
     color: "#f59e0b",
     gradientOverlay:
-      "linear-gradient(180deg, rgba(245, 158, 11, 0.15) 0%, rgba(7, 9, 20, 0.92) 100%)",
+      "linear-gradient(180deg, rgba(245, 158, 11, 0.1) 0%, rgba(24, 16, 8, 0.9) 100%)",
   },
   {
     id: "maxxx",
     title: "MAXXX",
     shortLabel: "MAXXX",
-    subtitle: "Kejaran Brutal",
-    description: "Armada helikopter tempur, tembakan gelombang EMP & kejaran tanpa ampun",
-    badge: "EXTREME",
+    subtitle: "Pengejaran Ekstrem",
+    description: "Armada interceptor cepat, serangan EMP konstan & blokade penuh",
+    badge: "MAXXX",
     image: DIFF_IMG_MAXXX,
     position: "center center",
     icon: Skull,
     color: "#f43f5e",
     gradientOverlay:
-      "linear-gradient(180deg, rgba(244, 63, 94, 0.18) 0%, rgba(7, 9, 20, 0.94) 100%)",
+      "linear-gradient(180deg, rgba(244, 63, 94, 0.1) 0%, rgba(26, 6, 12, 0.9) 100%)",
   },
 ];
 
 export interface InteractiveSelectorProps {
   selectedMapId?: GameMapId;
-  onSelectMap?: (id: GameMapId) => void;
+  onSelectMap?: (mapId: GameMapId) => void;
   defaultDifficulty?: DifficultyId;
-  onDifficultyChange?: (id: DifficultyId) => void;
+  onDifficultyChange?: (difficulty: DifficultyId) => void;
   carName?: string;
   carHp?: number;
   fleetCount?: number;
   onChangeCar?: () => void;
-  onStart?: (difficulty: DifficultyId, mapId: GameMapId) => void;
   onOpenFleet?: () => void;
+  onStart?: (diff: DifficultyId, map: GameMapId) => void;
   initialMode?: "map" | "difficulty";
 }
 
@@ -201,150 +203,437 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
   onSelectMap,
   defaultDifficulty = "normal",
   onDifficultyChange,
-  carName = "GT-R Nismo",
-  carHp = 600,
+  carName = "Civic Type R",
+  carHp = 320,
   fleetCount = 20,
   onChangeCar,
-  onStart,
   onOpenFleet,
-  initialMode = "map",
+  onStart,
 }) => {
-  const [activeMode, setActiveMode] = useState<"map" | "difficulty">(initialMode);
-
+  // Map index tracking
   const [activeMapIndex, setActiveMapIndex] = useState(() => {
     const idx = MAP_SELECTOR_OPTIONS.findIndex((m) => m.id === selectedMapId);
     return idx >= 0 ? idx : 0;
   });
 
+  // Difficulty index tracking
   const [activeDiffIndex, setActiveDiffIndex] = useState(() => {
     const idx = DIFFICULTY_SELECTOR_OPTIONS.findIndex((d) => d.id === defaultDifficulty);
     return idx >= 0 ? idx : 1;
   });
 
+  // Sync props to internal state
   useEffect(() => {
     const idx = MAP_SELECTOR_OPTIONS.findIndex((m) => m.id === selectedMapId);
     if (idx >= 0 && idx !== activeMapIndex) {
       setActiveMapIndex(idx);
     }
-  }, [selectedMapId, activeMapIndex]);
+  }, [selectedMapId]);
 
   useEffect(() => {
     const idx = DIFFICULTY_SELECTOR_OPTIONS.findIndex((d) => d.id === defaultDifficulty);
     if (idx >= 0 && idx !== activeDiffIndex) {
       setActiveDiffIndex(idx);
     }
-  }, [defaultDifficulty, activeDiffIndex]);
+  }, [defaultDifficulty]);
 
-  const currentOptions = activeMode === "map" ? MAP_SELECTOR_OPTIONS : DIFFICULTY_SELECTOR_OPTIONS;
-  const currentActiveIndex = activeMode === "map" ? activeMapIndex : activeDiffIndex;
-
-  const handleOptionClick = useCallback(
-    (index: number) => {
+  // Handler update map
+  const setMap = useCallback(
+    (newIndex: number) => {
+      const normalized = (newIndex + MAP_SELECTOR_OPTIONS.length) % MAP_SELECTOR_OPTIONS.length;
       sound.play("click");
-      if (activeMode === "map") {
-        setActiveMapIndex(index);
-        const chosenMap = MAP_SELECTOR_OPTIONS[index].id as GameMapId;
-        onSelectMap?.(chosenMap);
-      } else {
-        setActiveDiffIndex(index);
-        const chosenDiff = DIFFICULTY_SELECTOR_OPTIONS[index].id as DifficultyId;
-        onDifficultyChange?.(chosenDiff);
-      }
+      setActiveMapIndex(normalized);
+      onSelectMap?.(MAP_SELECTOR_OPTIONS[normalized].id as GameMapId);
     },
-    [activeMode, onSelectMap, onDifficultyChange]
+    [onSelectMap]
   );
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-        e.preventDefault();
-        const nextIdx = (currentActiveIndex + 1) % currentOptions.length;
-        handleOptionClick(nextIdx);
-      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-        e.preventDefault();
-        const prevIdx = (currentActiveIndex - 1 + currentOptions.length) % currentOptions.length;
-        handleOptionClick(prevIdx);
-      }
+  // Handler update difficulty
+  const setDiff = useCallback(
+    (newIndex: number) => {
+      const normalized = (newIndex + DIFFICULTY_SELECTOR_OPTIONS.length) % DIFFICULTY_SELECTOR_OPTIONS.length;
+      sound.play("click");
+      setActiveDiffIndex(normalized);
+      onDifficultyChange?.(DIFFICULTY_SELECTOR_OPTIONS[normalized].id as DifficultyId);
     },
-    [currentActiveIndex, currentOptions.length, handleOptionClick]
+    [onDifficultyChange]
   );
 
-  const selectedMapOption = MAP_SELECTOR_OPTIONS[activeMapIndex] || MAP_SELECTOR_OPTIONS[0];
-  const selectedDiffOption =
-    DIFFICULTY_SELECTOR_OPTIONS[activeDiffIndex] || DIFFICULTY_SELECTOR_OPTIONS[1];
+  // Swipe / Drag helper states for Left Box (Map)
+  const mapTouchStart = useRef<number | null>(null);
+  const handleMapTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    mapTouchStart.current = clientX;
+  };
+  const handleMapTouchEnd = (e: React.TouchEvent | React.MouseEvent) => {
+    if (mapTouchStart.current === null) return;
+    const clientX = "changedTouches" in e ? e.changedTouches[0].clientX : (e as React.MouseEvent).clientX;
+    const diff = clientX - mapTouchStart.current;
+    if (diff > 40) {
+      setMap(activeMapIndex - 1);
+    } else if (diff < -40) {
+      setMap(activeMapIndex + 1);
+    }
+    mapTouchStart.current = null;
+  };
 
-  const activeOption = currentOptions[currentActiveIndex] || currentOptions[0];
-  const ActiveIcon = activeOption.icon;
-  const activeColor = activeOption.color || "#00e5ff";
+  // Swipe / Drag helper states for Right Box (Difficulty)
+  const diffTouchStart = useRef<number | null>(null);
+  const handleDiffTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    diffTouchStart.current = clientX;
+  };
+  const handleDiffTouchEnd = (e: React.TouchEvent | React.MouseEvent) => {
+    if (diffTouchStart.current === null) return;
+    const clientX = "changedTouches" in e ? e.changedTouches[0].clientX : (e as React.MouseEvent).clientX;
+    const diff = clientX - diffTouchStart.current;
+    if (diff > 40) {
+      setDiff(activeDiffIndex - 1);
+    } else if (diff < -40) {
+      setDiff(activeDiffIndex + 1);
+    }
+    diffTouchStart.current = null;
+  };
+
+  const currentMap = MAP_SELECTOR_OPTIONS[activeMapIndex] || MAP_SELECTOR_OPTIONS[0];
+  const currentDiff = DIFFICULTY_SELECTOR_OPTIONS[activeDiffIndex] || DIFFICULTY_SELECTOR_OPTIONS[1];
+
+  const handleLaunch = () => {
+    sound.play("click");
+    onStart?.(currentDiff.id as DifficultyId, currentMap.id as GameMapId);
+  };
 
   return (
-    <div
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-      className="relative flex w-full flex-col p-3 sm:p-4 md:p-5 text-white select-none focus:outline-none"
-    >
-      {/* ── 1. Tactical Command Header & Mode Switcher ────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 pb-2.5 border-b border-white/10 mb-2.5">
+    <div className="flex w-full flex-col p-2.5 sm:p-4 md:p-5 text-white select-none focus:outline-none">
+      {/* ── 1. Top Header: AutoLayout Bersih & Rapi ──────────────────────────── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 pb-2.5 border-b border-white/10 mb-3 sm:mb-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#00e5ff] animate-pulse" />
-            <span className="text-[9.5px] font-mono font-bold tracking-widest text-cyan-400 uppercase">
+            <span className="text-[10px] font-mono font-bold tracking-widest text-cyan-400 uppercase">
               LOBBY BALAPAN · PERSIAPAN MISI
             </span>
           </div>
-          <h2 className="text-base sm:text-lg md:text-xl font-display font-black tracking-wider text-white uppercase mt-0.5">
-            PILIH {activeMode === "map" ? "ARENA LINTASAN" : "TINGKAT KESULITAN"}
-          </h2>
+          <h1 className="text-sm sm:text-lg md:text-xl font-display font-black tracking-wide text-white uppercase mt-0.5">
+            PILIH ARENA & TINGKAT KESULITAN
+          </h1>
         </div>
 
-        {/* Mode Switcher Tabs: ARENA & KESULITAN (Bersih & Tanpa Angka) */}
-        <div className="flex items-center gap-1 p-1 bg-black/60 border border-white/10 rounded-xl w-full sm:w-auto shadow-inner">
-          <button
-            type="button"
-            onClick={() => {
-              sound.play("click");
-              setActiveMode("map");
-            }}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 min-h-[38px] rounded-lg text-xs font-display font-bold uppercase tracking-wider transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer active:scale-95 ${
-              activeMode === "map"
-                ? "bg-cyan-500 text-black shadow-[0_0_12px_rgba(0,229,255,0.4)]"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            <MapPin className="w-3.5 h-3.5" />
-            <span>ARENA</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              sound.play("click");
-              setActiveMode("difficulty");
-            }}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 min-h-[38px] rounded-lg text-xs font-display font-bold uppercase tracking-wider transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer active:scale-95 ${
-              activeMode === "difficulty"
-                ? "bg-fuchsia-500 text-white shadow-[0_0_12px_rgba(255,45,107,0.4)]"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>KESULITAN</span>
-          </button>
+        {/* Petunjuk Geser / Klik */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-black/40 border border-white/10 text-[10.5px] font-mono text-gray-300">
+          <Sparkles className="w-3 h-3 text-cyan-400 animate-spin" style={{ animationDuration: "6s" }} />
+          <span>Klik Baris atau Geser Kartu</span>
         </div>
       </div>
 
-      {/* ── 2. Unified Telemetry Quick-Config Bar (3 Columns, Pristine Auto-Layout) ─── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5 mb-2.5">
-        {/* Card 1: Mobil Aktif */}
-        <div className="bg-[#0b0f1c]/90 border border-white/10 rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-2 shadow-sm transition-colors hover:border-white/20 min-h-[50px] sm:min-h-[52px]">
+      {/* ── 2. DUA KOTAK UTAMA (AUTO LAYOUT: 2 KOLOM RAPI & PROPORSIONAL) ────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
+        {/* ── KOTAK KIRI: MAPS (PILIHAN ARENA) ────────────────────────────── */}
+        <div
+          className="rounded-2xl overflow-hidden border flex flex-col justify-between transition-all duration-300 bg-[#080c18]/90 shadow-xl"
+          style={{
+            borderColor: `${currentMap.color}50`,
+            boxShadow: `0 8px 30px rgba(0,0,0,0.5), 0 0 20px ${currentMap.color}20`,
+          }}
+        >
+          {/* Header Kotak Kiri */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-black/35 backdrop-blur-md">
+            <div className="flex items-center gap-2 min-w-0">
+              <div
+                className="w-6 h-6 rounded-md flex items-center justify-center border shrink-0"
+                style={{
+                  backgroundColor: `${currentMap.color}20`,
+                  borderColor: `${currentMap.color}50`,
+                  color: currentMap.color,
+                }}
+              >
+                <MapPin className="w-3 h-3" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[8.5px] font-mono font-bold text-gray-400 uppercase tracking-widest block leading-none">
+                  KOTAK KIRI · ARENA
+                </span>
+                <span className="text-xs sm:text-[13px] font-display font-black uppercase text-white tracking-wider truncate block">
+                  {currentMap.title}
+                </span>
+              </div>
+            </div>
+
+            {/* Counter Badge */}
+            <span
+              className="px-2 py-0.5 rounded text-[9.5px] font-mono font-black uppercase tracking-wider border shrink-0"
+              style={{
+                backgroundColor: `${currentMap.color}15`,
+                borderColor: `${currentMap.color}40`,
+                color: currentMap.color,
+              }}
+            >
+              {activeMapIndex + 1}/{MAP_SELECTOR_OPTIONS.length}
+            </span>
+          </div>
+
+          {/* Area Gambar dengan Tombol Geser Transparan & Gesture */}
+          <div
+            className="relative h-[140px] sm:h-[165px] md:h-[185px] w-full overflow-hidden cursor-grab active:cursor-grabbing group select-none"
+            onTouchStart={handleMapTouchStart}
+            onTouchEnd={handleMapTouchEnd}
+            onMouseDown={handleMapTouchStart}
+            onMouseUp={handleMapTouchEnd}
+          >
+            {/* Background Image: Jernih & Terang */}
+            <div
+              key={currentMap.id}
+              className="absolute inset-0 bg-cover bg-center transition-transform duration-500 ease-out group-hover:scale-105 animate-fadeIn"
+              style={{
+                backgroundImage: `url('${currentMap.image}')`,
+                filter: "brightness(0.92) contrast(1.05)",
+              }}
+            />
+
+            {/* Gradient Scrim Minimalis (Hanya di tepi bawah lembut agar gambar tidak gelap) */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 pointer-events-none" />
+
+            {/* Tombol Geser Kiri (Transparan agar tidak menghalangi gambar) */}
+            <button
+              type="button"
+              aria-label="Peta Sebelumnya"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMap(activeMapIndex - 1);
+              }}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/20 hover:bg-black/50 text-white/70 hover:text-white border border-white/15 hover:border-cyan-400/50 flex items-center justify-center transition-all duration-200 backdrop-blur-[2px] shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+
+            {/* Tombol Geser Kanan (Transparan agar tidak menghalangi gambar) */}
+            <button
+              type="button"
+              aria-label="Peta Berikutnya"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMap(activeMapIndex + 1);
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/20 hover:bg-black/50 text-white/70 hover:text-white border border-white/15 hover:border-cyan-400/50 flex items-center justify-center transition-all duration-200 backdrop-blur-[2px] shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+
+            {/* Floating Info Pill di Bagian Bawah Gambar (Dengan inset-x-12 agar TIDAK bertabrakan dengan tombol panah) */}
+            <div className="absolute bottom-2 inset-x-12 z-10 pointer-events-none flex justify-center">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-[3px] border border-white/10 shadow-sm max-w-full truncate">
+                <span
+                  className="px-1.5 py-0.2 rounded text-[8.5px] font-mono font-black uppercase tracking-wider border shrink-0"
+                  style={{
+                    backgroundColor: `${currentMap.color}25`,
+                    borderColor: `${currentMap.color}50`,
+                    color: currentMap.color,
+                  }}
+                >
+                  {currentMap.badge}
+                </span>
+                <span className="text-[10px] text-gray-200 font-medium truncate">
+                  {currentMap.subtitle}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row Tombol Pilihan Peta (Semi-transparan, Tipis & Tidak Menghalangi) */}
+          <div className="p-1.5 sm:p-2 border-t border-white/10 bg-black/25 backdrop-blur-xs">
+            <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
+              {MAP_SELECTOR_OPTIONS.map((opt, idx) => {
+                const isSelected = activeMapIndex === idx;
+                const OptIcon = opt.icon;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setMap(idx)}
+                    className={`flex flex-col items-center justify-center py-1 sm:py-1.5 px-0.5 sm:px-1 rounded-xl border transition-all cursor-pointer min-h-[40px] sm:min-h-[44px] active:scale-95 ${
+                      isSelected
+                        ? "bg-white/15 shadow-sm text-white"
+                        : "bg-white/[0.03] border-white/10 hover:border-white/25 hover:bg-white/[0.08] text-gray-400 hover:text-white"
+                    }`}
+                    style={{
+                      borderColor: isSelected ? opt.color : undefined,
+                      boxShadow: isSelected ? `0 0 10px ${opt.color}35` : undefined,
+                    }}
+                  >
+                    <OptIcon
+                      className="w-3.5 h-3.5 mb-0.5 shrink-0"
+                      style={{ color: isSelected ? opt.color : undefined }}
+                    />
+                    <span className="text-[8.5px] sm:text-[9px] font-display font-bold uppercase tracking-wider truncate w-full text-center">
+                      {opt.shortLabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* ── KOTAK KANAN: KESULITAN (TINGKAT KESULITAN) ───────────────────── */}
+        <div
+          className="rounded-2xl overflow-hidden border flex flex-col justify-between transition-all duration-300 bg-[#080c18]/90 shadow-xl"
+          style={{
+            borderColor: `${currentDiff.color}50`,
+            boxShadow: `0 8px 30px rgba(0,0,0,0.5), 0 0 20px ${currentDiff.color}20`,
+          }}
+        >
+          {/* Header Kotak Kanan */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-black/35 backdrop-blur-md">
+            <div className="flex items-center gap-2 min-w-0">
+              <div
+                className="w-6 h-6 rounded-md flex items-center justify-center border shrink-0"
+                style={{
+                  backgroundColor: `${currentDiff.color}20`,
+                  borderColor: `${currentDiff.color}50`,
+                  color: currentDiff.color,
+                }}
+              >
+                <ShieldAlert className="w-3 h-3" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[8.5px] font-mono font-bold text-gray-400 uppercase tracking-widest block leading-none">
+                  KOTAK KANAN · KESULITAN
+                </span>
+                <span className="text-xs sm:text-[13px] font-display font-black uppercase text-white tracking-wider truncate block">
+                  {currentDiff.title} ({currentDiff.badge})
+                </span>
+              </div>
+            </div>
+
+            {/* Counter Badge */}
+            <span
+              className="px-2 py-0.5 rounded text-[9.5px] font-mono font-black uppercase tracking-wider border shrink-0"
+              style={{
+                backgroundColor: `${currentDiff.color}15`,
+                borderColor: `${currentDiff.color}40`,
+                color: currentDiff.color,
+              }}
+            >
+              {activeDiffIndex + 1}/{DIFFICULTY_SELECTOR_OPTIONS.length}
+            </span>
+          </div>
+
+          {/* Area Gambar dengan Tombol Geser Transparan & Gesture */}
+          <div
+            className="relative h-[140px] sm:h-[165px] md:h-[185px] w-full overflow-hidden cursor-grab active:cursor-grabbing group select-none"
+            onTouchStart={handleDiffTouchStart}
+            onTouchEnd={handleDiffTouchEnd}
+            onMouseDown={handleDiffTouchStart}
+            onMouseUp={handleDiffTouchEnd}
+          >
+            {/* Background Image: Jernih & Terang */}
+            <div
+              key={currentDiff.id}
+              className="absolute inset-0 bg-cover bg-center transition-transform duration-500 ease-out group-hover:scale-105 animate-fadeIn"
+              style={{
+                backgroundImage: `url('${currentDiff.image}')`,
+                filter: "brightness(0.92) contrast(1.05)",
+              }}
+            />
+
+            {/* Gradient Scrim Minimalis (Hanya di tepi bawah lembut) */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 pointer-events-none" />
+
+            {/* Tombol Geser Kiri (Transparan agar tidak menghalangi gambar) */}
+            <button
+              type="button"
+              aria-label="Kesulitan Sebelumnya"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDiff(activeDiffIndex - 1);
+              }}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/20 hover:bg-black/50 text-white/70 hover:text-white border border-white/15 hover:border-cyan-400/50 flex items-center justify-center transition-all duration-200 backdrop-blur-[2px] shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+
+            {/* Tombol Geser Kanan (Transparan agar tidak menghalangi gambar) */}
+            <button
+              type="button"
+              aria-label="Kesulitan Berikutnya"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDiff(activeDiffIndex + 1);
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/20 hover:bg-black/50 text-white/70 hover:text-white border border-white/15 hover:border-cyan-400/50 flex items-center justify-center transition-all duration-200 backdrop-blur-[2px] shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+
+            {/* Floating Info Pill di Bagian Bawah Gambar (Dengan inset-x-12 agar TIDAK bertabrakan dengan tombol panah) */}
+            <div className="absolute bottom-2 inset-x-12 z-10 pointer-events-none flex justify-center">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-[3px] border border-white/10 shadow-sm max-w-full truncate">
+                <span
+                  className="px-1.5 py-0.2 rounded text-[8.5px] font-mono font-black uppercase tracking-wider border shrink-0"
+                  style={{
+                    backgroundColor: `${currentDiff.color}25`,
+                    borderColor: `${currentDiff.color}50`,
+                    color: currentDiff.color,
+                  }}
+                >
+                  {currentDiff.badge}
+                </span>
+                <span className="text-[10px] text-gray-200 font-medium truncate">
+                  {currentDiff.subtitle}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row Tombol Pilihan Kesulitan (Semi-transparan, Tipis & Tidak Menghalangi) */}
+          <div className="p-1.5 sm:p-2 border-t border-white/10 bg-black/25 backdrop-blur-xs">
+            <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
+              {DIFFICULTY_SELECTOR_OPTIONS.map((opt, idx) => {
+                const isSelected = activeDiffIndex === idx;
+                const OptIcon = opt.icon;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setDiff(idx)}
+                    className={`flex flex-col items-center justify-center py-1 sm:py-1.5 px-0.5 sm:px-1 rounded-xl border transition-all cursor-pointer min-h-[40px] sm:min-h-[44px] active:scale-95 ${
+                      isSelected
+                        ? "bg-white/15 shadow-sm text-white"
+                        : "bg-white/[0.03] border-white/10 hover:border-white/25 hover:bg-white/[0.08] text-gray-400 hover:text-white"
+                    }`}
+                    style={{
+                      borderColor: isSelected ? opt.color : undefined,
+                      boxShadow: isSelected ? `0 0 10px ${opt.color}35` : undefined,
+                    }}
+                  >
+                    <OptIcon
+                      className="w-3.5 h-3.5 mb-0.5 shrink-0"
+                      style={{ color: isSelected ? opt.color : undefined }}
+                    />
+                    <span className="text-[8.5px] sm:text-[9px] font-display font-bold uppercase tracking-wider truncate w-full text-center">
+                      {opt.shortLabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3. Quick Telemetry Bar: Mobil Aktif & Armada Polisi ──────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-3">
+        {/* Mobil Aktif */}
+        <div className="bg-[#0b0f1c]/70 border border-white/10 rounded-xl px-2.5 py-2 flex items-center justify-between gap-2 shadow-sm transition-colors hover:border-white/20">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-7 h-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
               <Car className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
-              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider font-mono block leading-none mb-0.5">
+              <span className="text-[8.5px] text-gray-400 font-bold uppercase tracking-wider font-mono block leading-none mb-0.5">
                 Mobil Aktif
               </span>
-              <div className="font-display font-bold text-white text-xs sm:text-[13px] truncate leading-tight">
+              <div className="font-display font-bold text-white text-xs truncate leading-tight">
                 {carName}{" "}
                 <span className="text-cyan-400 font-mono text-[10px] font-bold tabular-nums">
                   ({carHp} HP)
@@ -358,408 +647,73 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
               sound.play("click");
               onChangeCar?.();
             }}
-            className="px-2.5 py-1 min-h-[36px] rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[10.5px] font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0 flex items-center justify-center active:scale-95"
+            className="px-2.5 py-1 min-h-[34px] rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 hover:text-white text-[10.5px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 flex items-center justify-center active:scale-95"
           >
-            Ganti
+            Ganti Mobil
           </button>
         </div>
 
-        {/* Card 2: Arena Terpilih */}
-        <button
-          type="button"
-          onClick={() => {
-            sound.play("click");
-            setActiveMode("map");
-          }}
-          className={`border rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-2 text-left transition-all cursor-pointer min-h-[50px] sm:min-h-[52px] ${
-            activeMode === "map"
-              ? "bg-cyan-950/30 border-cyan-500/50 shadow-[0_0_12px_rgba(0,229,255,0.15)] ring-1 ring-cyan-500/30"
-              : "bg-[#0b0f1c]/90 border-white/10 hover:border-white/20"
-          }`}
-        >
+        {/* Armada Polisi */}
+        <div className="bg-[#0b0f1c]/70 border border-white/10 rounded-xl px-2.5 py-2 flex items-center justify-between gap-2 shadow-sm transition-colors hover:border-white/20">
           <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border"
-              style={{
-                backgroundColor: `${selectedMapOption.color}15`,
-                borderColor: `${selectedMapOption.color}40`,
-                color: selectedMapOption.color,
-              }}
-            >
-              <MapPin className="w-3.5 h-3.5" />
+            <div className="w-7 h-7 rounded-lg bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+              <Siren className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
-              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider font-mono block leading-none mb-0.5">
-                Arena Terpilih
+              <span className="text-[8.5px] text-gray-400 font-bold uppercase tracking-wider font-mono block leading-none mb-0.5">
+                Armada Pengejar
               </span>
-              <div className="font-display font-bold text-white text-xs sm:text-[13px] truncate leading-tight">
-                {selectedMapOption.title}
+              <div className="font-display font-bold text-white text-xs truncate leading-tight">
+                {fleetCount} Unit Patroli Siaga
               </div>
             </div>
           </div>
-          <span
-            className={`text-[9.5px] font-mono font-bold uppercase px-2 py-0.5 rounded ${
-              activeMode === "map"
-                ? "bg-cyan-500 text-black font-extrabold"
-                : "text-cyan-400 bg-cyan-500/10"
-            }`}
-          >
-            {activeMode === "map" ? "AKTIF" : "UBAH"}
-          </span>
-        </button>
-
-        {/* Card 3: Level Kesulitan */}
-        <button
-          type="button"
-          onClick={() => {
-            sound.play("click");
-            setActiveMode("difficulty");
-          }}
-          className={`border rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-2 text-left transition-all cursor-pointer min-h-[50px] sm:min-h-[52px] ${
-            activeMode === "difficulty"
-              ? "bg-fuchsia-950/30 border-fuchsia-500/50 shadow-[0_0_12px_rgba(255,45,107,0.15)] ring-1 ring-fuchsia-500/30"
-              : "bg-[#0b0f1c]/90 border-white/10 hover:border-white/20"
-          }`}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border"
-              style={{
-                backgroundColor: `${selectedDiffOption.color}15`,
-                borderColor: `${selectedDiffOption.color}40`,
-                color: selectedDiffOption.color,
-              }}
-            >
-              <ShieldAlert className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider font-mono block leading-none mb-0.5">
-                Level Kesulitan
-              </span>
-              <div className="font-display font-bold text-white text-xs sm:text-[13px] truncate flex items-center gap-1.5 leading-tight">
-                <span>{selectedDiffOption.title}</span>
-                <span
-                  className="text-[8.5px] px-1.5 py-0.2 rounded font-mono font-bold uppercase"
-                  style={{
-                    backgroundColor: `${selectedDiffOption.color}25`,
-                    color: selectedDiffOption.color,
-                  }}
-                >
-                  {selectedDiffOption.badge}
-                </span>
-              </div>
-            </div>
-          </div>
-          <span
-            className={`text-[9.5px] font-mono font-bold uppercase px-2 py-0.5 rounded ${
-              activeMode === "difficulty"
-                ? "bg-fuchsia-500 text-white font-extrabold"
-                : "text-fuchsia-400 bg-fuchsia-500/10"
-            }`}
-          >
-            {activeMode === "difficulty" ? "AKTIF" : "UBAH"}
-          </span>
-        </button>
-      </div>
-
-      {/* ── 3. Desktop Interactive Expanding Accordion Deck (Screen >= md) ─────── */}
-      <div
-        role="radiogroup"
-        aria-label={activeMode === "map" ? "Pilihan Arena Peta" : "Pilihan Tingkat Kesulitan"}
-        className="hidden md:flex relative h-[190px] sm:h-[205px] lg:h-[220px] w-full flex-row items-stretch overflow-hidden rounded-2xl border border-white/10 shadow-2xl bg-black/40 mb-3"
-      >
-        {currentOptions.map((option, index) => {
-          const isActive = currentActiveIndex === index;
-          const Icon = option.icon;
-          const accentColor = option.color || "#00e5ff";
-
-          return (
-            <button
-              key={option.id}
-              type="button"
-              role="radio"
-              aria-checked={isActive}
-              aria-label={option.title}
-              onClick={() => handleOptionClick(index)}
-              className="relative min-w-[65px] lg:min-w-[75px] overflow-hidden text-left transition-[flex,border-color,box-shadow,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-400 group cursor-pointer"
-              style={{
-                flex: isActive ? "5 1 0%" : "1 1 0%",
-                borderWidth: "2px",
-                borderStyle: "solid",
-                borderColor: isActive ? accentColor : "rgba(255, 255, 255, 0.08)",
-                boxShadow: isActive
-                  ? `0 12px 30px rgba(0,0,0,0.6), 0 0 16px ${accentColor}40`
-                  : "none",
-                zIndex: isActive ? 10 : 1,
-              }}
-            >
-              {/* Background Photo */}
-              <div
-                className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105"
-                style={{
-                  backgroundImage: `url('${option.image}')`,
-                  filter: isActive ? "brightness(0.95) contrast(1.05)" : "brightness(0.55)",
-                }}
-              />
-
-              {/* Gradient Scrim for Legibility */}
-              <div
-                className="absolute inset-0 transition-opacity duration-500"
-                style={{
-                  background: isActive
-                    ? "linear-gradient(180deg, rgba(8, 11, 20, 0.20) 0%, rgba(8, 11, 20, 0.55) 40%, rgba(8, 11, 20, 0.95) 100%)"
-                    : "linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0.8) 100%)",
-                }}
-              />
-
-              {/* Top Accent Line for Active */}
-              {isActive && (
-                <div
-                  className="absolute top-0 inset-x-0 h-1 z-20 shadow-[0_0_8px_currentColor]"
-                  style={{ backgroundColor: accentColor, color: accentColor }}
-                />
-              )}
-
-              {/* ACTIVE CARD CONTENT */}
-              {isActive ? (
-                <div className="relative z-10 w-full h-full flex flex-col justify-between p-3.5 sm:p-4">
-                  {/* Top Badge & Indicator */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span
-                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[9.5px] font-mono font-bold tracking-wider uppercase border shadow-sm backdrop-blur-md"
-                      style={{
-                        backgroundColor: `${accentColor}25`,
-                        borderColor: `${accentColor}50`,
-                        color: accentColor,
-                      }}
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      <span>{option.badge || "TERPILIH"}</span>
-                    </span>
-
-                    <span className="text-[10px] font-mono text-gray-300 font-bold bg-black/60 px-2 py-0.5 rounded border border-white/10">
-                      {index + 1}/{currentOptions.length}
-                    </span>
-                  </div>
-
-                  {/* Bottom Info: Title, Subtitle, Description */}
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border"
-                        style={{
-                          backgroundColor: `${accentColor}30`,
-                          borderColor: accentColor,
-                          color: accentColor,
-                        }}
-                      >
-                        <Icon className="w-3.5 h-3.5" />
-                      </div>
-                      <h3 className="font-display font-black text-base lg:text-lg tracking-wider text-white uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] truncate">
-                        {option.title}
-                      </h3>
-                    </div>
-
-                    {option.subtitle && (
-                      <div className="text-[11px] font-semibold text-gray-300 pl-9 truncate">
-                        {option.subtitle}
-                      </div>
-                    )}
-
-                    {option.description && (
-                      <p className="text-[11px] text-gray-300/90 pl-9 line-clamp-2 max-w-lg leading-snug">
-                        {option.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                /* INACTIVE CARD CONTENT (Clean Centered with shortLabel, Never Truncated) */
-                <div className="relative z-10 w-full h-full flex flex-col items-center justify-between py-3 px-1 group-hover:bg-white/[0.03] transition-colors">
-                  <span className="text-[9.5px] font-mono text-gray-400 font-bold">
-                    0{index + 1}
-                  </span>
-
-                  <div
-                    className="w-8 h-8 rounded-xl bg-black/70 border border-white/15 flex items-center justify-center text-gray-300 group-hover:text-white group-hover:border-white/40 group-hover:scale-110 transition-all duration-300 shadow-md backdrop-blur-sm"
-                    style={{ color: accentColor }}
-                  >
-                    <Icon className="w-4 h-4" />
-                  </div>
-
-                  <div className="w-full text-center">
-                    <span className="block text-[9.5px] font-display font-bold uppercase tracking-wider text-gray-300 group-hover:text-white truncate px-0.5">
-                      {option.shortLabel}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── 3B. Mobile & Tablet Card Deck (Screen < md, Clean & Collision-Free) ── */}
-      <div className="flex md:hidden flex-col gap-2 mb-3">
-        {/* Active Hero Card Preview */}
-        <div
-          className="relative h-[135px] sm:h-[145px] w-full rounded-2xl overflow-hidden border-2 shadow-xl p-3 flex flex-col justify-between"
-          style={{
-            borderColor: activeColor,
-            boxShadow: `0 8px 24px rgba(0,0,0,0.7), 0 0 16px ${activeColor}30`,
-          }}
-        >
-          {/* Background Image */}
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{
-              backgroundImage: `url('${activeOption.image}')`,
-              filter: "brightness(0.9) contrast(1.05)",
-            }}
-          />
-          {/* Gradient Scrim */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#080b15] via-[#080b15]/60 to-[#080b15]/30 pointer-events-none" />
-
-          {/* Top Badge */}
-          <div className="relative z-10 flex items-center justify-between">
-            <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-mono font-bold tracking-wider uppercase border backdrop-blur-md"
-              style={{
-                backgroundColor: `${activeColor}25`,
-                borderColor: `${activeColor}50`,
-                color: activeColor,
-              }}
-            >
-              <Sparkles className="w-3 h-3" />
-              <span>{activeOption.badge || "TERPILIH"}</span>
-            </span>
-
-            <span className="text-[9.5px] font-mono text-gray-300 font-bold bg-black/60 px-1.5 py-0.5 rounded border border-white/10">
-              {currentActiveIndex + 1}/{currentOptions.length}
-            </span>
-          </div>
-
-          {/* Bottom Info */}
-          <div className="relative z-10 space-y-0.5">
-            <div className="flex items-center gap-1.5">
-              <div
-                className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border"
-                style={{
-                  backgroundColor: `${activeColor}30`,
-                  borderColor: activeColor,
-                  color: activeColor,
-                }}
-              >
-                <ActiveIcon className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="font-display font-black text-sm sm:text-base tracking-wider text-white uppercase truncate">
-                {activeOption.title}
-              </h3>
-            </div>
-            {activeOption.description && (
-              <p className="text-[10.5px] text-gray-300 line-clamp-2 pl-8 leading-snug">
-                {activeOption.description}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Thumbnail Selector Strip (Full Touch Target, No Overlap) */}
-        <div
-          className={`grid gap-1.5 ${
-            currentOptions.length === 5 ? "grid-cols-5" : "grid-cols-4"
-          }`}
-        >
-          {currentOptions.map((opt, i) => {
-            const isSelected = currentActiveIndex === i;
-            const OptIcon = opt.icon;
-            const itemColor = opt.color || "#00e5ff";
-
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => handleOptionClick(i)}
-                className={`flex flex-col items-center justify-center p-1.5 rounded-xl border min-h-[44px] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer active:scale-95 ${
-                  isSelected
-                    ? "bg-white/15 shadow-md"
-                    : "bg-black/50 border-white/10 hover:border-white/25 hover:bg-white/5 text-gray-400"
-                }`}
-                style={{
-                  borderColor: isSelected ? itemColor : undefined,
-                  boxShadow: isSelected ? `0 0 10px ${itemColor}40` : undefined,
-                }}
-              >
-                <OptIcon
-                  className="w-3.5 h-3.5 mb-0.5"
-                  style={{ color: isSelected ? itemColor : undefined }}
-                />
-                <span
-                  className={`text-[9px] font-display font-bold uppercase tracking-wider truncate w-full text-center ${
-                    isSelected ? "text-white" : "text-gray-400"
-                  }`}
-                >
-                  {opt.shortLabel}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── 4. Standardized Action Controls Bar ───────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2.5 border-t border-white/10">
-        {/* Left: Action Buttons */}
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
-          {/* Primary Action: MULAI MAIN */}
           <button
-            id="btn-start-game"
-            type="button"
-            onClick={() => {
-              sound.play("click");
-              const mapId = MAP_SELECTOR_OPTIONS[activeMapIndex].id as GameMapId;
-              const diffId = DIFFICULTY_SELECTOR_OPTIONS[activeDiffIndex].id as DifficultyId;
-              onStart?.(diffId, mapId);
-            }}
-            className="flex-1 sm:flex-initial px-6 sm:px-8 h-11 sm:h-12 rounded-xl bg-gradient-to-r from-cyan-400 via-cyan-300 to-[#00d2eb] hover:from-cyan-300 hover:to-cyan-400 text-black font-display font-black text-xs sm:text-sm tracking-widest uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,229,255,0.45)] hover:shadow-[0_0_30px_rgba(0,229,255,0.65)] hover:scale-[1.03] active:scale-95 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer min-h-[44px]"
-          >
-            <Play className="w-4 h-4 fill-current" />
-            <span>MULAI MAIN</span>
-          </button>
-
-          {/* Secondary Action: Armada Polisi */}
-          <button
-            id="btn-open-police-fleet"
             type="button"
             onClick={() => {
               sound.play("click");
               onOpenFleet?.();
             }}
-            className="px-3.5 h-11 sm:h-12 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-cyan-500/30 hover:border-cyan-500/60 text-cyan-300 hover:text-white font-display font-bold text-[11px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.02] active:scale-95 cursor-pointer shadow-sm min-h-[44px] shrink-0"
+            className="px-2.5 py-1 min-h-[34px] rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-white text-[10.5px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 flex items-center justify-center active:scale-95"
           >
-            <Siren className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Armada Polisi ({fleetCount})</span>
+            Lihat Armada
           </button>
         </div>
+      </div>
 
-        {/* Right: Clean Keyboard Controls Guide */}
-        <div className="hidden sm:flex items-center gap-1.5 text-[10.5px] text-gray-400 font-mono">
+      {/* ── 4. Action Launch Bar (Tidak Tenggelam & Sangat Jelas) ─────────────── */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2.5 border-t border-white/10">
+        {/* Tombol Mulai yang Menonjol */}
+        <button
+          id="btn-start-game"
+          type="button"
+          onClick={handleLaunch}
+          className="w-full sm:w-auto sm:flex-1 px-6 h-11 sm:h-12 rounded-xl bg-gradient-to-r from-cyan-400 via-cyan-300 to-[#00d2eb] hover:from-cyan-300 hover:to-cyan-400 text-black font-display font-black text-xs sm:text-[13px] tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,229,255,0.45)] hover:shadow-[0_0_30px_rgba(0,229,255,0.7)] hover:scale-[1.01] active:scale-95 transition-all duration-200 cursor-pointer min-h-[44px]"
+        >
+          <Play className="w-4 h-4 fill-current shrink-0" />
+          <span className="truncate">
+            MULAI BALAPAN ➜ {currentMap.shortLabel} · {currentDiff.title}
+          </span>
+        </button>
+
+        {/* Petunjuk Keyboard */}
+        <div className="flex items-center justify-center gap-2 text-[9.5px] text-gray-400 font-mono flex-wrap">
           <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 font-mono text-[9.5px] border border-white/15">
-              W A S D
+            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 font-mono text-[8.5px] border border-white/15">
+              WASD
             </kbd>
             <span>Kemudi</span>
           </div>
           <span className="text-gray-600">·</span>
           <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 font-mono text-[9.5px] border border-white/15">
+            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 font-mono text-[8.5px] border border-white/15">
               SPASI
             </kbd>
-            <span>Turbo</span>
+            <span>Nitro</span>
           </div>
           <span className="text-gray-600">·</span>
           <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 font-mono text-[9.5px] border border-white/15">
+            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 font-mono text-[8.5px] border border-white/15">
               E
             </kbd>
             <span>EMP</span>

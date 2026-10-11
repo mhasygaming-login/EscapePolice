@@ -1,30 +1,20 @@
 /**
- * Components Barrel Export
+ * Root Components Barrel Export
  * Escape the Police: Cyber Pursuit
+ * Modular Domain-Driven Architecture
  */
 
-// Navigation & Global Indicators
-export { Navbar } from './Navbar';
-export { NotificationsDrawer } from './NotificationsDrawer';
-export { OfflineIndicator } from './OfflineIndicator';
-export { PWAInstallButton } from './PWAInstallButton';
-export { BrandLogo } from './BrandLogo';
-export { ErrorBoundary } from './ErrorBoundary';
+// 1. Navigation & App Shell Layout
+export * from './layout';
 
-// Main Screens & Lobbies
-export { GameCanvas } from './GameCanvas';
-export { MainGameLobby } from './MainGameLobby';
-export { MultiplayerLobby } from './MultiplayerLobby';
-export { AuthScreen } from './AuthScreen';
+// 2. Core Game Engine & Screens
+export * from './game';
 
-// Modals & Overlays
-export { AuthModal } from './AuthModal';
-export { GarageModal } from './GarageModal';
-export { MapSelectModal } from './MapSelectModal';
-export { LeaderboardModal } from './LeaderboardModal';
-export { TournamentsModal } from './TournamentsModal';
-export { AnalyticsModal } from './AnalyticsModal';
-export { SettingsModal } from './SettingsModal';
-export { PoliceFleetModal } from './PoliceFleetModal';
-export { ShareModal } from './ShareModal';
-export { LogoutConfirmModal } from './LogoutConfirmModal';
+// 3. Modal Dialogs & Overlays
+export * from './modals';
+
+// 4. Vehicle Garage Customization
+export * from './garage';
+
+// 5. Reusable UI Primitives
+export * from './ui';
