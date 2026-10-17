@@ -60,23 +60,24 @@ export const MainGameLobby: React.FC<MainGameLobbyProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full min-h-[100dvh] flex flex-col items-center justify-center p-2 sm:p-3 md:p-4 overflow-y-auto select-none">
-      {/* 1. DYNAMIC THEMED MAP BACKGROUND */}
-      <div className="absolute inset-0 z-0 bg-[#060812]">
+    <div className="relative w-full h-full flex flex-col items-center justify-center p-2 sm:p-3 md:p-5 overflow-hidden select-none">
+      {/* 1. DYNAMIC THEMED MAP BACKGROUND (EXPANSIVE CINEMATIC SCALE) */}
+      <div className="absolute inset-0 z-0 bg-[#060812] overflow-hidden">
         <img
           key={selectedMapId}
           src={currentMap.backgroundImage || "/maps/kota.jpg"}
           alt={currentMap.name}
-          className="w-full h-full object-cover object-center filter brightness-90 contrast-[1.05] opacity-85 transition-all duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] animate-fadeIn"
+          className="w-full h-full object-cover object-center scale-105 filter brightness-95 contrast-[1.08] opacity-95 transition-all duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] animate-fadeIn"
           referrerPolicy="no-referrer"
         />
-        {/* Subtle Vignette Gradient for Depth */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#070814]/80 via-[#070814]/40 to-[#070814]/90 pointer-events-none" />
+        {/* Subtle Vignette & Depth Gradients */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#070814]/70 via-[#070814]/30 to-[#070814]/85 pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-[#070814]/25 to-[#070814]/80 pointer-events-none" />
       </div>
 
-      {/* 2. HERO CARD CONTAINER WITH UNIFIED INTERACTIVE SELECTOR (AUTOLAYOUT & MAX BOUNDS) */}
+      {/* 2. HERO CARD CONTAINER (LEBAR, PROPORSIONAL & BEBAS SCROLLING) */}
       <div
-        className="relative z-10 w-full max-w-4xl lg:max-w-5xl my-auto rounded-2xl sm:rounded-3xl border border-cyan-500/25 shadow-[0_0_50px_rgba(0,0,0,0.8),0_0_30px_rgba(0,229,255,0.15)] bg-[#080b15]/90 backdrop-blur-2xl max-h-[96vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10"
+        className="relative z-10 w-full max-w-[97vw] xl:max-w-6xl 2xl:max-w-[1440px] my-auto rounded-2xl sm:rounded-3xl border border-cyan-500/35 shadow-[0_0_60px_rgba(0,0,0,0.9),0_0_35px_rgba(0,229,255,0.22)] bg-[#080b15]/92 backdrop-blur-2xl overflow-hidden"
       >
         <InteractiveSelector
           selectedMapId={selectedMapId}

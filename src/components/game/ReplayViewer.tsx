@@ -102,7 +102,7 @@ export const ReplayViewer: React.FC<ReplayViewerProps> = ({
       const list = await api.getReplays();
       setReplayList(list);
     } catch (e) {
-      console.warn('Failed to load replays list', e);
+      console.debug('Failed to load replays list', e);
     }
   }, []);
 
@@ -118,7 +118,7 @@ export const ReplayViewer: React.FC<ReplayViewerProps> = ({
         setShowReplaySelector(false);
       }
     } catch (err) {
-      console.warn('Error loading replay data', err);
+      console.debug('Error loading replay data', err);
     } finally {
       setIsLoading(false);
     }

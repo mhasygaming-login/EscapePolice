@@ -115,20 +115,38 @@ interface StoredNotification {
   read: boolean;
 }
 
+interface StoredTournamentWinner {
+  userId: string;
+  username: string;
+  avatar: string;
+  title?: string;
+  carColor?: string;
+  carModel?: string;
+  rank: number;
+  score: number;
+  prizeAwarded: number;
+}
+
+interface StoredTournament {
+  id: string;
+  title: string;
+  description: string;
+  tier: 'ROOKIE' | 'ELITE' | 'CYBER_LEGEND';
+  type?: 'DAILY' | 'WEEKLY' | 'SPECIAL';
+  startTime: string;
+  endTime: string;
+  prizeBounty: number;
+  participants: string[];
+  settled?: boolean;
+  winners?: StoredTournamentWinner[];
+}
+
 interface DB {
   users: Record<string, StoredUser>;
   scores: StoredScore[];
   notifications: StoredNotification[];
-  tournaments: {
-    id: string;
-    title: string;
-    description: string;
-    tier: 'ROOKIE' | 'ELITE' | 'CYBER_LEGEND';
-    startTime: string;
-    endTime: string;
-    prizeBounty: number;
-    participants: string[];
-  }[];
+  tournaments: StoredTournament[];
+  tournamentScores?: Record<string, Record<string, StoredScore>>; // tournamentId -> userId -> StoredScore
   replays?: any[];
 }
 
@@ -294,6 +312,194 @@ process.on('SIGTERM', () => {
 
 // Initialize Real-time Socket.IO Multiplayer Game Server
 const { broadcastLeaderboardUpdate, sendUserNotification, broadcastGlobalAlert } = setupMultiplayerServer(server, db, saveDB);
+
+// ----------------------------------------------------
+// AUTOMATED TOURNAMENT SCHEDULER & SETTLEMENT ENGINE
+// ----------------------------------------------------
+function checkAndRotateTournaments(): boolean {
+  if (!Array.isArray(db.tournaments)) {
+    db.tournaments = [];
+  }
+  if (!db.tournamentScores) {
+    db.tournamentScores = {};
+  }
+
+  const now = Date.now();
+  let dbChanged = false;
+
+  // 1. SETTLE EXPIRED TOURNAMENTS
+  for (const t of db.tournaments) {
+    const endTime = new Date(t.endTime).getTime();
+    if (now >= endTime && !t.settled) {
+      t.settled = true;
+      dbChanged = true;
+
+      const scoresMap = db.tournamentScores[t.id] || {};
+      const participantScores = Object.values(scoresMap).filter(s => t.participants.includes(s.userId));
+
+      participantScores.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.distance - a.distance;
+      });
+
+      if (participantScores.length > 0) {
+        const p1Prize = participantScores.length === 1 ? t.prizeBounty : Math.floor(t.prizeBounty * 0.6);
+        const p2Prize = participantScores.length === 2 ? Math.floor(t.prizeBounty * 0.4) : Math.floor(t.prizeBounty * 0.25);
+        const p3Prize = Math.floor(t.prizeBounty * 0.15);
+        const prizeMap = [p1Prize, p2Prize, p3Prize];
+
+        const winners: StoredTournamentWinner[] = [];
+        for (let i = 0; i < Math.min(3, participantScores.length); i++) {
+          const s = participantScores[i];
+          const prize = prizeMap[i] || 0;
+          winners.push({
+            userId: s.userId,
+            username: s.username,
+            avatar: s.avatar,
+            title: s.title,
+            carColor: s.carColor,
+            rank: i + 1,
+            score: s.score,
+            prizeAwarded: prize,
+          });
+
+          // Credit bounty directly to player account
+          if (db.users[s.userId] && prize > 0) {
+            if (!db.users[s.userId].stats) {
+              db.users[s.userId].stats = {} as any;
+            }
+            db.users[s.userId].stats.totalBounty = (db.users[s.userId].stats.totalBounty || 0) + prize;
+            sendUserNotification(s.userId, {
+              id: 'notif_tourney_win_' + Date.now() + '_' + i,
+              userId: s.userId,
+              type: 'tournament_alert',
+              title: `🏆 Juara #${i + 1} di ${t.title}!`,
+              message: `Selamat ${s.username}! Kamu memenangkan Juara #${i + 1} dengan skor ${s.score.toLocaleString()}. Hadiah ${prize.toLocaleString()} Bounty telah otomatis ditambahkan ke saldo akunmu!`,
+              timestamp: new Date().toISOString(),
+              read: false,
+            });
+          }
+        }
+
+        t.winners = winners;
+
+        if (winners.length > 0) {
+          broadcastGlobalAlert(
+            `🏆 Turnamen Berakhir!`,
+            `"${t.title}" telah ditutup! Selamat kepada Juara 1: ${winners[0].username} dengan rekor ${winners[0].score.toLocaleString()} skor!`,
+            'score_beaten'
+          );
+        }
+      }
+    }
+  }
+
+  // 2. RETIRE OVERFLOW COMPLETED TOURNAMENTS (KEEP TOP 5 RECENT)
+  const completed = db.tournaments.filter(t => t.settled && new Date(t.endTime).getTime() <= now);
+  if (completed.length > 5) {
+    completed.sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
+    const toKeepIds = new Set(completed.slice(0, 5).map(c => c.id));
+    db.tournaments = db.tournaments.filter(t => !t.settled || new Date(t.endTime).getTime() > now || toKeepIds.has(t.id));
+    dbChanged = true;
+  }
+
+  // 3. RECURRING DAILY TOURNAMENT
+  const activeOrUpcomingDaily = db.tournaments.find(
+    t => t.type === 'DAILY' && new Date(t.endTime).getTime() > now
+  );
+
+  if (!activeOrUpcomingDaily) {
+    const dailyId = 'daily_' + Date.now();
+    const startTime = new Date().toISOString();
+    const endTime = new Date(now + 24 * 3600 * 1000).toISOString();
+    db.tournaments.unshift({
+      id: dailyId,
+      title: 'Cyber Daily Rush Sprint',
+      description: 'Adu kecepatan dan skor tertinggi harian di lintasan Cyber Highway! Hadiah Bounty bergulir tiap 24 jam.',
+      tier: 'ELITE',
+      type: 'DAILY',
+      startTime,
+      endTime,
+      prizeBounty: 10000,
+      participants: [],
+      settled: false,
+      winners: [],
+    });
+    dbChanged = true;
+  }
+
+  // 4. RECURRING WEEKLY TOURNAMENT
+  const activeOrUpcomingWeekly = db.tournaments.find(
+    t => t.type === 'WEEKLY' && new Date(t.endTime).getTime() > now
+  );
+
+  if (!activeOrUpcomingWeekly) {
+    const weeklyId = 'weekly_' + Date.now();
+    const startTime = new Date().toISOString();
+    const endTime = new Date(now + 7 * 24 * 3600 * 1000).toISOString();
+    db.tournaments.unshift({
+      id: weeklyId,
+      title: 'Neon Grand Prix Championship',
+      description: 'Kejuaraan bergengsi mingguan MAXXX Pursuit! Bertarung untuk tahta tertinggi penguasa aspal siber.',
+      tier: 'CYBER_LEGEND',
+      type: 'WEEKLY',
+      startTime,
+      endTime,
+      prizeBounty: 35000,
+      participants: [],
+      settled: false,
+      winners: [],
+    });
+    dbChanged = true;
+  }
+
+  // 5. ROOKIE HIGHWAY ESCAPE (DAILY ROTATION)
+  const activeRookie = db.tournaments.find(
+    t => t.tier === 'ROOKIE' && new Date(t.endTime).getTime() > now
+  );
+
+  if (!activeRookie) {
+    const rookieId = 'rookie_' + Date.now();
+    const startTime = new Date().toISOString();
+    const endTime = new Date(now + 12 * 3600 * 1000).toISOString();
+    db.tournaments.push({
+      id: rookieId,
+      title: 'Rookie Highway Escape',
+      description: 'Kejuaraan ramah pemula untuk mengasah refleks menghindar dan melatih insting manuver.',
+      tier: 'ROOKIE',
+      type: 'DAILY',
+      startTime,
+      endTime,
+      prizeBounty: 5000,
+      participants: [],
+      settled: false,
+      winners: [],
+    });
+    dbChanged = true;
+  }
+
+  if (dbChanged) {
+    saveDB();
+  }
+
+  return dbChanged;
+}
+
+// Interval penjadwalan mandiri setiap 30 detik
+setInterval(() => {
+  try {
+    checkAndRotateTournaments();
+  } catch (err) {
+    console.error('Error running checkAndRotateTournaments:', err);
+  }
+}, 30000);
+
+// Inisialisasi awal saat server booting
+setTimeout(() => {
+  try {
+    checkAndRotateTournaments();
+  } catch {}
+}, 500);
 
 // REST API ROUTES
 // ----------------------------------------------------
@@ -998,6 +1204,24 @@ app.post('/api/scores', (req, res) => {
     return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
   });
 
+  // Rekam skor ke turnamen aktif jika pemain terdaftar
+  const nowTs = Date.now();
+  if (!db.tournamentScores) db.tournamentScores = {};
+  for (const t of db.tournaments) {
+    const sTime = new Date(t.startTime).getTime();
+    const eTime = new Date(t.endTime).getTime();
+    if (nowTs >= sTime && nowTs <= eTime && t.participants.includes(userId)) {
+      if (!db.tournamentScores[t.id]) db.tournamentScores[t.id] = {};
+      const existingTScore = db.tournamentScores[t.id][userId];
+      if (!existingTScore || scoreNum > existingTScore.score) {
+        db.tournamentScores[t.id][userId] = {
+          ...updatedScoreEntry,
+          id: `tscore_${t.id}_${userId}`,
+        };
+      }
+    }
+  }
+
   saveDB();
 
   // Broadcast update real-time ke semua client WebSocket yang aktif
@@ -1094,6 +1318,26 @@ app.post('/api/scores/batch', (req, res) => {
 
     saveDB();
     broadcastLeaderboardUpdate(updatedEntry);
+
+    // Rekam skor ke turnamen aktif jika partisipan
+    if (lastValidScoreItem) {
+      const scoreTime = new Date(lastValidScoreItem.timestamp).getTime();
+      if (!db.tournamentScores) db.tournamentScores = {};
+      for (const t of db.tournaments) {
+        const sTime = new Date(t.startTime).getTime();
+        const eTime = new Date(t.endTime).getTime();
+        if (scoreTime >= sTime && scoreTime <= eTime && t.participants.includes(userId)) {
+          if (!db.tournamentScores[t.id]) db.tournamentScores[t.id] = {};
+          const existingTScore = db.tournamentScores[t.id][userId];
+          if (!existingTScore || lastValidScoreItem.score > existingTScore.score) {
+            db.tournamentScores[t.id][userId] = {
+              ...updatedEntry,
+              id: `tscore_${t.id}_${userId}`,
+            };
+          }
+        }
+      }
+    }
   }
 
   res.json({ success: true, syncedCount, userStats: user?.stats });
@@ -1210,18 +1454,47 @@ app.get('/api/analytics', (req, res) => {
 
 // Tournaments
 app.get('/api/tournaments', (req, res) => {
+  // Pastikan status & rotasi jadwal turnamen terkini
+  checkAndRotateTournaments();
+
   const { userId } = req.query;
-  const tourneys = db.tournaments.map(t => ({
-    id: t.id,
-    title: t.title,
-    description: t.description,
-    tier: t.tier,
-    startTime: t.startTime,
-    endTime: t.endTime,
-    prizeBounty: t.prizeBounty,
-    participantsCount: t.participants.length,
-    isRegistered: typeof userId === 'string' ? t.participants.includes(userId) : false,
-  }));
+  const now = Date.now();
+  const tourneys = db.tournaments.map(t => {
+    const sTime = new Date(t.startTime).getTime();
+    const eTime = new Date(t.endTime).getTime();
+    let status: 'UPCOMING' | 'ACTIVE' | 'COMPLETED' = 'UPCOMING';
+    if (now >= eTime) {
+      status = 'COMPLETED';
+    } else if (now >= sTime) {
+      status = 'ACTIVE';
+    }
+
+    return {
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      tier: t.tier,
+      type: t.type || 'DAILY',
+      startTime: t.startTime,
+      endTime: t.endTime,
+      prizeBounty: t.prizeBounty,
+      participantsCount: t.participants.length,
+      isRegistered: typeof userId === 'string' ? t.participants.includes(userId) : false,
+      status,
+      settled: !!t.settled,
+      winners: t.winners || [],
+    };
+  });
+
+  // Urutkan: SEDANG BERLANGSUNG (ACTIVE) paling atas, lalu SEGERA HADIR (UPCOMING), lalu SELESAI (COMPLETED)
+  tourneys.sort((a, b) => {
+    const rankMap: Record<string, number> = { ACTIVE: 0, UPCOMING: 1, COMPLETED: 2 };
+    const rA = rankMap[a.status] ?? 1;
+    const rB = rankMap[b.status] ?? 1;
+    if (rA !== rB) return rA - rB;
+    return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+  });
+
   res.json({ tournaments: tourneys });
 });
 
@@ -1233,6 +1506,24 @@ app.post('/api/tournaments/:id/register', (req, res) => {
 
   if (userId && !tourney.participants.includes(userId)) {
     tourney.participants.push(userId);
+
+    // Kualifikasi skor yang sudah tercatat dalam window turnamen jika ada
+    const user = db.users[userId];
+    const userScore = db.scores.find(s => s.userId === userId);
+    if (userScore) {
+      const scoreTime = new Date(userScore.timestamp).getTime();
+      const sTime = new Date(tourney.startTime).getTime();
+      const eTime = new Date(tourney.endTime).getTime();
+      if (scoreTime >= sTime && scoreTime <= eTime) {
+        if (!db.tournamentScores) db.tournamentScores = {};
+        if (!db.tournamentScores[id]) db.tournamentScores[id] = {};
+        db.tournamentScores[id][userId] = {
+          ...userScore,
+          id: `tscore_${id}_${userId}`,
+        };
+      }
+    }
+
     saveDB();
 
     sendUserNotification(userId, {
@@ -1240,13 +1531,71 @@ app.post('/api/tournaments/:id/register', (req, res) => {
       userId,
       type: 'tournament_alert',
       title: `Terdaftar di ${tourney.title}!`,
-      message: `Persiapkan kendaraanmu. Turnamen berhadiah ${tourney.prizeBounty.toLocaleString()} Bounty!`,
+      message: `Persiapkan kendaraanmu. Turnamen berhadiah ${tourney.prizeBounty.toLocaleString()} Bounty! Mainkan balapan sekarang untuk cetak rekor!`,
       timestamp: new Date().toISOString(),
       read: false,
     });
   }
 
   res.json({ success: true, participantsCount: tourney.participants.length });
+});
+
+// Papan Peringkat Khusus Turnamen (Live Standings)
+app.get('/api/tournaments/:id/leaderboard', (req, res) => {
+  const { id } = req.params;
+  const tourney = db.tournaments.find(t => t.id === id);
+  if (!tourney) return res.status(404).json({ error: 'Turnamen tidak ditemukan' });
+
+  const scoresMap = db.tournamentScores?.[id] || {};
+  const entries: any[] = Object.values(scoresMap);
+
+  // Hanya tampilkan peserta yang terdaftar
+  const validEntries = entries.filter(e => tourney.participants.includes(e.userId));
+
+  // Urutkan berdasarkan skor tertinggi, lalu jarak terjauh
+  validEntries.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return (b.distance || 0) - (a.distance || 0);
+  });
+
+  const rankedLeaderboard = validEntries.map((item, index) => ({
+    userId: item.userId,
+    username: item.username,
+    avatar: item.avatar || '🏎️',
+    title: item.title || 'RACER',
+    carColor: item.carColor || '#00f0ff',
+    carModel: item.carModel || 'civic_fl5',
+    score: item.score,
+    distance: item.distance || 0,
+    bestCombo: item.bestCombo || 0,
+    timestamp: item.timestamp,
+    rank: index + 1,
+  }));
+
+  const now = Date.now();
+  const sTime = new Date(tourney.startTime).getTime();
+  const eTime = new Date(tourney.endTime).getTime();
+  let status: 'UPCOMING' | 'ACTIVE' | 'COMPLETED' = 'UPCOMING';
+  if (now >= eTime) status = 'COMPLETED';
+  else if (now >= sTime) status = 'ACTIVE';
+
+  res.json({
+    tournament: {
+      id: tourney.id,
+      title: tourney.title,
+      description: tourney.description,
+      tier: tourney.tier,
+      type: tourney.type || 'DAILY',
+      startTime: tourney.startTime,
+      endTime: tourney.endTime,
+      prizeBounty: tourney.prizeBounty,
+      participantsCount: tourney.participants.length,
+      status,
+      settled: !!tourney.settled,
+      winners: tourney.winners || [],
+    },
+    leaderboard: rankedLeaderboard,
+  });
 });
 
 // Notifications
@@ -1364,29 +1713,53 @@ app.post('/api/replays', (req, res) => {
 // ----------------------------------------------------
 
 async function setupVite() {
-  if (process.env.NODE_ENV !== 'production') {
+  const isProduction = process.env.NODE_ENV === 'production' && fs.existsSync(path.join(process.cwd(), 'dist', 'index.html'));
+
+  if (!isProduction) {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: false,
+        hmr: process.env.DISABLE_HMR !== 'true',
       },
       appType: 'spa',
     });
+
+    // Mount Vite dev server middlewares (handles /src/main.tsx, /@vite/client, styles, assets)
     app.use(vite.middlewares);
+
+    // Fallback for SPA routing in development: transform root index.html with Vite
+    app.use('*', async (req, res, next) => {
+      const url = req.originalUrl;
+      if (url.startsWith('/api') || url.startsWith('/socket.io')) {
+        return next();
+      }
+      try {
+        const indexHtmlPath = path.resolve(process.cwd(), 'index.html');
+        if (!fs.existsSync(indexHtmlPath)) {
+          return next();
+        }
+        let template = fs.readFileSync(indexHtmlPath, 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (err) {
+        vite.ssrFixStacktrace(err as Error);
+        next(err);
+      }
+    });
   } else {
-    const possiblePaths = [
-      path.join(process.cwd(), 'dist'),
-      path.join(__dirname, 'dist'),
-      __dirname,
-    ];
-    const distPath = possiblePaths.find(p => fs.existsSync(path.join(p, 'index.html'))) || path.join(process.cwd(), 'dist');
+    // Production mode: serve bundled assets from dist
+    const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
+
+    app.get('*', (req, res, next) => {
+      if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/socket.io')) {
+        return next();
+      }
       const indexPath = path.join(distPath, 'index.html');
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
       } else {
-        res.status(200).send('<!DOCTYPE html><html><head><meta http-equiv="refresh" content="3"><title>Starting...</title></head><body style="background:#090a16;color:#00f0ff;font-family:sans-serif;text-align:center;padding:50px;"><h2>Memuat Escape Police...</h2><p>Sedang menyiapkan game, halaman akan refresh otomatis.</p></body></html>');
+        res.status(404).send('<!DOCTYPE html><html><body style="background:#070814;color:#00f0ff;text-align:center;padding:50px;"><h2>Memuat Escape Police...</h2></body></html>');
       }
     });
   }
@@ -1399,3 +1772,4 @@ async function setupVite() {
 setupVite().catch(err => {
   console.error('Failed to start server:', err);
 });
+

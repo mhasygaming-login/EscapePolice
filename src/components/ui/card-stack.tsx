@@ -1,5 +1,5 @@
 import * as React from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { SquareArrowOutUpRight } from "lucide-react";
 
 function cn(...classes: Array<string | undefined | null | false>) {

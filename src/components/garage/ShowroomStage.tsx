@@ -209,7 +209,7 @@ export const ShowroomStage: React.FC<ShowroomStageProps> = ({
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         {/* Subtle Cyber Hangar Backdrop */}
         <img
-          src="/src/assets/images/garage_cyber_hangar_1791431059132.jpg"
+          src="/assets/garage_cyber_hangar.jpg"
           alt="Cyber Hangar Environment"
           className="w-full h-full object-cover object-center opacity-25 mix-blend-luminosity scale-105"
         />

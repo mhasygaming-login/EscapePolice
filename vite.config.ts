@@ -28,8 +28,7 @@ function viteHmrSilencerPlugin(): Plugin {
         protocols === 'vite-ping' ||
         (Array.isArray(protocols) && (protocols.indexOf('vite-hmr') !== -1 || protocols.indexOf('vite-ping') !== -1)) ||
         strUrl.indexOf('vite-hmr') !== -1 ||
-        strUrl.indexOf('vite-ping') !== -1 ||
-        strUrl.indexOf('token=') !== -1;
+        strUrl.indexOf('vite-ping') !== -1;
 
       if (isHMR) {
         var self = new EventTarget();
@@ -89,17 +88,19 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['cyber_pursuit_logo.jpg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512x512.png', 'cyber_pursuit_logo.jpg'],
         manifest: {
           id: '/',
           name: 'Escape the Police: Cyber Pursuit',
           short_name: 'CyberPursuit',
           description: 'Game balap retro-futuristik arcade melarikan diri dari kejaran polisi dengan sinkronisasi cloud real-time, online & offline.',
-          theme_color: '#05050a',
-          background_color: '#05050a',
+          theme_color: '#070814',
+          background_color: '#070814',
           display: 'standalone',
+          orientation: 'any',
           start_url: '/',
           scope: '/',
+          categories: ['games', 'arcade', 'racing'],
           icons: [
             {
               src: '/pwa-192x192.png',
@@ -185,14 +186,13 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: true,
-          type: 'module',
+          enabled: false,
         },
       }),
     ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(__dirname, './src'),
       },
     },
     server: {

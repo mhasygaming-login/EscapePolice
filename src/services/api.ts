@@ -1,4 +1,4 @@
-import { UserProfile, LeaderboardEntry, Tournament, NotificationItem, AnalyticsData, DifficultyLevel } from '../types';
+import { UserProfile, LeaderboardEntry, Tournament, TournamentLeaderboardEntry, NotificationItem, AnalyticsData, DifficultyLevel } from '../types';
 import { encryptedActivityService } from './encryptedActivity';
 import { buildApiUrl, DEFAULT_CLOUD_BACKEND_URL } from '../utils';
 
@@ -23,7 +23,7 @@ function saveStoredUserLocally(user: UserProfile) {
     map[user.username.trim().toLowerCase()] = user;
     localStorage.setItem(LOCAL_STORAGE_REGISTERED_USERS, JSON.stringify(map));
   } catch (e) {
-    console.warn('Failed to save user in local registry:', e);
+    console.debug('Failed to save user in local registry:', e);
   }
 }
 
@@ -232,7 +232,7 @@ export const api = {
         }
       }
     } catch (err) {
-      console.warn('Cloud sync error, operating in offline cache mode:', err);
+      console.debug('Cloud sync error, operating in offline cache mode:', err);
     }
     return { success: false, user: this.getLocalUser() || undefined };
   },
@@ -259,7 +259,7 @@ export const api = {
       localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
       return { success: true, message: 'Berhasil keluar sesi. Progres tersimpan aman di Cloud.' };
     } catch (e) {
-      console.warn('Logout error:', e);
+      console.debug('Logout error:', e);
       return { success: false };
     }
   },
@@ -778,7 +778,7 @@ export const api = {
         }
       }
     } catch (e) {
-      console.warn('Pending score batch sync failed, will retry later');
+      console.debug('Pending score batch sync failed, will retry later');
     }
   },
 
@@ -877,6 +877,22 @@ export const api = {
       return !!data.success;
     } catch (err) {
       return false;
+    }
+  },
+
+  async getTournamentLeaderboard(id: string): Promise<{
+    tournament: Tournament | null;
+    leaderboard: TournamentLeaderboardEntry[];
+  }> {
+    try {
+      const res = await this.request(`/api/tournaments/${id}/leaderboard`);
+      const data = await res.json();
+      return {
+        tournament: data.tournament || null,
+        leaderboard: data.leaderboard || [],
+      };
+    } catch (err) {
+      return { tournament: null, leaderboard: [] };
     }
   },
 
@@ -992,7 +1008,7 @@ export const api = {
         return data.replays || [];
       }
     } catch (err) {
-      console.warn('Gagal memuat daftar replay:', err);
+      console.debug('Gagal memuat daftar replay:', err);
     }
     return [];
   },
@@ -1005,7 +1021,7 @@ export const api = {
         return data.replay || null;
       }
     } catch (err) {
-      console.warn('Gagal memuat detail replay:', err);
+      console.debug('Gagal memuat detail replay:', err);
     }
     return null;
   },
@@ -1019,7 +1035,7 @@ export const api = {
       });
       return res.ok;
     } catch (err) {
-      console.warn('Gagal menyimpan replay:', err);
+      console.debug('Gagal menyimpan replay:', err);
       return false;
     }
   },

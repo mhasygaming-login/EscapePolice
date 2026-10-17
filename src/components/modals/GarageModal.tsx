@@ -138,7 +138,7 @@ export const GarageModal: React.FC<GarageModalProps> = ({
       setSyncMessage('Profil & Kustomisasi Berhasil Disinkronkan!');
       setTimeout(() => setSyncMessage(null), 3000);
     } catch (err) {
-      console.warn('Sync profile error:', err);
+      console.debug('Sync profile error:', err);
       setSyncMessage('Gagal menyinkronkan profil ke server.');
       setTimeout(() => setSyncMessage(null), 3000);
     } finally {

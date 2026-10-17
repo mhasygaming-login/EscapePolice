@@ -93,26 +93,26 @@
       "username": "taya",
       "email": "taya@cyberpursuit.local",
       "passwordHash": "taya123",
-      "avatar": "💎",
-      "title": "DRIFT MASTER",
-      "carColor": "#f8fafc",
-      "carModel": "nissan_gtr",
+      "avatar": "🔥",
+      "title": "MAXXX OVERLORD",
+      "carColor": "#ffffff",
+      "carModel": "lamborghini_aventador",
       "trailEffect": "amber_sparks",
       "twoFactorEnabled": false,
       "biometricEnabled": false,
       "achievements": [],
       "stats": {
         "highScore": 162703,
-        "gamesPlayed": 3,
-        "totalDistance": 8765,
-        "obstaclesDodged": 258,
-        "powerUpsCollected": 43,
-        "bestCombo": 41,
-        "totalBounty": 32224,
+        "gamesPlayed": 11,
+        "totalDistance": 12346,
+        "obstaclesDodged": 481,
+        "powerUpsCollected": 58,
+        "bestCombo": 49,
+        "totalBounty": 33198,
         "maxLevel": 1,
-        "bossKills": 3,
-        "nearMisses": 29,
-        "empUsed": 11,
+        "bossKills": 4,
+        "nearMisses": 66,
+        "empUsed": 15,
         "multiplayerWins": 0,
         "multiplayerMatches": 0
       },
@@ -130,7 +130,7 @@
         "dailyMissions": true
       },
       "createdAt": "2026-09-28T02:52:15.551Z",
-      "lastActive": "2026-10-01T07:28:51.144Z"
+      "lastActive": "2026-10-13T01:16:09.922Z"
     },
     "usr_1790840235378_zg7ud": {
       "id": "usr_1790840235378_zg7ud",
@@ -175,9 +175,123 @@
       },
       "createdAt": "2026-10-01T07:37:15.379Z",
       "lastActive": "2026-10-01T07:37:26.589Z"
+    },
+    "usr_test_racer": {
+      "id": "usr_test_racer",
+      "username": "Pembalap",
+      "email": "pembalap@cyberpursuit.local",
+      "passwordHash": "",
+      "avatar": "🏎️",
+      "title": "RACER",
+      "carColor": "#00f0ff",
+      "carModel": "civic_fl5",
+      "trailEffect": "cyan_plasma",
+      "twoFactorEnabled": false,
+      "biometricEnabled": false,
+      "achievements": [],
+      "stats": {
+        "highScore": 18500,
+        "gamesPlayed": 1,
+        "totalDistance": 2400,
+        "obstaclesDodged": 0,
+        "powerUpsCollected": 0,
+        "bestCombo": 0,
+        "totalBounty": 1850,
+        "maxLevel": 1,
+        "bossKills": 0,
+        "nearMisses": 0,
+        "empUsed": 0,
+        "multiplayerWins": 0,
+        "multiplayerMatches": 0
+      },
+      "layoutSettings": {
+        "hudPosition": "top",
+        "controlsStyle": "buttons",
+        "screenShake": true,
+        "scanlines": true,
+        "soundEnabled": true
+      },
+      "notificationSettings": {
+        "friendScores": true,
+        "tournaments": true,
+        "pushEnabled": true,
+        "dailyMissions": true
+      },
+      "createdAt": "2026-10-13T01:24:23.358Z",
+      "lastActive": "2026-10-13T01:24:23.358Z"
+    },
+    "usr_1791854744561_k5rml": {
+      "id": "usr_1791854744561_k5rml",
+      "username": "PembalapCyber",
+      "email": "pembalapcyber@cyberpursuit.local",
+      "passwordHash": "Password123!",
+      "avatar": "🏎️",
+      "title": "ROOKIE RACER",
+      "carColor": "#00f0ff",
+      "carModel": "civic_fl5",
+      "trailEffect": "cyan_plasma",
+      "twoFactorEnabled": false,
+      "biometricEnabled": false,
+      "achievements": [],
+      "stats": {
+        "highScore": 24500,
+        "gamesPlayed": 1,
+        "totalDistance": 3100,
+        "obstaclesDodged": 0,
+        "powerUpsCollected": 0,
+        "bestCombo": 0,
+        "totalBounty": 2450,
+        "maxLevel": 1,
+        "bossKills": 0,
+        "nearMisses": 0,
+        "empUsed": 0,
+        "multiplayerWins": 0,
+        "multiplayerMatches": 0
+      },
+      "layoutSettings": {
+        "hudPosition": "top",
+        "controlsStyle": "buttons",
+        "screenShake": true,
+        "scanlines": true,
+        "soundEnabled": true
+      },
+      "notificationSettings": {
+        "friendScores": true,
+        "tournaments": true,
+        "pushEnabled": true,
+        "dailyMissions": true
+      },
+      "createdAt": "2026-10-13T01:25:44.561Z",
+      "lastActive": "2026-10-13T01:25:44.601Z"
     }
   },
   "scores": [
+    {
+      "id": "score_1791854744601_axhi",
+      "userId": "usr_1791854744561_k5rml",
+      "username": "PembalapCyber",
+      "avatar": "🏎️",
+      "title": "ROOKIE RACER",
+      "carColor": "#00f0ff",
+      "score": 24500,
+      "distance": 3100,
+      "bestCombo": 0,
+      "difficulty": "NORMAL",
+      "timestamp": "2026-10-13T01:25:44.601Z"
+    },
+    {
+      "id": "score_1791854663358_gxlg",
+      "userId": "usr_test_racer",
+      "username": "Pembalap",
+      "avatar": "🏎️",
+      "title": "RACER",
+      "carColor": "#00f0ff",
+      "score": 18500,
+      "distance": 2400,
+      "bestCombo": 0,
+      "difficulty": "NORMAL",
+      "timestamp": "2026-10-13T01:24:23.358Z"
+    },
     {
       "id": "score_1789523880164_gslm",
       "userId": "usr_1789523877890_df18u",
@@ -193,6 +307,60 @@
     }
   ],
   "notifications": [
+    {
+      "id": "notif-1791854744601",
+      "userId": "all",
+      "type": "score_beaten",
+      "title": "🚨 Papan Peringkat Global Bergetar!",
+      "message": "[#1] PembalapCyber baru saja mencetak skor fantastis 24,500 di mode NORMAL!",
+      "timestamp": "2026-10-13T01:25:44.601Z",
+      "read": false
+    },
+    {
+      "id": "notif_1791854744600",
+      "userId": "usr_1791854744561_k5rml",
+      "type": "achievement",
+      "title": "Rekor Baru Tercatat!",
+      "message": "Kamu mencetak rekor pribadi baru: 24,500 poin!",
+      "timestamp": "2026-10-13T01:25:44.600Z",
+      "read": false
+    },
+    {
+      "id": "notif_1791854744579",
+      "userId": "usr_1791854744561_k5rml",
+      "type": "tournament_alert",
+      "title": "Terdaftar di Midnight Pursuit Grand Prix!",
+      "message": "Persiapkan kendaraanmu. Turnamen berhadiah 50,000 Bounty!",
+      "timestamp": "2026-10-13T01:25:44.593Z",
+      "read": false
+    },
+    {
+      "id": "notif-1791854744562",
+      "userId": "usr_1791854744561_k5rml",
+      "type": "system",
+      "title": "Selamat Datang di Escape Police!",
+      "message": "Halo PembalapCyber, akun barumu siap! Pacu mobilmu dan capai puncak leaderboard.",
+      "timestamp": "2026-10-13T01:25:44.562Z",
+      "read": false
+    },
+    {
+      "id": "notif-1791854663359",
+      "userId": "all",
+      "type": "score_beaten",
+      "title": "🚨 Papan Peringkat Global Bergetar!",
+      "message": "[#1] Pembalap baru saja mencetak skor fantastis 18,500 di mode NORMAL!",
+      "timestamp": "2026-10-13T01:24:23.359Z",
+      "read": false
+    },
+    {
+      "id": "notif_1791854663332",
+      "userId": "usr_test_racer",
+      "type": "tournament_alert",
+      "title": "Terdaftar di Midnight Pursuit Grand Prix!",
+      "message": "Persiapkan kendaraanmu. Turnamen berhadiah 50,000 Bounty!",
+      "timestamp": "2026-10-13T01:24:23.349Z",
+      "read": false
+    },
     {
       "id": "notif-1790840235379",
       "userId": "usr_1790840235378_zg7ud",
@@ -239,7 +407,50 @@
       "read": false
     }
   ],
+  "replays": [],
   "tournaments": [
+    {
+      "id": "tourney-weekly-1791854609221",
+      "title": "Midnight Pursuit Grand Prix",
+      "description": "Kejuaraan akbar mingguan armada cyberpunk! Hadapi gelombang blokade armada polisi MAXXX tanpa ampun demi hadiah mega bounty.",
+      "tier": "CYBER_LEGEND",
+      "type": "weekly",
+      "startTime": "2026-10-13T01:23:29.221Z",
+      "endTime": "2026-10-20T01:23:29.221Z",
+      "prizeBounty": 50000,
+      "participants": [
+        "usr_test_racer",
+        "usr_1791854744561_k5rml"
+      ],
+      "leaderboard": [
+        {
+          "userId": "usr_1791854744561_k5rml",
+          "username": "PembalapCyber",
+          "avatar": "🏎️",
+          "title": "ROOKIE RACER",
+          "score": 24500,
+          "distance": 3100,
+          "carColor": "#00f0ff",
+          "timestamp": "2026-10-13T01:25:44.601Z"
+        }
+      ],
+      "winners": [],
+      "status": "live"
+    },
+    {
+      "id": "tourney-daily-1791854609221",
+      "title": "Neon Daily Sprint Championship",
+      "description": "Pertarungan skor tertinggi 24 jam! Adu ketangkasan refleks di jalan tol neon malam untuk merebut jackpot harian.",
+      "tier": "ELITE",
+      "type": "daily",
+      "startTime": "2026-10-13T01:23:29.221Z",
+      "endTime": "2026-10-14T01:23:29.221Z",
+      "prizeBounty": 10000,
+      "participants": [],
+      "leaderboard": [],
+      "winners": [],
+      "status": "live"
+    },
     {
       "id": "tourney-1",
       "title": "Midnight Pursuit Grand Prix",
@@ -248,7 +459,11 @@
       "startTime": "2026-09-16T03:04:59.204Z",
       "endTime": "2026-09-17T03:04:59.204Z",
       "prizeBounty": 25000,
-      "participants": []
+      "participants": [],
+      "leaderboard": [],
+      "winners": [],
+      "type": "weekly",
+      "status": "completed"
     },
     {
       "id": "tourney-2",
@@ -258,7 +473,11 @@
       "startTime": "2026-09-16T15:04:59.204Z",
       "endTime": "2026-09-17T15:04:59.204Z",
       "prizeBounty": 10000,
-      "participants": []
+      "participants": [],
+      "leaderboard": [],
+      "winners": [],
+      "type": "daily",
+      "status": "completed"
     },
     {
       "id": "tourney-3",
@@ -268,7 +487,25 @@
       "startTime": "2026-09-16T02:04:59.204Z",
       "endTime": "2026-09-16T09:04:59.204Z",
       "prizeBounty": 5000,
-      "participants": []
+      "participants": [],
+      "leaderboard": [],
+      "winners": [],
+      "type": "daily",
+      "status": "completed"
+    },
+    {
+      "id": "tourney-rookie-1791854609221",
+      "title": "Rookie Highway Escape",
+      "description": "Ajang pembuktian bagi pembalap pemula mengasah refleks dan mencetak rekor kecepatan jalan raya tanpa crash.",
+      "tier": "ROOKIE",
+      "type": "daily",
+      "startTime": "2026-10-13T01:23:29.221Z",
+      "endTime": "2026-10-13T13:23:29.221Z",
+      "prizeBounty": 5000,
+      "participants": [],
+      "leaderboard": [],
+      "winners": [],
+      "status": "live"
     }
   ]
 }

@@ -98,26 +98,38 @@ export default function App() {
 
   // Initialize user & session
   useEffect(() => {
-    const initApp = async () => {
-      // Auto-load profile if valid registered or offline session exists
-      const profile = await api.getProfile();
-      if (profile) {
-        setCurrentUser(profile);
-      } else if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        // Mode offline tanpa internet: langsung berikan pengemudi offline agar game langsung bisa dimainkan
-        const offlineDriver = api.getOrCreateOfflineUser();
-        setCurrentUser(offlineDriver);
-      } else {
-        setCurrentUser(null);
-      }
-      setIsAuthChecking(false);
+    let isMounted = true;
 
-      // Check offline queue sync
-      if (navigator.onLine) {
+    const initApp = async () => {
+      try {
+        // Auto-load profile if valid registered or cached session exists
+        const profile = await api.getProfile();
+        if (isMounted) {
+          if (profile) {
+            setCurrentUser(profile);
+          } else {
+            // Siapkan profil pembalap instan agar game langsung aktif menyala
+            const initialDriver = api.getOrCreateOfflineUser();
+            setCurrentUser(initialDriver);
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          const fallbackDriver = api.getOrCreateOfflineUser();
+          setCurrentUser(fallbackDriver);
+        }
+      } finally {
+        if (isMounted) {
+          setIsAuthChecking(false);
+        }
+      }
+
+      // Check offline queue sync if network is available
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
         setCloudSyncStatus('syncing');
-        await api.syncOfflineQueue();
-        setCloudSyncStatus('synced');
-      } else {
+        await api.syncOfflineQueue().catch(() => {});
+        if (isMounted) setCloudSyncStatus('synced');
+      } else if (isMounted) {
         setCloudSyncStatus('offline');
       }
     };
@@ -325,7 +337,6 @@ export default function App() {
         }}
         user={currentUser}
         unreadNotifsCount={unreadCount}
-        unreadNotifCount={unreadCount}
         onOpenNotifications={() => setIsNotifOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenShare={() => setIsShareOpen(true)}
@@ -342,12 +353,17 @@ export default function App() {
           setCloudSyncStatus('synced');
         }}
         isSoundMuted={isSoundMuted}
-        soundMuted={isSoundMuted}
         onToggleSound={handleToggleSound}
       />
 
-      {/* Main Screen Container */}
-      <main className="flex-1 flex flex-col items-center justify-start w-full relative">
+      {/* Main Screen Container - Full-width and responsive below navbar */}
+      <main
+        className={`w-full max-w-none flex-1 flex flex-col items-stretch justify-start relative p-0 m-0 overflow-hidden ${
+          activeTab === 'game' || activeTab === 'maps'
+            ? 'h-[calc(100dvh-56px)] max-h-[calc(100dvh-56px)]'
+            : 'min-h-[calc(100dvh-56px)]'
+        }`}
+      >
         <ErrorBoundary>
           {(activeTab === 'game' || activeTab === 'maps') && (
             <GameCanvas

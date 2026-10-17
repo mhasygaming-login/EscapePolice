@@ -104,7 +104,7 @@ export const encryptedActivityService = {
         return JSON.parse(decrypted);
       }
     } catch (e) {
-      console.warn('Gagal mendekripsi riwayat aktivitas lokal:', e);
+      console.debug('Gagal mendekripsi riwayat aktivitas lokal:', e);
     }
     return [];
   },
@@ -144,7 +144,7 @@ export const encryptedActivityService = {
         localStorage.setItem(`${STORAGE_KEY}_${userId}`, encrypted);
       }
     } catch (err) {
-      console.warn('Failed to save encrypted activity:', err);
+      console.debug('Failed to save encrypted activity:', err);
     }
   },
 

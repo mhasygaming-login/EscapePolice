@@ -11,7 +11,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   className = 'w-6 h-6',
   size,
 }) => {
-  const normalized = brand.trim().toLowerCase();
+  const normalized = (brand || '').trim().toLowerCase();
   const dimension = size || 32;
 
   // 1. TOYOTA (Iconic overlapping chrome ovals)

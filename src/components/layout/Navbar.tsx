@@ -70,8 +70,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isSyncing = propIsSyncing !== undefined ? propIsSyncing : cloudStatus === 'syncing';
 
   return (
-    <header className="w-full bg-[#070a0f]/95 backdrop-blur-md border-b border-[#00E5FF]/20 px-3 py-2.5 sm:px-6 sticky top-0 z-40 shadow-[0_4px_25px_rgba(0,229,255,0.08)]">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+    <header className="w-full h-14 shrink-0 bg-[#070a0f]/95 backdrop-blur-md border-b border-[#00E5FF]/20 px-3 sm:px-6 sticky top-0 z-40 shadow-[0_4px_25px_rgba(0,229,255,0.08)] flex items-center">
+      <div className="w-full max-w-[98vw] 2xl:max-w-[1720px] mx-auto flex items-center justify-between gap-3 h-full">
         {/* Logo Kiri: ESCAPE POLICE */}
         <div className="flex items-center gap-2">
           <button

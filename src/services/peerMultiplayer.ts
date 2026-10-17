@@ -128,7 +128,7 @@ export class PeerMultiplayerService {
 
       instance.on('error', (err: any) => {
         clearTimeout(timeout);
-        console.warn('PeerJS instance error:', err?.type || err?.message || err);
+        console.debug('PeerJS instance error:', err?.type || err?.message || err);
         // If preferred ID is unavailable (e.g. ID taken), resolve anyway to handle fallback
         if (err?.type === 'unavailable-id') {
           resolve(instance);
@@ -306,7 +306,7 @@ export class PeerMultiplayerService {
 
       conn.on('error', (err: any) => {
         clearTimeout(connTimeout);
-        console.warn('Guest connection error:', err);
+        console.debug('Guest connection error:', err);
         this.trigger('error', {
           message: `Gagal terhubung ke Room "${roomCode}". Periksa kode ruangan Anda.`,
         });

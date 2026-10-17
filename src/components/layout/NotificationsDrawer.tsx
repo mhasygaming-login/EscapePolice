@@ -46,7 +46,7 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
         }
       }
     } catch (err) {
-      console.warn('Push notification unavailable in this environment:', err);
+      console.debug('Push notification unavailable in this environment:', err);
     }
   };
 

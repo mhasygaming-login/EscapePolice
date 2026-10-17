@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { RotateCcw, Trophy, Menu, ChevronRight, Skull, Star, Film } from 'lucide-react';
 import { sound } from '../../services';
-import cyberpunkRoadblockBg from '../../assets/images/cyberpunk_police_roadblock_1791638332566.jpg';
+const cyberpunkRoadblockBg = '/assets/cyberpunk_police_roadblock.jpg';
 
 export interface BustedScreenProps {
   score: number;

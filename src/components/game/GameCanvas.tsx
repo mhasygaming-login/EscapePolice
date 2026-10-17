@@ -65,11 +65,16 @@ const diffSettings = {
   MAXXX: { baseSpeed: 8, spawnBase: 34, obstacleSpeedMul: 1.65, traffic: 1.45, ai: 1.6 },
 };
 
-// Roadway geometry scaled to ensure visible, vibrant roadside scenery on both shoulders
+// Responsive full-width roadway geometry scaled dynamically for widescreen desktop, laptop, tablet, and mobile
 export function getRoadGeometry(canvasWidth: number) {
-  const minShoulder = Math.max(50, Math.round(canvasWidth * 0.16));
-  const maxRoad = 500;
-  const roadWidth = Math.min(maxRoad, Math.max(260, canvasWidth - minShoulder * 2));
+  // Roadside shoulders provide proportional margins for procedural scenery (skyscrapers, neon signs, trees, bluffs)
+  // On widescreen desktop (1920px): shoulder ~ 200px each, roadWidth ~ 1520px (grand cinematic highway)
+  // On laptop (1366px): shoulder ~ 150px each, roadWidth ~ 1066px
+  // On tablet (1024px): shoulder ~ 110px each, roadWidth ~ 804px
+  // On mobile (360-480px): shoulder ~ 36-48px each, roadWidth ~ 288-384px
+  const shoulderRatio = canvasWidth >= 1600 ? 0.11 : canvasWidth >= 1200 ? 0.12 : canvasWidth >= 768 ? 0.13 : 0.10;
+  const shoulderWidth = Math.max(32, Math.min(220, Math.round(canvasWidth * shoulderRatio)));
+  const roadWidth = Math.max(260, canvasWidth - shoulderWidth * 2);
   const roadLeft = Math.round((canvasWidth - roadWidth) / 2);
   const roadRight = roadLeft + roadWidth;
   const laneW = roadWidth / 3;
@@ -707,8 +712,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const canvas = canvasRef.current;
     const container = containerRef.current;
 
-    const width = Math.max(container?.clientWidth || 0, canvas?.width || 0, 720);
-    const height = Math.max(container?.clientHeight || 0, canvas?.height || 0, 560);
+    const width = container?.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 1280);
+    const height = container?.clientHeight || (typeof window !== 'undefined' ? window.innerHeight - 56 : 720);
     if (canvas) {
       canvas.width = width;
       canvas.height = height;
@@ -1066,7 +1071,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     syncDimensions();
     const ro = new ResizeObserver(() => syncDimensions());
     ro.observe(container);
-    return () => ro.disconnect();
+    window.addEventListener('resize', syncDimensions);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', syncDimensions);
+    };
   }, []);
 
   // Attract-mode highway preview when on start screen
@@ -1300,8 +1309,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         (state.keys.ArrowLeft || state.keys.a || state.keys.A ? -1 : 0) +
         (state.keys.ArrowRight || state.keys.d || state.keys.D ? 1 : 0);
 
-      const maxTurn = p.maxTurnSpeed || 5.8;
-      const turnAccel = p.turnAccel || 0.88;
+      const geom = getRoadGeometry(canvas.width);
+      // Adapt steering agility proportionally to lane width so the car feels agile and responsive on widescreen desktop
+      const laneScale = Math.min(2.0, Math.max(1.0, geom.laneW / 180));
+      const maxTurn = (p.maxTurnSpeed || 5.8) * laneScale;
+      const turnAccel = (p.turnAccel || 0.88) * laneScale;
 
       if (steerInput !== 0) {
         // Agile & quick evasive steering with soft progressive responsiveness
@@ -1328,7 +1340,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       p.driftAngle = (p.driftAngle || 0) + (targetDrift - (p.driftAngle || 0)) * 0.16;
       p.isDrifting = Math.abs(p.vx) > 0.8 || (steerInput !== 0 && Math.abs(p.vx) > 0.4);
 
-      const geom = getRoadGeometry(canvas.width);
       p.x = Math.max(geom.roadLeft + 10, Math.min(geom.roadRight - 10 - p.width, p.x + p.vx));
       p.y = Math.max(16, Math.min(canvas.height - p.height - 10, p.y + p.vy));
 
@@ -2577,7 +2588,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full min-h-[460px] sm:min-h-[520px] max-h-[calc(100dvh-124px)] sm:max-h-[calc(100dvh-88px)] max-w-5xl mx-auto bg-[#0a0a14] rounded-2xl overflow-hidden border border-cyan-500/30 shadow-2xl flex flex-col justify-center items-center select-none"
+      className="relative w-full max-w-none h-[calc(100dvh-56px)] max-h-[calc(100dvh-56px)] bg-[#070814] overflow-hidden flex flex-col justify-center items-center select-none m-0 p-0"
     >
       {/* Scanline CRT overlay (strictly visual, non-blocking) */}
       {user?.layoutSettings.scanlines && (

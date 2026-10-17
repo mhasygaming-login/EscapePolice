@@ -29,6 +29,14 @@ const Input = memo(
     const mouseX = useMotionValue(0);
     const mouseY = useMotionValue(0);
 
+    const background = useMotionTemplate`
+      radial-gradient(
+        ${visible ? radius + "px" : "0px"} circle at ${mouseX}px ${mouseY}px,
+        var(--ep-accent),
+        transparent 80%
+      )
+    `;
+
     function handleMouseMove({ currentTarget, clientX, clientY }: React.MouseEvent<HTMLDivElement>) {
       const { left, top } = currentTarget.getBoundingClientRect();
       mouseX.set(clientX - left);
@@ -37,15 +45,7 @@ const Input = memo(
 
     return (
       <motion.div
-        style={{
-          background: useMotionTemplate`
-            radial-gradient(
-              ${visible ? radius + "px" : "0px"} circle at ${mouseX}px ${mouseY}px,
-              var(--ep-accent),
-              transparent 80%
-            )
-          `,
-        }}
+        style={{ background }}
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setVisible(true)}
         onMouseLeave={() => setVisible(false)}
@@ -54,7 +54,7 @@ const Input = memo(
         <input
           type={type}
           className={cn(
-            "flex h-10 w-full rounded-md border border-[var(--ep-card-border)] bg-[var(--ep-field-bg)] px-3 py-2 text-sm text-black shadow-input transition duration-300 group-hover/input:shadow-none placeholder:text-neutral-500 focus-visible:outline-none focus-visible:ring-[2px] focus-visible:ring-[var(--ep-accent)] disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-10 w-full rounded-md border border-cyan-500/30 bg-[#0a0f1d] px-3 py-2 text-sm text-white shadow-input transition duration-300 group-hover/input:shadow-none placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-[2px] focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-50",
             className,
           )}
           ref={ref}
@@ -93,13 +93,18 @@ const BoxReveal = memo(function BoxReveal({
   const isInView = useInView(ref, { once: true });
 
   useEffect(() => {
+    // Immediate activation fallback ensures elements are never stuck hidden in iframes
+    const timer = setTimeout(() => {
+      slideControls.start("visible");
+      mainControls.start("visible");
+    }, 40);
+
     if (isInView) {
       slideControls.start("visible");
       mainControls.start("visible");
-    } else {
-      slideControls.start("hidden");
-      mainControls.start("hidden");
     }
+
+    return () => clearTimeout(timer);
   }, [isInView, mainControls, slideControls]);
 
   return (
@@ -109,10 +114,10 @@ const BoxReveal = memo(function BoxReveal({
       className={className}
     >
       <motion.div
-        variants={{ hidden: { opacity: 0, y: 75 }, visible: { opacity: 1, y: 0 } }}
-        initial="hidden"
+        variants={{ hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0 } }}
+        initial="visible"
         animate={mainControls}
-        transition={{ duration: duration ?? 0.5, delay: 0.25 }}
+        transition={{ duration: duration ?? 0.4, delay: 0.1 }}
       >
         {children}
       </motion.div>
@@ -120,7 +125,7 @@ const BoxReveal = memo(function BoxReveal({
         variants={{ hidden: { left: 0 }, visible: { left: "100%" } }}
         initial="hidden"
         animate={slideControls}
-        transition={{ duration: duration ?? 0.5, ease: "easeIn" }}
+        transition={{ duration: duration ?? 0.4, ease: "easeIn" }}
         style={{
           position: "absolute",
           top: 4,

@@ -87,16 +87,46 @@ export interface NotificationItem {
   read: boolean;
 }
 
+export interface TournamentWinner {
+  userId: string;
+  username: string;
+  avatar: string;
+  title?: string;
+  carColor?: string;
+  carModel?: string;
+  rank: number;
+  score: number;
+  prizeAwarded: number;
+}
+
+export interface TournamentLeaderboardEntry {
+  userId: string;
+  username: string;
+  avatar: string;
+  title: string;
+  carColor: string;
+  carModel: string;
+  score: number;
+  distance: number;
+  bestCombo: number;
+  timestamp: string;
+  rank?: number;
+}
+
 export interface Tournament {
   id: string;
   title: string;
   description: string;
   tier: 'ROOKIE' | 'ELITE' | 'CYBER_LEGEND';
+  type?: 'DAILY' | 'WEEKLY' | 'SPECIAL';
   startTime: string;
   endTime: string;
   prizeBounty: number;
   participantsCount: number;
   isRegistered?: boolean;
+  status?: 'UPCOMING' | 'ACTIVE' | 'COMPLETED';
+  settled?: boolean;
+  winners?: TournamentWinner[];
 }
 
 export interface MultiplayerPlayerState {

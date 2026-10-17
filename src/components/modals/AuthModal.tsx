@@ -60,7 +60,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const records = await encryptedActivityService.getActivities(userId);
       setActivities(records);
     } catch (e) {
-      console.warn('Failed to load encrypted activities:', e);
+      console.debug('Failed to load encrypted activities:', e);
     } finally {
       setLoadingActivities(false);
     }

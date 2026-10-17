@@ -304,30 +304,30 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
   };
 
   return (
-    <div className="flex w-full flex-col p-2.5 sm:p-4 md:p-5 text-white select-none focus:outline-none">
-      {/* ── 1. Top Header: AutoLayout Bersih & Rapi ──────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 pb-2.5 border-b border-white/10 mb-3 sm:mb-4">
+    <div className="flex w-full flex-col px-4 sm:px-6 md:px-8 lg:px-10 py-3 sm:py-4 lg:py-5 text-white select-none focus:outline-none">
+      {/* ── 1. Top Header: AutoLayout Bersih, Lebar & Rapi ──────────────────────────── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2.5 sm:pb-3 border-b border-white/10 mb-3.5 sm:mb-4 lg:mb-5">
         <div>
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#00e5ff] animate-pulse" />
-            <span className="text-[10px] font-mono font-bold tracking-widest text-cyan-400 uppercase">
+            <span className="text-[10px] sm:text-[11px] font-mono font-bold tracking-widest text-cyan-400 uppercase">
               LOBBY BALAPAN · PERSIAPAN MISI
             </span>
           </div>
-          <h1 className="text-sm sm:text-lg md:text-xl font-display font-black tracking-wide text-white uppercase mt-0.5">
+          <h1 className="text-sm sm:text-base md:text-lg font-display font-black tracking-wide text-white uppercase mt-0.5">
             PILIH ARENA & TINGKAT KESULITAN
           </h1>
         </div>
 
         {/* Petunjuk Geser / Klik */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-black/40 border border-white/10 text-[10.5px] font-mono text-gray-300">
-          <Sparkles className="w-3 h-3 text-cyan-400 animate-spin" style={{ animationDuration: "6s" }} />
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-black/40 border border-white/10 text-[10px] sm:text-[11px] font-mono text-gray-300">
+          <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-spin" style={{ animationDuration: "6s" }} />
           <span>Klik Baris atau Geser Kartu</span>
         </div>
       </div>
 
-      {/* ── 2. DUA KOTAK UTAMA (AUTO LAYOUT: 2 KOLOM RAPI & PROPORSIONAL) ────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
+      {/* ── 2. DUA KOTAK UTAMA (AUTO LAYOUT: 2 KOLOM LEBAR & JARAK LAPANG) ────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 lg:gap-6 2xl:gap-8 mb-3.5 sm:mb-4 lg:mb-5">
         {/* ── KOTAK KIRI: MAPS (PILIHAN ARENA) ────────────────────────────── */}
         <div
           className="rounded-2xl overflow-hidden border flex flex-col justify-between transition-all duration-300 bg-[#080c18]/90 shadow-xl"
@@ -337,7 +337,7 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
           }}
         >
           {/* Header Kotak Kiri */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-black/35 backdrop-blur-md">
+          <div className="flex items-center justify-between px-3.5 py-2 sm:px-4 sm:py-2.5 border-b border-white/10 bg-black/35 backdrop-blur-md">
             <div className="flex items-center gap-2 min-w-0">
               <div
                 className="w-6 h-6 rounded-md flex items-center justify-center border shrink-0"
@@ -347,7 +347,7 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
                   color: currentMap.color,
                 }}
               >
-                <MapPin className="w-3 h-3" />
+                <MapPin className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0">
                 <span className="text-[8.5px] font-mono font-bold text-gray-400 uppercase tracking-widest block leading-none">
@@ -372,9 +372,9 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
             </span>
           </div>
 
-          {/* Area Gambar dengan Tombol Geser Transparan & Gesture */}
+          {/* Area Gambar dengan Tinggi Proporsional & Bebas Scroll */}
           <div
-            className="relative h-[140px] sm:h-[165px] md:h-[185px] w-full overflow-hidden cursor-grab active:cursor-grabbing group select-none"
+            className="relative h-[125px] sm:h-[140px] md:h-[150px] lg:h-[160px] xl:h-[170px] w-full overflow-hidden cursor-grab active:cursor-grabbing group select-none"
             onTouchStart={handleMapTouchStart}
             onTouchEnd={handleMapTouchEnd}
             onMouseDown={handleMapTouchStart}
@@ -390,10 +390,10 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
               }}
             />
 
-            {/* Gradient Scrim Minimalis (Hanya di tepi bawah lembut agar gambar tidak gelap) */}
+            {/* Gradient Scrim Minimalis */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 pointer-events-none" />
 
-            {/* Tombol Geser Kiri (Transparan agar tidak menghalangi gambar) */}
+            {/* Tombol Geser Kiri */}
             <button
               type="button"
               aria-label="Peta Sebelumnya"
@@ -401,12 +401,12 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
                 e.stopPropagation();
                 setMap(activeMapIndex - 1);
               }}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/20 hover:bg-black/50 text-white/70 hover:text-white border border-white/15 hover:border-cyan-400/50 flex items-center justify-center transition-all duration-200 backdrop-blur-[2px] shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/35 hover:bg-black/65 text-white/80 hover:text-white border border-white/20 hover:border-cyan-400/60 flex items-center justify-center transition-all duration-200 backdrop-blur-[2px] shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
-            {/* Tombol Geser Kanan (Transparan agar tidak menghalangi gambar) */}
+            {/* Tombol Geser Kanan */}
             <button
               type="button"
               aria-label="Peta Berikutnya"
@@ -414,14 +414,14 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
                 e.stopPropagation();
                 setMap(activeMapIndex + 1);
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/20 hover:bg-black/50 text-white/70 hover:text-white border border-white/15 hover:border-cyan-400/50 flex items-center justify-center transition-all duration-200 backdrop-blur-[2px] shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/35 hover:bg-black/65 text-white/80 hover:text-white border border-white/20 hover:border-cyan-400/60 flex items-center justify-center transition-all duration-200 backdrop-blur-[2px] shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
             >
               <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
-            {/* Floating Info Pill di Bagian Bawah Gambar (Dengan inset-x-12 agar TIDAK bertabrakan dengan tombol panah) */}
+            {/* Floating Info Pill di Bagian Bawah Gambar */}
             <div className="absolute bottom-2 inset-x-12 z-10 pointer-events-none flex justify-center">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-[3px] border border-white/10 shadow-sm max-w-full truncate">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 shadow-sm max-w-full truncate">
                 <span
                   className="px-1.5 py-0.2 rounded text-[8.5px] font-mono font-black uppercase tracking-wider border shrink-0"
                   style={{
@@ -432,16 +432,16 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
                 >
                   {currentMap.badge}
                 </span>
-                <span className="text-[10px] text-gray-200 font-medium truncate">
+                <span className="text-[10.5px] text-gray-200 font-medium truncate">
                   {currentMap.subtitle}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Row Tombol Pilihan Peta (Semi-transparan, Tipis & Tidak Menghalangi) */}
+          {/* Row Tombol Pilihan Peta (5 Tombol Proporsional) */}
           <div className="p-1.5 sm:p-2 border-t border-white/10 bg-black/25 backdrop-blur-xs">
-            <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
+            <div className="grid grid-cols-5 gap-1 sm:gap-1.5 md:gap-2">
               {MAP_SELECTOR_OPTIONS.map((opt, idx) => {
                 const isSelected = activeMapIndex === idx;
                 const OptIcon = opt.icon;
@@ -464,7 +464,7 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
                       className="w-3.5 h-3.5 mb-0.5 shrink-0"
                       style={{ color: isSelected ? opt.color : undefined }}
                     />
-                    <span className="text-[8.5px] sm:text-[9px] font-display font-bold uppercase tracking-wider truncate w-full text-center">
+                    <span className="text-[8.5px] sm:text-[9.5px] font-display font-bold uppercase tracking-wider truncate w-full text-center">
                       {opt.shortLabel}
                     </span>
                   </button>
@@ -483,7 +483,7 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
           }}
         >
           {/* Header Kotak Kanan */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-black/35 backdrop-blur-md">
+          <div className="flex items-center justify-between px-3.5 py-2 sm:px-4 sm:py-2.5 border-b border-white/10 bg-black/35 backdrop-blur-md">
             <div className="flex items-center gap-2 min-w-0">
               <div
                 className="w-6 h-6 rounded-md flex items-center justify-center border shrink-0"
@@ -493,7 +493,7 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
                   color: currentDiff.color,
                 }}
               >
-                <ShieldAlert className="w-3 h-3" />
+                <ShieldAlert className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0">
                 <span className="text-[8.5px] font-mono font-bold text-gray-400 uppercase tracking-widest block leading-none">
@@ -518,9 +518,9 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
             </span>
           </div>
 
-          {/* Area Gambar dengan Tombol Geser Transparan & Gesture */}
+          {/* Area Gambar dengan Tinggi Proporsional & Bebas Scroll */}
           <div
-            className="relative h-[140px] sm:h-[165px] md:h-[185px] w-full overflow-hidden cursor-grab active:cursor-grabbing group select-none"
+            className="relative h-[125px] sm:h-[140px] md:h-[150px] lg:h-[160px] xl:h-[170px] w-full overflow-hidden cursor-grab active:cursor-grabbing group select-none"
             onTouchStart={handleDiffTouchStart}
             onTouchEnd={handleDiffTouchEnd}
             onMouseDown={handleDiffTouchStart}
@@ -536,10 +536,10 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
               }}
             />
 
-            {/* Gradient Scrim Minimalis (Hanya di tepi bawah lembut) */}
+            {/* Gradient Scrim Minimalis */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 pointer-events-none" />
 
-            {/* Tombol Geser Kiri (Transparan agar tidak menghalangi gambar) */}
+            {/* Tombol Geser Kiri */}
             <button
               type="button"
               aria-label="Kesulitan Sebelumnya"
@@ -547,12 +547,12 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
                 e.stopPropagation();
                 setDiff(activeDiffIndex - 1);
               }}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/20 hover:bg-black/50 text-white/70 hover:text-white border border-white/15 hover:border-cyan-400/50 flex items-center justify-center transition-all duration-200 backdrop-blur-[2px] shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/35 hover:bg-black/65 text-white/80 hover:text-white border border-white/20 hover:border-cyan-400/60 flex items-center justify-center transition-all duration-200 backdrop-blur-[2px] shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
-            {/* Tombol Geser Kanan (Transparan agar tidak menghalangi gambar) */}
+            {/* Tombol Geser Kanan */}
             <button
               type="button"
               aria-label="Kesulitan Berikutnya"
@@ -560,14 +560,14 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
                 e.stopPropagation();
                 setDiff(activeDiffIndex + 1);
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/20 hover:bg-black/50 text-white/70 hover:text-white border border-white/15 hover:border-cyan-400/50 flex items-center justify-center transition-all duration-200 backdrop-blur-[2px] shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/35 hover:bg-black/65 text-white/80 hover:text-white border border-white/20 hover:border-cyan-400/60 flex items-center justify-center transition-all duration-200 backdrop-blur-[2px] shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
             >
               <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
-            {/* Floating Info Pill di Bagian Bawah Gambar (Dengan inset-x-12 agar TIDAK bertabrakan dengan tombol panah) */}
+            {/* Floating Info Pill di Bagian Bawah Gambar */}
             <div className="absolute bottom-2 inset-x-12 z-10 pointer-events-none flex justify-center">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-[3px] border border-white/10 shadow-sm max-w-full truncate">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 shadow-sm max-w-full truncate">
                 <span
                   className="px-1.5 py-0.2 rounded text-[8.5px] font-mono font-black uppercase tracking-wider border shrink-0"
                   style={{
@@ -578,16 +578,16 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
                 >
                   {currentDiff.badge}
                 </span>
-                <span className="text-[10px] text-gray-200 font-medium truncate">
+                <span className="text-[10.5px] text-gray-200 font-medium truncate">
                   {currentDiff.subtitle}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Row Tombol Pilihan Kesulitan (Semi-transparan, Tipis & Tidak Menghalangi) */}
+          {/* Row Tombol Pilihan Kesulitan (4 Tombol Proporsional) */}
           <div className="p-1.5 sm:p-2 border-t border-white/10 bg-black/25 backdrop-blur-xs">
-            <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 md:gap-3">
               {DIFFICULTY_SELECTOR_OPTIONS.map((opt, idx) => {
                 const isSelected = activeDiffIndex === idx;
                 const OptIcon = opt.icon;
@@ -596,7 +596,7 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
                     key={opt.id}
                     type="button"
                     onClick={() => setDiff(idx)}
-                    className={`flex flex-col items-center justify-center py-1 sm:py-1.5 px-0.5 sm:px-1 rounded-xl border transition-all cursor-pointer min-h-[40px] sm:min-h-[44px] active:scale-95 ${
+                    className={`flex flex-col items-center justify-center py-1 sm:py-1.5 px-1 sm:px-1.5 rounded-xl border transition-all cursor-pointer min-h-[40px] sm:min-h-[44px] active:scale-95 ${
                       isSelected
                         ? "bg-white/15 shadow-sm text-white"
                         : "bg-white/[0.03] border-white/10 hover:border-white/25 hover:bg-white/[0.08] text-gray-400 hover:text-white"
@@ -610,7 +610,7 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
                       className="w-3.5 h-3.5 mb-0.5 shrink-0"
                       style={{ color: isSelected ? opt.color : undefined }}
                     />
-                    <span className="text-[8.5px] sm:text-[9px] font-display font-bold uppercase tracking-wider truncate w-full text-center">
+                    <span className="text-[8.5px] sm:text-[9.5px] font-display font-bold uppercase tracking-wider truncate w-full text-center">
                       {opt.shortLabel}
                     </span>
                   </button>
@@ -621,21 +621,21 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
         </div>
       </div>
 
-      {/* ── 3. Quick Telemetry Bar: Mobil Aktif & Armada Polisi ──────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-3">
+      {/* ── 3. Quick Telemetry Bar: Mobil Aktif & Armada Polisi (Jarak Lapang) ──────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-6 mb-3.5 sm:mb-4 lg:mb-5">
         {/* Mobil Aktif */}
-        <div className="bg-[#0b0f1c]/70 border border-white/10 rounded-xl px-2.5 py-2 flex items-center justify-between gap-2 shadow-sm transition-colors hover:border-white/20">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
-              <Car className="w-3.5 h-3.5" />
+        <div className="bg-[#0b0f1c]/80 border border-white/10 hover:border-cyan-500/35 rounded-xl sm:rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between gap-3 shadow-sm transition-all">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+              <Car className="w-4 h-4" />
             </div>
             <div className="min-w-0">
               <span className="text-[8.5px] text-gray-400 font-bold uppercase tracking-wider font-mono block leading-none mb-0.5">
                 Mobil Aktif
               </span>
-              <div className="font-display font-bold text-white text-xs truncate leading-tight">
+              <div className="font-display font-bold text-white text-xs sm:text-[13px] truncate leading-tight">
                 {carName}{" "}
-                <span className="text-cyan-400 font-mono text-[10px] font-bold tabular-nums">
+                <span className="text-cyan-400 font-mono text-[10.5px] font-bold tabular-nums ml-1">
                   ({carHp} HP)
                 </span>
               </div>
@@ -647,23 +647,23 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
               sound.play("click");
               onChangeCar?.();
             }}
-            className="px-2.5 py-1 min-h-[34px] rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 hover:text-white text-[10.5px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 flex items-center justify-center active:scale-95"
+            className="px-3.5 py-1.5 min-h-[34px] sm:min-h-[36px] rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 hover:text-white text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 flex items-center justify-center active:scale-95"
           >
             Ganti Mobil
           </button>
         </div>
 
         {/* Armada Polisi */}
-        <div className="bg-[#0b0f1c]/70 border border-white/10 rounded-xl px-2.5 py-2 flex items-center justify-between gap-2 shadow-sm transition-colors hover:border-white/20">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
-              <Siren className="w-3.5 h-3.5" />
+        <div className="bg-[#0b0f1c]/80 border border-white/10 hover:border-rose-500/35 rounded-xl sm:rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between gap-3 shadow-sm transition-all">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+              <Siren className="w-4 h-4" />
             </div>
             <div className="min-w-0">
               <span className="text-[8.5px] text-gray-400 font-bold uppercase tracking-wider font-mono block leading-none mb-0.5">
                 Armada Pengejar
               </span>
-              <div className="font-display font-bold text-white text-xs truncate leading-tight">
+              <div className="font-display font-bold text-white text-xs sm:text-[13px] truncate leading-tight">
                 {fleetCount} Unit Patroli Siaga
               </div>
             </div>
@@ -674,21 +674,21 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
               sound.play("click");
               onOpenFleet?.();
             }}
-            className="px-2.5 py-1 min-h-[34px] rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-white text-[10.5px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 flex items-center justify-center active:scale-95"
+            className="px-3.5 py-1.5 min-h-[34px] sm:min-h-[36px] rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-white text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 flex items-center justify-center active:scale-95"
           >
             Lihat Armada
           </button>
         </div>
       </div>
 
-      {/* ── 4. Action Launch Bar (Tidak Tenggelam & Sangat Jelas) ─────────────── */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2.5 border-t border-white/10">
+      {/* ── 4. Action Launch Bar (Lapang, Sejajar & Bebas Scrolling) ─────────────── */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pt-3 sm:pt-3.5 border-t border-white/10">
         {/* Tombol Mulai yang Menonjol */}
         <button
           id="btn-start-game"
           type="button"
           onClick={handleLaunch}
-          className="w-full sm:w-auto sm:flex-1 px-6 h-11 sm:h-12 rounded-xl bg-gradient-to-r from-cyan-400 via-cyan-300 to-[#00d2eb] hover:from-cyan-300 hover:to-cyan-400 text-black font-display font-black text-xs sm:text-[13px] tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,229,255,0.45)] hover:shadow-[0_0_30px_rgba(0,229,255,0.7)] hover:scale-[1.01] active:scale-95 transition-all duration-200 cursor-pointer min-h-[44px]"
+          className="w-full sm:w-auto sm:flex-1 max-w-xl px-6 h-11 sm:h-12 rounded-xl bg-gradient-to-r from-cyan-400 via-cyan-300 to-[#00d2eb] hover:from-cyan-300 hover:to-cyan-400 text-black font-display font-black text-xs sm:text-[13px] tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,229,255,0.45)] hover:shadow-[0_0_30px_rgba(0,229,255,0.7)] hover:scale-[1.01] active:scale-95 transition-all duration-200 cursor-pointer min-h-[44px]"
         >
           <Play className="w-4 h-4 fill-current shrink-0" />
           <span className="truncate">
@@ -697,23 +697,23 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
         </button>
 
         {/* Petunjuk Keyboard */}
-        <div className="flex items-center justify-center gap-2 text-[9.5px] text-gray-400 font-mono flex-wrap">
+        <div className="flex items-center justify-center gap-2.5 text-[10px] text-gray-400 font-mono flex-wrap">
           <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 font-mono text-[8.5px] border border-white/15">
+            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 font-mono text-[9px] border border-white/15">
               WASD
             </kbd>
             <span>Kemudi</span>
           </div>
           <span className="text-gray-600">·</span>
           <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 font-mono text-[8.5px] border border-white/15">
+            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 font-mono text-[9px] border border-white/15">
               SPASI
             </kbd>
             <span>Nitro</span>
           </div>
           <span className="text-gray-600">·</span>
           <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 font-mono text-[8.5px] border border-white/15">
+            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 font-mono text-[9px] border border-white/15">
               E
             </kbd>
             <span>EMP</span>
