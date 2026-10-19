@@ -146,12 +146,30 @@ export default function App() {
       setCloudSyncStatus('offline');
     };
 
+    const handleUnauthorized = () => {
+      setNotifications(prev => [
+        {
+          id: 'auth_unauth_' + Date.now(),
+          userId: currentUser?.id || 'system',
+          type: 'system',
+          title: 'Sesi Otentikasi Berakhir (401)',
+          message: 'Kredensial atau token sesi Anda telah kadaluarsa. Silakan refresh browser atau login ulang.',
+          timestamp: new Date().toLocaleTimeString(),
+          read: false,
+        },
+        ...prev,
+      ]);
+      setUnreadCount(c => c + 1);
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
     };
   }, []);
 

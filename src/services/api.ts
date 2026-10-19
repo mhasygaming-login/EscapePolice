@@ -33,11 +33,24 @@ export const api = {
     return typeof navigator !== 'undefined' ? navigator.onLine : true;
   },
 
-  // Resilient API request with automatic cross-domain fallback
+  // Resilient API request with automatic cross-domain fallback and 401 interceptor
   async request(path: string, options?: RequestInit): Promise<Response> {
     const primaryUrl = buildApiUrl(path);
     try {
       const res = await fetch(primaryUrl, options);
+
+      // Tangani status 401 Unauthorized secara terpusat
+      if (res.status === 401) {
+        console.warn(`[API] 401 Unauthorized received for: ${path}. Credentials may be expired or invalid.`);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('auth:unauthorized', {
+              detail: { path, status: 401, timestamp: Date.now() },
+            })
+          );
+        }
+      }
+
       const isHtmlResponse = res.headers.get('content-type')?.includes('text/html');
       // If 404 or Vercel returned HTML SPA fallback, retry against the live Cloud Run backend if different
       if ((!res.ok && res.status === 404) || isHtmlResponse) {
@@ -45,6 +58,13 @@ export const api = {
           const fallbackUrl = `${DEFAULT_CLOUD_BACKEND_URL}${path.startsWith('/') ? path : `/${path}`}`;
           try {
             const fbRes = await fetch(fallbackUrl, options);
+            if (fbRes.status === 401 && typeof window !== 'undefined') {
+              window.dispatchEvent(
+                new CustomEvent('auth:unauthorized', {
+                  detail: { path, status: 401, timestamp: Date.now() },
+                })
+              );
+            }
             if (fbRes.ok || fbRes.status < 500) {
               return fbRes;
             }
