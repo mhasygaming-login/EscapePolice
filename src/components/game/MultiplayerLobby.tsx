@@ -1,28 +1,32 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { UserProfile, MultiplayerRoom, DifficultyLevel, MultiplayerPlayerState } from '../../types';
-import { socket, sound, getCarModel } from '../../services';
-import { BrandLogo } from '../layout/BrandLogo';
+import { socket, sound } from '../../services';
 import { getPublicGameUrl, copyTextToClipboard } from '../../utils';
 import {
   Users,
-  Plus,
-  Play,
+  RotateCcw,
+  ArrowLeft,
+  Link as LinkIcon,
+  Smartphone,
   Copy,
   Check,
-  Radio,
+  Send,
+  ExternalLink,
+  LogIn,
+  Zap,
+  Tag,
+  Key,
+  Gauge,
+  Flame,
+  Skull,
+  RefreshCw,
+  Clock,
+  Crown,
+  Play,
+  LogOut,
   Share2,
   MessageSquare,
-  Link,
-  ArrowLeft,
-  RotateCw,
-  Crown,
-  LogOut,
-  Flame,
-  Globe,
-  MessageCircle,
-  ExternalLink,
   WifiOff,
-  Film,
 } from 'lucide-react';
 
 interface MultiplayerLobbyProps {
@@ -46,13 +50,9 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
   const [currentRoom, setCurrentRoom] = useState<MultiplayerRoom | null>(null);
   const [roomCodeInput, setRoomCodeInput] = useState(initialRoomCode || '');
   const [customRoomCode, setCustomRoomCode] = useState('');
-
-  useEffect(() => {
-    if (initialRoomCode) {
-      setRoomCodeInput(initialRoomCode.trim().toUpperCase());
-    }
-  }, [initialRoomCode]);
-  const [newRoomName, setNewRoomName] = useState(`${user?.username || 'Pembalap'}'s Arena`);
+  const [newRoomName, setNewRoomName] = useState(
+    user?.username ? `${user.username}'s Arena` : "Mhasy_racing's Arena"
+  );
   const [newRoomDiff, setNewRoomDiff] = useState<DifficultyLevel>('NORMAL');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -60,14 +60,50 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lobbyMessages, setLobbyMessages] = useState<{ sender: string; text: string }[]>([]);
+  const [livePing, setLivePing] = useState<number>(socket.ping || 24);
+
+  // Active timers tracking to prevent memory leaks on unmounted component
+  const activeTimersRef = useRef<NodeJS.Timeout[]>([]);
+  const setTrackedTimeout = useCallback((fn: () => void, ms: number) => {
+    const timer = setTimeout(() => {
+      activeTimersRef.current = activeTimersRef.current.filter(t => t !== timer);
+      fn();
+    }, ms);
+    activeTimersRef.current.push(timer);
+    return timer;
+  }, []);
+
+  // Track initial URL room code auto-joining to avoid duplicate requests when user state updates
+  const autoJoinedRoomRef = useRef<string | null>(null);
+
+  // Sync initial room code input
+  useEffect(() => {
+    if (initialRoomCode) {
+      setRoomCodeInput(initialRoomCode.trim().toUpperCase());
+    }
+  }, [initialRoomCode]);
+
+  // Clean up all pending timeouts when component unmounts
+  useEffect(() => {
+    return () => {
+      activeTimersRef.current.forEach(t => clearTimeout(t));
+      activeTimersRef.current = [];
+    };
+  }, []);
 
   const handleJoinRoom = useCallback(
     (code: string) => {
-      if (!code?.trim()) return;
+      const cleanCode = code ? code.trim().toUpperCase() : '';
+      if (!cleanCode) {
+        setErrorMessage('Silakan masukkan kode room terlebih dahulu.');
+        setTrackedTimeout(() => setErrorMessage(''), 3500);
+        return;
+      }
+
       sound.play('click');
       socket.send({
         type: 'join_room',
-        code: code.trim().toUpperCase(),
+        code: cleanCode,
         userId: user?.id || 'guest_' + Date.now(),
         username: user?.username || 'Racer',
         avatar: user?.avatar || '🏎️',
@@ -75,10 +111,10 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
         carModel: user?.carModel || 'civic_fl5',
       });
     },
-    [user]
+    [user, setTrackedTimeout]
   );
 
-  // Socket room listeners
+  // Socket room listeners and real network telemetry
   useEffect(() => {
     socket.connect(user?.id);
 
@@ -118,18 +154,29 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
     const unbindAction = socket.on('opponent_action', (data: any) => {
       if (data.action === 'chat') {
         sound.play('coin');
-        setLobbyMessages(prev => [...prev.slice(-3), { sender: data.username || 'Pembalap', text: data.value }]);
+        setLobbyMessages(prev => [
+          ...prev.slice(-3),
+          { sender: data.username || 'Pembalap', text: data.value },
+        ]);
       }
     });
 
     const unbindError = socket.on('error', (data: any) => {
       setErrorMessage(data.message || 'Terjadi kesalahan');
       sound.play('gameover');
-      setTimeout(() => setErrorMessage(''), 4000);
+      setTrackedTimeout(() => setErrorMessage(''), 4000);
     });
 
-    // If invited via URL initialRoomCode, auto-join
-    if (initialRoomCode) {
+    // Real server ping telemetry updates
+    const unbindPing = socket.on('ping_update', (pingMs: number) => {
+      if (typeof pingMs === 'number' && pingMs > 0) {
+        setLivePing(pingMs);
+      }
+    });
+
+    // Auto-join once if URL contained a room invite
+    if (initialRoomCode && autoJoinedRoomRef.current !== initialRoomCode.trim().toUpperCase()) {
+      autoJoinedRoomRef.current = initialRoomCode.trim().toUpperCase();
       handleJoinRoom(initialRoomCode);
     }
 
@@ -146,16 +193,22 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
       unbindRaceStart();
       unbindAction();
       unbindError();
+      unbindPing();
       clearInterval(interval);
     };
-  }, [user?.id, onStartMatch, initialRoomCode, handleJoinRoom]);
+  }, [user?.id, onStartMatch, initialRoomCode, handleJoinRoom, setTrackedTimeout]);
 
-  const handleCreateRoom = () => {
+  const handleCreateRoom = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     sound.play('click');
+
+    const cleanName = newRoomName.trim() || `${user?.username || 'Pembalap'}'s Arena`;
+    const cleanCode = customRoomCode.trim().replace(/[^A-Za-z0-9_-]/g, '').toUpperCase() || undefined;
+
     socket.send({
       type: 'create_room',
-      code: customRoomCode.trim().toUpperCase() || undefined,
-      name: newRoomName.trim() || `${user?.username || 'Pembalap'}'s Arena`,
+      code: cleanCode,
+      name: cleanName,
       difficulty: newRoomDiff,
       userId: user?.id || 'guest_' + Date.now(),
       username: user?.username || 'Racer',
@@ -194,7 +247,31 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
       value: msg,
       username: user?.username || 'Kamu',
     });
-    setLobbyMessages(prev => [...prev.slice(-3), { sender: 'Kamu', text: msg }]);
+    setLobbyMessages(prev => [
+      ...prev.slice(-3),
+      { sender: user?.username || 'Kamu', text: msg },
+    ]);
+  };
+
+  const handleCopyPublicLink = async () => {
+    sound.play('click');
+    const url = getPublicGameUrl();
+    const success = await copyTextToClipboard(url);
+    if (success) {
+      setCopiedPublicLink(true);
+      sound.play('coin');
+      setTrackedTimeout(() => setCopiedPublicLink(false), 1600);
+    } else {
+      setErrorMessage('Gagal menyalin link otomatis. Silakan salin URL di kotak secara manual.');
+      setTrackedTimeout(() => setErrorMessage(''), 4000);
+    }
+  };
+
+  const handleRefreshRooms = () => {
+    sound.play('click');
+    setIsRefreshing(true);
+    socket.send({ type: 'list_rooms' });
+    setTrackedTimeout(() => setIsRefreshing(false), 800);
   };
 
   const handleCopyInviteLink = async () => {
@@ -204,7 +281,10 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
     if (success) {
       setCopiedLink(true);
       sound.play('coin');
-      setTimeout(() => setCopiedLink(false), 2000);
+      setTrackedTimeout(() => setCopiedLink(false), 2000);
+    } else {
+      setErrorMessage('Gagal menyalin link undangan.');
+      setTrackedTimeout(() => setErrorMessage(''), 4000);
     }
   };
 
@@ -214,7 +294,10 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
     if (success) {
       setCopiedCode(true);
       sound.play('coin');
-      setTimeout(() => setCopiedCode(false), 2000);
+      setTrackedTimeout(() => setCopiedCode(false), 2000);
+    } else {
+      setErrorMessage('Gagal menyalin kode room.');
+      setTrackedTimeout(() => setErrorMessage(''), 4000);
     }
   };
 
@@ -224,7 +307,7 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Main Balapan Bersama di Neon Highway!',
+          title: 'Main Balapan Bersama di Escape Police!',
           text: `Ayo gabung balapan real-time denganku! Kode Room: ${currentRoom.code}`,
           url: inviteUrl,
         });
@@ -238,568 +321,709 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
     ? (Object.values(currentRoom.players) as MultiplayerPlayerState[])
     : [];
 
-  const myPlayerState = currentRoom && user
-    ? currentRoom.players[user.id] ||
-      playerList.find(
-        p => p.id === user.id || p.username.toLowerCase() === user.username.toLowerCase()
-      ) ||
-      null
-    : null;
+  const myPlayerState =
+    currentRoom && user
+      ? currentRoom.players[user.id] ||
+        playerList.find(
+          p => p.id === user.id || p.username.toLowerCase() === user.username.toLowerCase()
+        ) ||
+        null
+      : null;
 
   const isHost = Boolean(
     myPlayerState?.isHost ||
-    (currentRoom && playerList.length > 0 && playerList[0].id === user?.id) ||
-    (currentRoom && playerList.length > 0 && playerList[0].username.toLowerCase() === user?.username.toLowerCase()) ||
-    (currentRoom && !playerList.some(p => p.isHost))
+      (currentRoom && playerList.length > 0 && playerList[0].id === user?.id) ||
+      (currentRoom &&
+        playerList.length > 0 &&
+        playerList[0].username.toLowerCase() === user?.username.toLowerCase()) ||
+      (currentRoom && !playerList.some(p => p.isHost))
   );
 
   const readyCount = playerList.filter(p => p.status === 'ready').length;
 
+  const getTierInfo = (tier: string) => {
+    const norm = (tier || 'NORMAL').toUpperCase();
+    if (norm === 'MAXXX') {
+      return {
+        label: 'MAXXX',
+        icon: Skull,
+        color: '#e879f9',
+        activeBtnStyle:
+          'border border-[rgba(232,121,249,0.5)] bg-[rgba(232,121,249,0.15)] text-[#e879f9] shadow-[0_0_15px_rgba(232,121,249,0.2)]',
+        cardHoverStyle:
+          'hover:border-[#e879f9]/50 hover:shadow-[0_0_22px_rgba(232,121,249,0.10)] hover:-translate-y-0.5',
+      };
+    }
+    if (norm === 'HARD') {
+      return {
+        label: 'HARD',
+        icon: Flame,
+        color: '#f5b041',
+        activeBtnStyle:
+          'border border-[rgba(245,176,65,0.5)] bg-[rgba(245,176,65,0.15)] text-[#f5b041] shadow-[0_0_15px_rgba(245,176,65,0.2)]',
+        cardHoverStyle:
+          'hover:border-[#f5b041]/50 hover:shadow-[0_0_22px_rgba(245,176,65,0.10)] hover:-translate-y-0.5',
+      };
+    }
+    return {
+      label: 'NORMAL',
+      icon: Gauge,
+      color: '#22d3ee',
+      activeBtnStyle:
+        'border border-[rgba(34,211,238,0.5)] bg-[rgba(34,211,238,0.15)] text-[#22d3ee] shadow-[0_0_15px_rgba(34,211,238,0.2)]',
+      cardHoverStyle:
+        'hover:border-[#22d3ee]/50 hover:shadow-[0_0_22px_rgba(34,211,238,0.10)] hover:-translate-y-0.5',
+    };
+  };
+
+  // Default initial lobbies matching reference mockup
+  const defaultMockLobbies = [
+    {
+      name: 'Cyber Duel Arena',
+      code: 'NEON-77',
+      tier: 'MAXXX' as DifficultyLevel,
+      players: '0/4',
+      status: 'Waiting',
+    },
+    {
+      name: 'Highway Sprint 1v1',
+      code: 'RACE-01',
+      tier: 'HARD' as DifficultyLevel,
+      players: '0/4',
+      status: 'Waiting',
+    },
+  ];
+
+  const displayLobbies =
+    rooms && rooms.length > 0
+      ? rooms.map(r => ({
+          name: r.name || `${r.code} Arena`,
+          code: r.code,
+          tier: (r.difficulty || 'NORMAL').toUpperCase() as DifficultyLevel,
+          players: `${r.playerCount || 0}/4`,
+          status: r.status === 'in_game' ? 'In Game' : 'Waiting',
+        }))
+      : defaultMockLobbies;
+
+  const publicUrl = getPublicGameUrl();
+  const waShareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(
+    `Ayo main balapan online multiplayer real-time bareng aku di Escape Police!\nKlik link: ${publicUrl}`
+  )}`;
+
+  // OFFLINE FALLBACK
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     return (
-      <div className="w-full max-w-2xl mx-auto py-10 px-4 text-center">
-        <div className="rounded-3xl bg-[#0b0c18] border border-amber-500/30 p-8 sm:p-10 shadow-2xl space-y-5">
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-400/40 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-500/20">
-            <WifiOff className="w-8 h-8" />
+      <div className="relative w-full min-h-full flex-1 bg-[#07080f] font-manrope text-[#eef1f6] flex items-center justify-center p-4">
+        <div className="w-full max-w-lg rounded-2xl bg-[#0c0e18] border border-[#1c2232] p-8 text-center space-y-5 shadow-2xl">
+          <div className="w-14 h-14 rounded-2xl bg-[rgba(245,176,65,0.12)] border border-[rgba(245,176,65,0.35)] flex items-center justify-center mx-auto text-[#f5b041]">
+            <WifiOff className="w-7 h-7" />
           </div>
           <div className="space-y-2">
-            <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-amber-400">
-              Koneksi Jaringan Terputus
-            </div>
-            <h2 className="text-xl sm:text-2xl font-display font-black text-white">
-              MODE MULTIPLAYER MEMERLUKAN INTERNET
+            <span className="text-[11px] font-mono-code font-bold uppercase tracking-widest text-[#f5b041]">
+              Koneksi Offline
+            </span>
+            <h2 className="text-xl font-sora font-bold text-white">
+              Multiplayer Memerlukan Internet
             </h2>
-            <p className="text-xs sm:text-sm text-gray-300 max-w-md mx-auto leading-relaxed">
-              Anda sedang berada dalam <strong>Mode Offline</strong>. Anda tetap dapat menikmati seluruh fitur Balapan Tunggal, Semua Map, Kustomisasi Mobil, dan Misi Bos!
+            <p className="text-[13px] leading-relaxed text-[#9aa5ba]">
+              Anda sedang berada dalam <strong>Mode Offline</strong>. Anda tetap dapat menikmati balapan tunggal, semua peta, dan garasi mobil!
             </p>
           </div>
-          <div className="pt-2">
-            <button
-              onClick={() => {
-                sound.play('click');
-                onBackToSolo();
-              }}
-              className="px-6 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/25 active:scale-95 transition-all cursor-pointer"
-            >
-              Kembali ke Balapan Offline
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              sound.play('click');
+              onBackToSolo();
+            }}
+            className="min-h-[44px] px-6 rounded-[10px] bg-[#22d3ee] hover:bg-[#67e8f9] text-[#04141c] font-sora font-bold text-[13px] transition-all cursor-pointer active:scale-95 shadow-lg shadow-[#22d3ee]/20 hover:shadow-[#22d3ee]/35"
+          >
+            Kembali ke Main Solo
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto py-3 px-3 sm:px-6">
-      {errorMessage && (
-        <div className="mb-4 px-4 py-2.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-bold font-display text-center flex items-center justify-center gap-2">
-          <span>⚠️</span>
-          <span>{errorMessage}</span>
-        </div>
-      )}
+    <div className="relative w-full min-h-full flex-1 bg-[#07080f] font-manrope text-[#eef1f6] px-4 sm:px-8 lg:px-14 py-8 sm:py-10 pb-20 select-none overflow-hidden">
+      {/* Subtle Ambient Vignette & Micro-Grid (Tenang, elegan, tidak berlebihan) */}
+      <div className="absolute inset-0 bg-subtle-grid pointer-events-none opacity-80" />
+      <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-[radial-gradient(ellipse_at_center,rgba(34,211,238,0.04)_0%,transparent_70%)] pointer-events-none" />
 
-      {/* ========================================================================= */}
-      {/* 1. WAITING ROOM VIEW (When currently inside a room)                       */}
-      {/* ========================================================================= */}
-      {currentRoom ? (
-        <div className="bg-[#0b0c18] border border-white/10 rounded-2xl p-4 sm:p-6 shadow-2xl space-y-5">
-          {/* Header Bar: Standardized Responsive CSS Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start md:items-center pb-4 border-b border-white/10">
-            {/* Room info (7 cols) */}
-            <div className="md:col-span-7 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="text-[11px] font-bold uppercase tracking-widest text-emerald-400 font-display">
-                  Ruang Tunggu Duel
-                </span>
-                <span className="text-gray-500">•</span>
-                <span className="text-xs text-gray-400 font-medium">
-                  {playerList.length} / 4 Pemain Terhubung
-                </span>
-              </div>
-              <h2 className="text-xl sm:text-2xl font-display font-extrabold text-white tracking-wide">
-                {currentRoom.name}
-              </h2>
-              <div className="flex items-center gap-2 pt-0.5 text-xs text-gray-400 font-medium">
-                <span>Mode: <strong className="text-cyan-400 font-bold">{currentRoom.difficulty}</strong></span>
-                <span className="text-gray-600">·</span>
-                <span>Status: <strong className="text-fuchsia-400 font-bold">{readyCount} / {playerList.length} Siap</strong></span>
-              </div>
-            </div>
-
-            {/* Room Code & Quick Share Box (5 cols) */}
-            <div className="md:col-span-5 flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl p-2 w-full justify-between md:justify-end">
-              <div className="px-2.5 py-1 text-left">
-                <div className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider">Kode Room</div>
-                <div className="text-lg font-display font-black text-cyan-400 tracking-wider select-all leading-tight">
-                  {currentRoom.code}
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 border-l border-white/10 pl-2">
-                <button
-                  type="button"
-                  onClick={handleCopyRoomCode}
-                  className="px-2.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer min-h-[38px]"
-                  title="Salin Kode Room"
-                >
-                  {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span className="hidden sm:inline">{copiedCode ? 'Disalin' : 'Kode'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCopyInviteLink}
-                  className="px-3 py-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer min-h-[38px]"
-                  title="Salin Tautan Undangan Langsung"
-                >
-                  {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link className="w-3.5 h-3.5" />}
-                  <span>{copiedLink ? 'Tersalin!' : 'Salin Link'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleShareNative}
-                  className="p-2 rounded-lg bg-fuchsia-500/20 hover:bg-fuchsia-500/30 border border-fuchsia-500/30 text-fuchsia-300 transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
-                  title="Bagikan ke Teman"
-                >
-                  <Share2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+      <div className="relative z-10 max-w-[1280px] mx-auto flex flex-col gap-7">
+        {/* Error Notification Bar */}
+        {errorMessage && (
+          <div className="px-4 py-2.5 rounded-[12px] bg-rose-500/15 border border-rose-500/40 text-rose-300 text-[13px] font-semibold flex items-center justify-center gap-2 animate-fadeIn">
+            <span>⚠️</span>
+            <span>{errorMessage}</span>
           </div>
+        )}
 
-          {/* Quick Reaction & Chat Strip */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-black/30 p-2.5 rounded-xl border border-white/5">
-            {/* Quick Reactions */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10.5px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1 mr-1">
-                <MessageSquare className="w-3 h-3 text-cyan-400" /> Reaksi:
-              </span>
-              {['🔥 Gaspol!', '😂 Awas nabrak!', '🏆 Siap juara!', '⚡ Awas EMP!', '🏎️ GG!'].map(taunt => (
-                <button
-                  key={taunt}
-                  type="button"
-                  onClick={() => handleSendTaunt(taunt)}
-                  className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-semibold text-gray-300 hover:text-white transition-colors cursor-pointer active:scale-95 min-h-[36px]"
-                >
-                  {taunt}
-                </button>
-              ))}
-            </div>
-
-            {/* Recent Message Feed */}
-            {lobbyMessages.length > 0 && (
-              <div className="flex items-center gap-1.5 overflow-x-auto text-[11px] text-gray-300">
-                <span className="text-cyan-400 font-bold">Terbaru:</span>
-                <span className="bg-white/10 px-2 py-0.5 rounded-md font-medium text-gray-200 truncate max-w-[200px]">
-                  {lobbyMessages[lobbyMessages.length - 1].sender}: {lobbyMessages[lobbyMessages.length - 1].text}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Player Cards Grid: Standardized Responsive 4-Slot Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {playerList.map((p, idx) => (
-              <div
-                key={p.id || idx}
-                className="bg-white/5 rounded-xl p-4 border border-white/10 flex flex-col items-center text-center relative overflow-hidden transition-all hover:border-white/20"
-              >
-                {/* Host Crown */}
-                {p.isHost && (
-                  <div className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-400 text-black text-[9px] font-black tracking-wider uppercase shadow-sm">
-                    <Crown className="w-2.5 h-2.5" /> HOST
-                  </div>
-                )}
-
-                {/* Avatar */}
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-2.5 shadow-md border"
-                  style={{
-                    borderColor: p.carColor || '#00f0ff',
-                    backgroundColor: `${p.carColor || '#00f0ff'}18`,
-                  }}
-                >
-                  {p.avatar || '🏎️'}
+        {/* ========================================================================= */}
+        {/* VIEW A: WAITING ROOM (Saat berada di dalam ruangan yang aktif)            */}
+        {/* ========================================================================= */}
+        {currentRoom ? (
+          <div className="border border-[#1c2232] bg-[#0c0e18] rounded-[16px] p-6 sm:p-7 shadow-2xl flex flex-col gap-6 backdrop-blur-sm transition-all duration-300 hover:border-[#22d3ee]/35">
+            {/* Top Bar Waiting Room */}
+            <div className="flex flex-wrap gap-4 items-center justify-between pb-5 border-b border-[#1c2232]">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="mp-live w-2 h-2 rounded-full bg-[#34d399] inline-block shadow-[0_0_8px_#34d399]" />
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-[#34d399] font-sora">
+                    Ruang Tunggu Duel
+                  </span>
+                  <span className="text-[#5b6478]">·</span>
+                  <span className="text-[12px] text-[#9aa5ba]">
+                    {playerList.length} / 4 Pemain Terhubung
+                  </span>
                 </div>
-
-                {/* Name */}
-                <div className="font-display font-bold text-white text-sm truncate max-w-full">
-                  {p.username}
-                  {p.id === user?.id && <span className="text-[10px] text-cyan-400 ml-1">(Kamu)</span>}
-                </div>
-
-                {/* Car Badge */}
-                <div className="text-[11px] text-gray-400 flex items-center gap-1.5 mt-1">
-                  <BrandLogo brand={getCarModel(p.carModel).brand} size={15} />
-                  <span className="truncate max-w-[110px]">{getCarModel(p.carModel).name}</span>
-                </div>
-
-                {/* Status Pill */}
-                <div className="mt-3 w-full">
-                  <span
-                    className={`block w-full py-1.5 rounded-lg text-[10.5px] font-bold tracking-wider font-display uppercase border ${
-                      p.status === 'ready'
-                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
-                        : 'bg-amber-500/15 text-amber-400 border-amber-500/40'
-                    }`}
-                  >
-                    {p.status === 'ready' ? '✓ SIAP' : 'MENUNGGU'}
+                <h1 className="text-2xl font-sora font-bold text-white tracking-tight">
+                  {currentRoom.name}
+                </h1>
+                <div className="flex items-center gap-2 text-[12px] text-[#8690a6]">
+                  <span>
+                    Kesulitan:{' '}
+                    <strong className="text-[#22d3ee] font-bold">
+                      {currentRoom.difficulty}
+                    </strong>
+                  </span>
+                  <span className="text-[#5b6478]">·</span>
+                  <span>
+                    Status:{' '}
+                    <strong className="text-[#e879f9] font-bold">
+                      {readyCount} / {playerList.length} Siap
+                    </strong>
                   </span>
                 </div>
               </div>
-            ))}
 
-            {/* Empty Slots */}
-            {Array.from({ length: Math.max(0, 4 - playerList.length) }).map((_, i) => (
-              <div
-                key={`empty-${i}`}
-                className="border border-dashed border-white/10 rounded-xl p-4 flex flex-col items-center justify-center text-center min-h-[160px] bg-white/[0.02]"
-              >
-                <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-600 mb-2">
-                  <Users className="w-4 h-4" />
+              {/* Action Buttons Code & Leave */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-[10px] bg-[#11141f] border border-[#232838] shadow-inner min-h-[44px]">
+                  <span className="text-[11px] text-[#8690a6] font-semibold uppercase">Kode:</span>
+                  <span className="font-mono-code font-bold text-[14px] text-[#22d3ee] tracking-wider select-all">
+                    {currentRoom.code}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyRoomCode}
+                    className="p-1 text-[#8690a6] hover:text-white transition-colors cursor-pointer"
+                    title="Salin Kode"
+                  >
+                    {copiedCode ? (
+                      <Check className="w-3.5 h-3.5 text-[#34d399]" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
                 </div>
-                <div className="text-xs text-gray-400 font-bold uppercase tracking-wider">Slot Kosong</div>
-                <div className="text-[10px] text-gray-500 mt-1">Undang teman dengan kode</div>
-              </div>
-            ))}
-          </div>
 
-          {/* Bottom Action Footer: Standardized Grid Alignment */}
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5 pt-4 border-t border-white/10 items-center">
-            <div className="sm:col-span-4">
-              <button
-                type="button"
-                onClick={handleLeaveRoom}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-bold font-display uppercase tracking-wider transition-colors cursor-pointer border border-white/5 min-h-[44px]"
-              >
-                <LogOut className="w-3.5 h-3.5" /> Keluar Room
-              </button>
+                <button
+                  type="button"
+                  onClick={handleShareNative}
+                  className="min-h-[44px] px-3.5 rounded-[10px] border border-[#232838] bg-transparent hover:border-[#22d3ee]/50 hover:bg-[#22d3ee]/5 text-[#cdd4e3] hover:text-white text-[12px] font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                >
+                  {copiedLink ? (
+                    <Check className="w-3.5 h-3.5 text-[#34d399]" />
+                  ) : (
+                    <Share2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>{copiedLink ? 'Tersalin' : 'Bagikan Link'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleLeaveRoom}
+                  className="min-h-[44px] px-3.5 rounded-[10px] border border-rose-500/30 hover:border-rose-500/60 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-[12px] font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Keluar</span>
+                </button>
+              </div>
             </div>
 
-            <div className="sm:col-span-8 flex items-center justify-end gap-2.5 w-full">
+            {/* Quick Chat Reactions */}
+            <div className="flex flex-wrap items-center gap-2 p-3 rounded-[12px] bg-[#11141f] border border-[#1d2233]">
+              <span className="text-[11px] font-semibold text-[#8690a6] uppercase flex items-center gap-1 mr-1">
+                <MessageSquare className="w-3 h-3 text-[#22d3ee]" /> Pesan Cepat:
+              </span>
+              {['🔥 Gaspol!', '😂 Awas nabrak!', '🏆 Siap juara!', '⚡ Awas EMP!', '🏎️ GG!'].map(
+                msg => (
+                  <button
+                    key={msg}
+                    type="button"
+                    onClick={() => handleSendTaunt(msg)}
+                    className="min-h-[44px] px-3 py-2 rounded-[8px] border border-[#232838] bg-transparent hover:bg-white/5 text-[11px] font-semibold text-[#cdd4e3] hover:text-white transition-all cursor-pointer active:scale-95"
+                  >
+                    {msg}
+                  </button>
+                )
+              )}
+            </div>
+
+            {/* Player Slots Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {playerList.map((p, idx) => (
+                <div
+                  key={p.id || idx}
+                  className="p-5 rounded-[14px] bg-[#11141f] border border-[#1d2233] hover:border-[#22d3ee]/40 flex flex-col items-center text-center relative overflow-hidden transition-all duration-300 hover:shadow-[0_0_18px_rgba(34,211,238,0.08)]"
+                >
+                  {p.isHost && (
+                    <div className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 text-[9px] font-bold uppercase tracking-wider">
+                      <Crown className="w-2.5 h-2.5" /> HOST
+                    </div>
+                  )}
+
+                  <div
+                    className="w-14 h-14 rounded-[14px] flex items-center justify-center text-2xl mb-3 shadow-md border transition-transform duration-300 hover:scale-105"
+                    style={{
+                      borderColor: p.carColor || '#22d3ee',
+                      backgroundColor: `${p.carColor || '#22d3ee'}18`,
+                    }}
+                  >
+                    {p.avatar || '🏎️'}
+                  </div>
+
+                  <div className="font-sora font-bold text-white text-[14px] truncate max-w-full">
+                    {p.username}
+                    {p.id === user?.id && (
+                      <span className="text-[11px] text-[#22d3ee] ml-1 font-mono-code">(Kamu)</span>
+                    )}
+                  </div>
+
+                  <div className="text-[11px] text-[#8690a6] mt-0.5 font-mono-code">
+                    {p.carModel ? p.carModel.replace(/_/g, ' ').toUpperCase() : 'CIVIC FL5'}
+                  </div>
+
+                  <div className="mt-3 w-full">
+                    <span
+                      className={`inline-flex items-center justify-center w-full py-1.5 rounded-[8px] text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                        p.status === 'ready'
+                          ? 'bg-[#34d399]/15 border border-[#34d399]/40 text-[#34d399] shadow-[0_0_10px_rgba(52,211,153,0.15)]'
+                          : 'bg-white/5 border border-white/10 text-[#8690a6]'
+                      }`}
+                    >
+                      {p.status === 'ready' ? '✓ SIAP BALAPAN' : 'MENUNGGU...'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bottom Waiting Room Action Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[#1c2232]">
               <button
                 type="button"
                 onClick={handleToggleReady}
-                className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-xs font-bold font-display uppercase tracking-wider transition-all cursor-pointer min-h-[44px] ${
+                className={`w-full sm:w-auto min-h-[44px] px-7 rounded-[10px] font-sora font-bold text-[13px] transition-all cursor-pointer active:scale-95 ${
                   myPlayerState?.status === 'ready'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
-                    : 'bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-md shadow-emerald-500/20'
+                    ? 'bg-white/10 hover:bg-white/15 text-[#eef1f6] border border-white/20'
+                    : 'bg-[#22d3ee] hover:bg-[#67e8f9] text-[#04141c] shadow-lg shadow-[#22d3ee]/25'
                 }`}
               >
-                {myPlayerState?.status === 'ready' ? 'Batal Siap' : 'Saya Siap!'}
+                {myPlayerState?.status === 'ready' ? 'Batal Siap' : '✓ Siap Balapan'}
               </button>
 
               {isHost ? (
                 <button
                   type="button"
                   onClick={handleStartGame}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-display font-extrabold text-xs uppercase tracking-wider transition-all min-h-[44px] bg-gradient-to-r from-fuchsia-500 to-cyan-500 text-white shadow-lg shadow-fuchsia-500/25 hover:scale-105 active:scale-95 cursor-pointer"
-                  title="Mulai Balapan Sekarang Bersama Teman"
+                  className="w-full sm:w-auto min-h-[44px] px-8 rounded-[10px] bg-gradient-to-r from-[#22d3ee] via-[#67e8f9] to-[#34d399] hover:opacity-95 text-[#04141c] font-sora font-extrabold text-[13px] uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 shadow-lg shadow-[#22d3ee]/30 hover:shadow-[#22d3ee]/50 hover:-translate-y-0.5"
                 >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  Mulai Balapan!
+                  <Play className="w-4 h-4 fill-current" />
+                  <span>Mulai Balapan Sekarang!</span>
                 </button>
               ) : (
-                <div className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-cyan-500/20 text-cyan-300 font-display font-bold text-xs uppercase tracking-wider min-h-[44px]">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                  <span>Menunggu Host Memulai...</span>
+                <div className="text-[12px] text-[#8690a6] flex items-center gap-2">
+                  <span className="mp-live w-2 h-2 rounded-full bg-[#22d3ee] inline-block shadow-[0_0_8px_#22d3ee]" />
+                  <span>Menunggu host memulai pertandingan...</span>
                 </div>
               )}
             </div>
           </div>
-        </div>
-      ) : (
-        /* ========================================================================= */
-        /* 2. LOBBY BROWSER VIEW (When not in any room)                             */
-        /* ========================================================================= */
-        <div className="space-y-4">
-          {/* Top Bar Navigation: Standardized Grid Banner */}
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start sm:items-center pb-3 border-b border-white/10">
-            <div className="sm:col-span-9">
-              <h1 className="text-xl font-display font-black text-white tracking-wide flex items-center gap-2">
-                <Users className="w-5 h-5 text-cyan-400 shrink-0" />
-                <span>Multiplayer Arena</span>
-              </h1>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Balapan real-time bersama teman lewat kode room atau gabung ke room publik.
-              </p>
-            </div>
-            <div className="sm:col-span-4 flex items-center sm:justify-end gap-2">
-              {onOpenReplays && (
-                <button
-                  type="button"
-                  onClick={onOpenReplays}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 text-xs font-bold text-cyan-300 hover:text-white transition-colors cursor-pointer min-h-[40px]"
-                >
-                  <Film className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Replay</span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={onBackToSolo}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300 hover:text-white transition-colors cursor-pointer min-h-[40px]"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Main Solo</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Public Sharing & Multi-Device Bar: Standardized CSS Grid */}
-          <div className="bg-gradient-to-r from-cyan-950/40 via-[#0b0c1a] to-fuchsia-950/40 border border-cyan-500/30 rounded-2xl p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-4 items-start lg:items-center shadow-xl">
-            <div className="lg:col-span-7 space-y-1">
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-cyan-400" />
-                <span className="text-[11px] font-display font-bold uppercase tracking-wider text-cyan-300">
-                  Link Publik Game (Multi-Perangkat)
-                </span>
-                <span className="px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  {socket.isP2P ? 'P2P WEBRTC AKTIF' : 'CLOUD SERVER AKTIF'}
-                </span>
-              </div>
-              <p className="text-xs text-gray-300">
-                Bagikan link ini ke teman Anda agar bisa langsung membuka dan main balap bareng dari browser HP, Laptop, atau Tablet berbeda:
-              </p>
-              <div className="text-[11px] text-cyan-400/90 font-mono select-all break-all pt-0.5">
-                {getPublicGameUrl()}
-              </div>
-              {/* Cara Main Bareng Berbeda Perangkat */}
-              <div className="pt-2 text-[11px] text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
-                <span><strong className="text-cyan-400">Langkah 1:</strong> Buat Ruangan baru di bawah.</span>
-                <span><strong className="text-fuchsia-400">Langkah 2:</strong> Kirim Kode / Link ke teman.</span>
-                <span><strong className="text-emerald-400">Langkah 3:</strong> Teman masukkan kode & klik Masuk!</span>
-              </div>
-            </div>
-
-            <div className="lg:col-span-5 flex flex-wrap items-center justify-start lg:justify-end gap-2 w-full">
-              <button
-                type="button"
-                onClick={async () => {
-                  const success = await copyTextToClipboard(getPublicGameUrl());
-                  if (success) {
-                    setCopiedPublicLink(true);
-                    sound.play('coin');
-                    setTimeout(() => setCopiedPublicLink(false), 2000);
-                  }
-                }}
-                className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md shadow-cyan-500/20 min-h-[44px]"
-              >
-                {copiedPublicLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedPublicLink ? 'Link Tersalin!' : 'Salin Link Game'}</span>
-              </button>
-
-              <a
-                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                  `Ayo main game balap liar Escape Police bareng aku secara real-time!\nKlik link: ${getPublicGameUrl()}`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-display font-bold uppercase tracking-wider transition-colors cursor-pointer min-h-[44px]"
-                title="Kirim ke WhatsApp"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">WhatsApp</span>
-              </a>
-
-              <a
-                href={getPublicGameUrl()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs transition-colors cursor-pointer min-h-[44px]"
-                title="Buka di Tab Baru"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </div>
-
-          {/* Standardized 2-Column Responsive CSS Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
-            {/* Left Column (5 cols): Join & Create */}
-            <div className="lg:col-span-5 space-y-4">
-              {/* Card 1: Gabung via Kode */}
-              <div className="bg-[#0b0c18] border border-white/10 rounded-2xl p-4.5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Radio className="w-4 h-4 text-cyan-400" />
-                  <h3 className="text-xs font-display font-bold text-white uppercase tracking-wider">
-                    Gabung via Kode Room
-                  </h3>
+        ) : (
+          /* ========================================================================= */
+          /* VIEW B: LOBBY ARENA (Presis Persis Desain Referensi HTML/CSS Mockup)     */
+          /* ========================================================================= */
+          <>
+            {/* 1. TOP BAR */}
+            <div className="flex flex-wrap gap-4 justify-between items-start">
+              <div className="flex gap-3.5 items-start">
+                <div className="w-11 h-11 rounded-[12px] bg-[rgba(34,211,238,0.10)] border border-[rgba(34,211,238,0.35)] hover:border-[#22d3ee] hover:shadow-[0_0_18px_rgba(34,211,238,0.25)] flex items-center justify-center text-[#22d3ee] shrink-0 transition-all duration-300">
+                  <Users className="w-5.5 h-5.5" strokeWidth={1.8} />
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={roomCodeInput}
-                    onChange={e => setRoomCodeInput(e.target.value.toUpperCase())}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleJoinRoom(roomCodeInput);
-                    }}
-                    placeholder="Contoh: NEON-77"
-                    className="flex-1 bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-xs font-display font-bold tracking-widest text-white uppercase focus:outline-none focus:border-cyan-400 placeholder:normal-case placeholder:font-sans placeholder:tracking-normal placeholder:text-gray-500"
-                  />
+                <div>
+                  <h1 className="m-0 font-sora font-bold text-[26px] tracking-[-0.01em] text-white leading-tight">
+                    Multiplayer Arena
+                  </h1>
+                  <p className="mt-1.5 text-[14px] leading-relaxed text-[#9aa5ba] max-w-[46ch]">
+                    Balapan real-time bersama teman lewat kode room atau gabung ke room publik.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2.5 items-center">
+                {onOpenReplays && (
                   <button
                     type="button"
-                    onClick={() => handleJoinRoom(roomCodeInput)}
-                    disabled={!roomCodeInput.trim()}
-                    className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 text-black font-display font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-sm shadow-cyan-500/20 active:scale-95"
+                    onClick={() => {
+                      sound.play('click');
+                      onOpenReplays();
+                    }}
+                    className="inline-flex items-center gap-2 min-h-[44px] px-4.5 rounded-[10px] border border-[#232838] bg-transparent text-[#cdd4e3] hover:text-white hover:border-[#22d3ee]/50 hover:bg-[#22d3ee]/5 font-manrope font-semibold text-[13px] transition-all duration-200 cursor-pointer active:scale-95"
                   >
-                    Masuk
+                    <RotateCcw className="w-4 h-4" strokeWidth={1.8} />
+                    <span>Replay</span>
                   </button>
-                </div>
-              </div>
+                )}
 
-              {/* Card 2: Buat Room Baru */}
-              <div className="bg-[#0b0c18] border border-white/10 rounded-2xl p-4.5 space-y-3.5">
-                <div className="flex items-center gap-2">
-                  <Plus className="w-4 h-4 text-fuchsia-400" />
-                  <h3 className="text-xs font-display font-bold text-white uppercase tracking-wider">
-                    Buat Arena Baru
-                  </h3>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10.5px] text-gray-400 font-semibold uppercase tracking-wider block">
-                    Nama Lobby
-                  </label>
-                  <input
-                    type="text"
-                    value={newRoomName}
-                    onChange={e => setNewRoomName(e.target.value)}
-                    placeholder="Nama arena..."
-                    className="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-fuchsia-400"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10.5px] text-gray-400 font-semibold uppercase tracking-wider block">
-                    Kode Room Khusus (Opsional)
-                  </label>
-                  <input
-                    type="text"
-                    value={customRoomCode}
-                    onChange={e => setCustomRoomCode(e.target.value.toUpperCase())}
-                    placeholder="Contoh: NEON-77 (atau kosongkan untuk acak)"
-                    className="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-xs font-mono uppercase text-cyan-300 focus:outline-none focus:border-cyan-400 placeholder:normal-case placeholder:font-sans placeholder:text-gray-500"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10.5px] text-gray-400 font-semibold uppercase tracking-wider block">
-                    Tingkat Kesulitan
-                  </label>
-                  <div className="grid grid-cols-3 gap-1.5 p-1 bg-black/40 rounded-xl border border-white/10">
-                    {(['NORMAL', 'HARD', 'MAXXX'] as DifficultyLevel[]).map(d => (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => setNewRoomDiff(d)}
-                        className={`py-1.5 rounded-lg text-[10.5px] font-display font-bold uppercase tracking-wider transition-all ${
-                          newRoomDiff === d
-                            ? 'bg-fuchsia-500 text-white shadow-sm'
-                            : 'text-gray-400 hover:text-white'
-                        }`}
-                      >
-                        {d}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleCreateRoom}
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-cyan-500 hover:opacity-95 text-white font-display font-extrabold text-xs uppercase tracking-wider shadow-md shadow-fuchsia-500/20 transition-transform active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Flame className="w-3.5 h-3.5" />
-                  Buat & Buka Lobby
-                </button>
-              </div>
-            </div>
-
-            {/* Right Column (7 cols): Active Public Lobbies */}
-            <div className="lg:col-span-7 bg-[#0b0c18] border border-white/10 rounded-2xl p-4.5 flex flex-col min-h-[380px]">
-              {/* List Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-2 w-2 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
-                  </span>
-                  <h3 className="text-xs font-display font-bold text-white uppercase tracking-wider">
-                    Lobby Publik Aktif ({rooms.length})
-                  </h3>
-                </div>
                 <button
                   type="button"
                   onClick={() => {
-                    setIsRefreshing(true);
-                    socket.send({ type: 'list_rooms' });
-                    setTimeout(() => setIsRefreshing(false), 800);
+                    sound.play('click');
+                    onBackToSolo();
                   }}
-                  className="flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300 font-bold transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-2 min-h-[44px] px-4.5 rounded-[10px] border border-[#232838] bg-transparent text-[#cdd4e3] hover:text-white hover:border-[#22d3ee]/50 hover:bg-[#22d3ee]/5 font-manrope font-semibold text-[13px] transition-all duration-200 cursor-pointer active:scale-95"
                 >
-                  <RotateCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  <span>Segarkan</span>
+                  <ArrowLeft className="w-4 h-4" strokeWidth={1.8} />
+                  <span>Main Solo</span>
                 </button>
               </div>
+            </div>
 
-              {/* Lobbies List */}
-              <div className="space-y-2 mt-3 overflow-y-auto max-h-[380px] pr-1 flex-1">
-                {rooms.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center py-12 text-center text-gray-500 space-y-2">
-                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-gray-600">
-                      <Users className="w-5 h-5" />
-                    </div>
-                    <div className="text-xs font-bold text-gray-400">Belum ada lobby publik aktif</div>
-                    <p className="text-[11px] text-gray-500 max-w-xs">
-                      Buat lobby baru di sebelah kiri atau bagikan kode room ke teman untuk mulai balapan!
-                    </p>
+            {/* 2. PANEL BANNER LINK PUBLIK (Full Width Top Card) */}
+            <div className="border border-[#1c2232] hover:border-[#22d3ee]/35 bg-[#0c0e18] rounded-[16px] p-5 sm:p-[20px_22px] flex flex-col gap-4 shadow-xl hover:shadow-[0_0_30px_rgba(34,211,238,0.06)] transition-all duration-300">
+              <div className="flex flex-wrap gap-2.5 items-center justify-between">
+                <div className="flex gap-2.5 items-center">
+                  <LinkIcon className="w-4 h-4 text-[#22d3ee]" strokeWidth={1.8} />
+                  <span className="font-sora font-bold text-[13px] tracking-[0.02em] text-[#eef1f6]">
+                    Link Publik Game
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-[12px] text-[#6b7589]">
+                    <span>·</span>
+                    <Smartphone className="w-3 h-3" strokeWidth={1.8} />
+                    <span>Multi-perangkat</span>
+                  </span>
+                </div>
+
+                {/* Status Server Real-Time dengan Animasi Gelombang Waveform Sinyal */}
+                <div className="inline-flex items-center gap-2.5 font-manrope font-semibold text-[11px] tracking-[0.03em] text-[#34d399] bg-[rgba(52,211,153,0.08)] border border-[rgba(52,211,153,0.3)] px-3 py-1.5 rounded-full shadow-sm">
+                  {/* Grafik Gelombang Real-Time */}
+                  <div className="flex items-end gap-[2px] h-3.5 w-4 pb-0.5" aria-hidden="true">
+                    <span className="w-0.75 h-2.5 rounded-full bg-[#34d399] animate-wave-bar-1" />
+                    <span className="w-0.75 h-3.5 rounded-full bg-[#34d399] animate-wave-bar-2" />
+                    <span className="w-0.75 h-2 rounded-full bg-[#34d399] animate-wave-bar-3" />
+                    <span className="w-0.75 h-3 rounded-full bg-[#34d399] animate-wave-bar-4" />
+                    <span className="w-0.75 h-2.5 rounded-full bg-[#34d399] animate-wave-bar-5" />
                   </div>
-                ) : (
-                  rooms.map(room => (
-                    <div
-                      key={room.code}
-                      className="bg-white/5 hover:bg-white/[0.08] border border-white/10 rounded-xl p-3 flex items-center justify-between gap-3 transition-colors"
-                    >
-                      <div className="space-y-1">
-                        <div className="font-display font-bold text-xs sm:text-sm text-white flex items-center gap-2">
-                          <span>{room.name}</span>
-                          <span className="text-[9.5px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                            {room.code}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-gray-400 flex items-center gap-2.5">
-                          <span>
-                            Mode: <strong className="text-amber-400 font-semibold">{room.difficulty}</strong>
-                          </span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Users className="w-3 h-3 text-gray-400" />
-                            <strong className="text-white font-semibold">{room.playerCount}/4</strong>
-                          </span>
-                          <span>•</span>
-                          <span className="text-emerald-400 font-medium capitalize">{room.status}</span>
-                        </div>
-                      </div>
+                  <span className="text-[10px] font-mono-code font-bold text-[#34d399]/90">
+                    {livePing}ms
+                  </span>
+                  <span className="text-[#34d399]/40">·</span>
+                  <span className="mp-live w-1.5 h-1.5 rounded-full bg-[#34d399] inline-block shadow-[0_0_6px_#34d399]" />
+                  <span>CLOUD SERVER AKTIF</span>
+                </div>
+              </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleJoinRoom(room.code)}
-                        className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs uppercase tracking-wider flex items-center gap-1 shadow-sm shadow-cyan-500/20 active:scale-95 cursor-pointer transition-all"
-                      >
-                        Gabung
-                      </button>
-                    </div>
-                  ))
-                )}
+              <p className="m-0 text-[13px] leading-relaxed text-[#8690a6] max-w-[72ch]">
+                Bagikan link ini ke teman Anda agar bisa langsung membuka dan main balap bareng dari browser HP, Laptop, atau Tablet berbeda.
+              </p>
+
+              {/* Input URL & Action Buttons */}
+              <div className="flex flex-wrap gap-2.5 items-center">
+                <div className="flex-[999_1_320px] min-w-0 flex items-center h-11 px-3.5 rounded-[10px] bg-[#11141f] border border-[#232838] focus-within:border-[#22d3ee]/60 focus-within:shadow-[0_0_15px_rgba(34,211,238,0.15)] transition-all">
+                  <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-mono-code font-medium text-[13px] text-[#9fe8f5] select-all">
+                    {publicUrl}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCopyPublicLink}
+                  className="min-h-[44px] flex-initial inline-flex items-center gap-2 px-5 rounded-[10px] border-none bg-[#22d3ee] hover:bg-[#67e8f9] hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] text-[#04141c] font-manrope font-bold text-[13px] transition-all duration-200 cursor-pointer active:scale-95 shadow-sm shadow-[#22d3ee]/20 hover:-translate-y-0.5"
+                >
+                  {copiedPublicLink ? (
+                    <>
+                      <Check className="w-4 h-4" strokeWidth={2} />
+                      <span>Disalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" strokeWidth={1.8} />
+                      <span>Salin Link Game</span>
+                    </>
+                  )}
+                </button>
+
+                <a
+                  href={waShareUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[44px] flex-initial inline-flex items-center gap-2 px-5 rounded-[10px] border border-[#232838] hover:border-[#34d399]/50 hover:bg-[#34d399]/5 bg-transparent text-[#cdd4e3] hover:text-white font-manrope font-semibold text-[13px] transition-all duration-200 cursor-pointer hover:-translate-y-0.5"
+                  title="Bagikan ke WhatsApp"
+                >
+                  <Send className="w-4 h-4" strokeWidth={1.8} />
+                  <span>WhatsApp</span>
+                </a>
+
+                <a
+                  href={publicUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[44px] flex-initial w-11 inline-flex items-center justify-center rounded-[10px] border border-[#232838] hover:border-[#22d3ee]/50 hover:bg-[#22d3ee]/5 bg-transparent text-[#9aa5ba] hover:text-white transition-all duration-200 cursor-pointer hover:-translate-y-0.5"
+                  aria-label="Buka link di tab baru"
+                  title="Buka di tab baru"
+                >
+                  <ExternalLink className="w-4 h-4" strokeWidth={1.8} />
+                </a>
+              </div>
+
+              {/* 3 Step Guide */}
+              <div className="flex flex-wrap gap-x-5.5 gap-y-2 pt-0.5">
+                <div className="flex gap-2 items-center text-[12px] leading-snug text-[#9aa5ba]">
+                  <span className="shrink-0 w-4 h-4 rounded-full bg-[rgba(34,211,238,0.12)] border border-[rgba(34,211,238,0.4)] text-[#22d3ee] font-manrope font-bold text-[10px] flex items-center justify-center">
+                    1
+                  </span>
+                  <span>Buat ruangan baru di bawah</span>
+                </div>
+
+                <div className="flex gap-2 items-center text-[12px] leading-snug text-[#9aa5ba]">
+                  <span className="shrink-0 w-4 h-4 rounded-full bg-[rgba(34,211,238,0.12)] border border-[rgba(34,211,238,0.4)] text-[#22d3ee] font-manrope font-bold text-[10px] flex items-center justify-center">
+                    2
+                  </span>
+                  <span>Kirim kode / link ke teman</span>
+                </div>
+
+                <div className="flex gap-2 items-center text-[12px] leading-snug text-[#9aa5ba]">
+                  <span className="shrink-0 w-4 h-4 rounded-full bg-[rgba(34,211,238,0.12)] border border-[rgba(34,211,238,0.4)] text-[#22d3ee] font-manrope font-bold text-[10px] flex items-center justify-center">
+                    3
+                  </span>
+                  <span>Teman masuk tinggal klik link</span>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+
+            {/* 3. MAIN GRID (2 Kolom) */}
+            <div className="flex flex-wrap gap-6 items-start">
+              {/* KOLOM KIRI (Sidebar Controls - 340px to 360px) */}
+              <div className="flex-[1_1_340px] max-w-full lg:max-w-[360px] flex flex-col gap-5">
+                {/* Card 1: Gabung via Kode Room */}
+                <div className="border border-[#1c2232] hover:border-[#22d3ee]/40 bg-[#0c0e18] rounded-[16px] p-5 shadow-xl hover:shadow-[0_0_24px_rgba(34,211,238,0.06)] transition-all duration-300">
+                  <div className="flex items-center gap-2 mb-3.5">
+                    <LogIn className="w-4 h-4 text-[#22d3ee]" strokeWidth={1.8} />
+                    <h2 className="m-0 font-sora font-bold text-[15px] text-[#eef1f6]">
+                      Gabung via Kode Room
+                    </h2>
+                  </div>
+
+                  <form
+                    onSubmit={e => {
+                      e.preventDefault();
+                      handleJoinRoom(roomCodeInput);
+                    }}
+                    className="flex gap-2.5"
+                  >
+                    <input
+                      type="text"
+                      value={roomCodeInput}
+                      onChange={e => setRoomCodeInput(e.target.value.replace(/[^A-Za-z0-9_-]/g, '').toUpperCase())}
+                      maxLength={16}
+                      placeholder="Contoh: NEON-77"
+                      aria-label="Kode room"
+                      className="flex-1 min-w-0 h-11 px-3.5 rounded-[10px] bg-[#11141f] border border-[#232838] text-[#eef1f6] font-mono-code font-medium text-[13px] placeholder:text-[#5b6478] uppercase focus:outline-none focus:border-[#22d3ee] focus:shadow-[0_0_12px_rgba(34,211,238,0.2)] transition-all"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!roomCodeInput.trim()}
+                      className="min-h-[44px] flex-initial px-5.5 rounded-[10px] border-none bg-[#22d3ee] hover:bg-[#67e8f9] hover:shadow-[0_0_18px_rgba(34,211,238,0.4)] text-[#04141c] font-manrope font-bold text-[13px] transition-all duration-200 cursor-pointer active:scale-95 disabled:opacity-40"
+                    >
+                      Masuk
+                    </button>
+                  </form>
+                </div>
+
+                {/* Card 2: Buat Arena Baru */}
+                <form
+                  onSubmit={handleCreateRoom}
+                  className="border border-[#1c2232] hover:border-[#22d3ee]/40 bg-[#0c0e18] rounded-[16px] p-5 flex flex-col gap-4 shadow-xl hover:shadow-[0_0_24px_rgba(34,211,238,0.06)] transition-all duration-300"
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-[#22d3ee]" strokeWidth={1.8} />
+                    <h2 className="m-0 font-sora font-bold text-[15px] text-[#eef1f6]">
+                      Buat Arena Baru
+                    </h2>
+                  </div>
+
+                  {/* Input 1: Nama Lobby */}
+                  <label className="flex flex-col gap-1.5">
+                    <span className="inline-flex items-center gap-1.5 font-manrope font-semibold text-[11px] tracking-[0.04em] text-[#8690a6] uppercase">
+                      <Tag className="w-3 h-3" strokeWidth={1.8} />
+                      Nama Lobby
+                    </span>
+                    <input
+                      type="text"
+                      value={newRoomName}
+                      onChange={e => setNewRoomName(e.target.value.slice(0, 32))}
+                      maxLength={32}
+                      placeholder="Nama lobby balapan"
+                      className="h-11 px-3.5 rounded-[10px] bg-[#11141f] border border-[#232838] text-[#eef1f6] font-manrope font-medium text-[13px] focus:outline-none focus:border-[#22d3ee] focus:shadow-[0_0_12px_rgba(34,211,238,0.2)] transition-all"
+                    />
+                  </label>
+
+                  {/* Input 2: Kode Room Khusus (opsional) */}
+                  <label className="flex flex-col gap-1.5">
+                    <span className="inline-flex items-center gap-1.5 font-manrope font-semibold text-[11px] tracking-[0.04em] text-[#8690a6]">
+                      <Key className="w-3 h-3" strokeWidth={1.8} />
+                      <span className="uppercase">Kode Room Khusus</span>{' '}
+                      <span className="text-[#5b6478] font-normal">(opsional)</span>
+                    </span>
+                    <input
+                      type="text"
+                      value={customRoomCode}
+                      onChange={e => setCustomRoomCode(e.target.value.replace(/[^A-Za-z0-9_-]/g, '').toUpperCase())}
+                      maxLength={16}
+                      placeholder="Contoh: NEON-77 (atau kosongkan untuk acak)"
+                      className="h-11 px-3.5 rounded-[10px] bg-[#11141f] border border-[#232838] text-[#eef1f6] font-mono-code font-medium text-[13px] placeholder:text-[#5b6478] uppercase focus:outline-none focus:border-[#22d3ee] focus:shadow-[0_0_12px_rgba(34,211,238,0.2)] transition-all"
+                    />
+                  </label>
+
+                  {/* Input 3: Tingkat Kesulitan */}
+                  <div className="flex flex-col gap-2">
+                    <span className="font-manrope font-semibold text-[11px] tracking-[0.04em] text-[#8690a6] uppercase">
+                      Tingkat Kesulitan
+                    </span>
+                    <div className="flex gap-2">
+                      {(['NORMAL', 'HARD', 'MAXXX'] as DifficultyLevel[]).map(diff => {
+                        const tier = getTierInfo(diff);
+                        const TierIcon = tier.icon;
+                        const isSelected = newRoomDiff === diff;
+                        return (
+                          <button
+                            key={diff}
+                            type="button"
+                            onClick={() => {
+                              sound.play('click');
+                              setNewRoomDiff(diff);
+                            }}
+                            className={`flex-1 min-h-[44px] rounded-[9px] inline-flex items-center justify-center gap-1.5 font-manrope font-bold text-[12px] tracking-[0.03em] transition-all duration-200 cursor-pointer active:scale-95 ${
+                              isSelected
+                                ? tier.activeBtnStyle
+                                : 'border border-[#232838] bg-transparent text-[#8690a6] hover:text-[#cdd4e3] hover:border-white/20'
+                            }`}
+                          >
+                            <TierIcon className="w-3.5 h-3.5" strokeWidth={1.8} />
+                            <span>{diff}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    className="mt-0.5 min-h-[48px] rounded-[10px] border-none bg-[#22d3ee] hover:bg-[#67e8f9] hover:shadow-[0_0_24px_rgba(34,211,238,0.4)] text-[#04141c] font-manrope font-bold text-[13px] inline-flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer active:scale-95 shadow-md shadow-[#22d3ee]/20 hover:-translate-y-0.5"
+                  >
+                    <Zap className="w-4 h-4 fill-current" strokeWidth={1.8} />
+                    <span>Buat & Buka Lobby</span>
+                  </button>
+                </form>
+              </div>
+
+              {/* KOLOM KANAN (Public Lobby List) */}
+              <div className="flex-[999_1_480px] min-w-0">
+                <div className="border border-[#1c2232] bg-[#0c0e18] rounded-[16px] p-5 flex flex-col gap-4 shadow-xl">
+                  {/* Header Card */}
+                  <div className="flex items-center justify-between flex-wrap gap-2.5">
+                    <h2 className="m-0 font-sora font-bold text-[15px] text-[#eef1f6]">
+                      Lobby Publik Aktif{' '}
+                      <span className="text-[#8690a6] font-semibold">
+                        ({displayLobbies.length})
+                      </span>
+                    </h2>
+
+                    <button
+                      type="button"
+                      onClick={handleRefreshRooms}
+                      className="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 rounded-[8px] border border-[#232838] hover:border-[#22d3ee]/40 hover:bg-[#22d3ee]/5 bg-transparent text-[#9aa5ba] hover:text-white font-manrope font-semibold text-[12px] transition-all duration-200 cursor-pointer active:scale-95"
+                    >
+                      <RefreshCw
+                        className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#22d3ee]' : ''}`}
+                        strokeWidth={1.8}
+                      />
+                      <span>Segarkan</span>
+                    </button>
+                  </div>
+
+                  {/* List Items */}
+                  <div className="flex flex-col gap-2.5">
+                    {displayLobbies.map(lobby => {
+                      const tier = getTierInfo(lobby.tier);
+                      const TierIcon = tier.icon;
+                      return (
+                        <div
+                          key={lobby.code}
+                          className={`flex flex-wrap items-center gap-3.5 p-3.5 sm:p-[14px_16px] rounded-[12px] bg-[#11141f] border border-[#1d2233] transition-all duration-300 ${tier.cardHoverStyle}`}
+                        >
+                          <span
+                            className="mp-live w-1.75 h-1.75 rounded-full bg-[#34d399] shrink-0 shadow-[0_0_6px_#34d399]"
+                            aria-hidden="true"
+                          />
+
+                          <div className="flex-[1_1_220px] min-w-0">
+                            {/* Baris 1: Nama & Kode Badge */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-sora font-bold text-[14px] text-[#eef1f6]">
+                                {lobby.name}
+                              </span>
+                              <span className="font-mono-code font-semibold text-[10px] tracking-[0.03em] text-[#8690a6] bg-[#161a27] border border-[#232838] px-1.75 py-1 rounded-[6px]">
+                                {lobby.code}
+                              </span>
+                            </div>
+
+                            {/* Baris 2: Tier, Players, Status */}
+                            <div className="flex items-center gap-3 mt-1.75 text-[12px] text-[#8690a6] flex-wrap">
+                              <span
+                                className="inline-flex items-center gap-1 font-manrope font-bold text-[11px] tracking-[0.03em]"
+                                style={{ color: tier.color }}
+                              >
+                                <TierIcon className="w-3 h-3" strokeWidth={1.8} />
+                                {tier.label}
+                              </span>
+
+                              <span className="inline-flex items-center gap-1.25">
+                                <Users className="w-3 h-3" strokeWidth={1.8} />
+                                {lobby.players}
+                              </span>
+
+                              <span className="inline-flex items-center gap-1.25">
+                                <Clock className="w-3 h-3" strokeWidth={1.8} />
+                                {lobby.status}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Tombol Gabung */}
+                          <button
+                            type="button"
+                            onClick={() => handleJoinRoom(lobby.code)}
+                            className="min-h-[44px] shrink-0 px-5.5 rounded-[9px] border-none bg-[#22d3ee] hover:bg-[#67e8f9] hover:shadow-[0_0_18px_rgba(34,211,238,0.4)] text-[#04141c] font-manrope font-bold text-[13px] inline-flex items-center gap-1.5 transition-all duration-200 cursor-pointer active:scale-95 shadow-sm shadow-[#22d3ee]/20 hover:-translate-y-0.5"
+                          >
+                            <LogIn className="w-3.5 h-3.5" strokeWidth={2} />
+                            <span>Gabung</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };
+
+export default MultiplayerLobby;

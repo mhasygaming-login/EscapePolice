@@ -330,7 +330,7 @@ export const BustedScreen: React.FC<BustedScreenProps> = ({
             <div className="w-full h-full py-2.5 sm:py-3.5 px-4 sm:px-6 [clip-path:polygon(13px_0,calc(100%-13px)_0,100%_13px,100%_calc(100%-13px),calc(100%-13px)_100%,13px_100%,0_calc(100%-13px),0_13px)] bg-gradient-to-r from-[#993b00] via-[#c25400] to-[#993b00] group-hover:from-[#b34500] group-hover:via-[#db6000] group-hover:to-[#b34500] flex items-center justify-center gap-2.5 sm:gap-3 transition-colors">
               <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
               <span className="font-display font-black text-xs sm:text-sm md:text-base text-white tracking-[0.16em] uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                LIHAT LEDERBORD
+                LIHAT LEADERBOARD
               </span>
               <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
             </div>

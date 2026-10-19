@@ -7,7 +7,6 @@ import {
   Rewind,
   Film,
   X,
-  Download,
   Clock,
   ChevronRight,
   Crown,
@@ -454,17 +453,6 @@ export const ReplayViewer: React.FC<ReplayViewerProps> = ({
   const currentPlayers = getInterpolatedPlayers(currentTimeMs);
   const sortedPlayers = Object.values(currentPlayers).sort((a, b) => (b.distance || 0) - (a.distance || 0));
 
-  const handleDownloadReplay = () => {
-    if (!replay) return;
-    const blob = new Blob([JSON.stringify(replay, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `cyber_pursuit_replay_${replay.id}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="fixed inset-0 z-50 bg-[#060814]/95 backdrop-blur-xl flex flex-col select-none overflow-hidden text-white font-sans">
       {/* Top Header Bar */}
@@ -498,16 +486,6 @@ export const ReplayViewer: React.FC<ReplayViewerProps> = ({
             <Clock className="w-3.5 h-3.5 text-cyan-400" />
             <span>Pilih Match</span>
           </button>
-
-          {replay && (
-            <button
-              onClick={handleDownloadReplay}
-              title="Unduh Data Replay JSON"
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-cyan-300 border border-white/10 transition-all active:scale-95 cursor-pointer hidden sm:flex"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-          )}
 
           <button
             onClick={() => {

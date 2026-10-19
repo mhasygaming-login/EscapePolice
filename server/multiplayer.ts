@@ -417,6 +417,15 @@ export function setupMultiplayerServer(
       }
     }
 
+    // Single-player solo run in a multiplayer room (prevent getting stuck on crash)
+    if (room.players.size === 1) {
+      const singlePlayer = Array.from(room.players.values())[0];
+      if (singlePlayer && singlePlayer.status === 'crashed') {
+        finishRace(room, undefined, 'Kendaraan Hancur Menabrak Armada Polisi!');
+        return;
+      }
+    }
+
     // 2. Multi-player race evaluations
     if (room.players.size > 1) {
       const playingPlayers = Array.from(room.players.values()).filter((pl) => pl.status === 'playing');
@@ -448,7 +457,11 @@ export function setupMultiplayerServer(
 
   function finishRace(room: Room, winnerId?: string, reason?: string) {
     if (room.status === 'finished') return;
-    if (room.countdownTimer) clearInterval(room.countdownTimer);
+    if (room.countdownTimer) {
+      clearTimeout(room.countdownTimer as any);
+      clearInterval(room.countdownTimer as any);
+      room.countdownTimer = undefined;
+    }
     if (room.recordingTimer) {
       clearInterval(room.recordingTimer);
       room.recordingTimer = undefined;
@@ -559,12 +572,23 @@ export function setupMultiplayerServer(
 
         case 'create_room': {
           leaveCurrentRoom();
-          const roomCode = (data.code || 'ROOM-' + Math.floor(1000 + Math.random() * 9000)).trim().toUpperCase();
+          let roomCode = String(data.code || '')
+            .trim()
+            .replace(/[^A-Za-z0-9_-]/g, '')
+            .toUpperCase();
+          if (!roomCode || roomCode.length > 16) {
+            roomCode = 'ROOM-' + Math.floor(1000 + Math.random() * 9000);
+          }
+
+          const rawName = String(data.name || '').trim().replace(/[<>]/g, '').slice(0, 32);
+          const rawUsername = String(data.username || 'Pembalap').trim().replace(/[<>]/g, '').slice(0, 24);
+          const roomName = rawName || `${rawUsername}'s Arena`;
+
           const targetDist = data.difficulty === 'MAXXX' ? 2000 : data.difficulty === 'HARD' ? 1500 : 1200;
 
           const room: Room = {
             code: roomCode,
-            name: data.name || `${data.username}'s Lobby`,
+            name: roomName,
             status: 'waiting',
             difficulty: data.difficulty || 'NORMAL',
             targetDistance: targetDist,
@@ -575,7 +599,7 @@ export function setupMultiplayerServer(
           const playerObj: PlayerConnection = {
             socket,
             id: data.userId || 'user_' + Date.now(),
-            username: data.username || 'Pembalap 1',
+            username: rawUsername,
             avatar: data.avatar || '🏎️',
             carColor: data.carColor || '#00f0ff',
             carModel: data.carModel || 'civic_fl5',
@@ -607,7 +631,17 @@ export function setupMultiplayerServer(
         }
 
         case 'join_room': {
-          const targetCode = (data.code || '').trim().toUpperCase();
+          const targetCode = String(data.code || '')
+            .trim()
+            .replace(/[^A-Za-z0-9_-]/g, '')
+            .toUpperCase()
+            .slice(0, 16);
+
+          if (!targetCode) {
+            socket.emit('error', { message: 'Kode room tidak valid!' });
+            return;
+          }
+
           let room = activeRooms.get(targetCode);
           if (!room) {
             for (const [c, r] of activeRooms) {
@@ -623,10 +657,12 @@ export function setupMultiplayerServer(
             return;
           }
 
+          const rawUsername = String(data.username || 'Pembalap').trim().replace(/[<>]/g, '').slice(0, 24) || 'Pembalap';
+
           if (room.players.has(data.userId)) {
             const existing = room.players.get(data.userId)!;
             existing.socket = socket;
-            existing.username = data.username || existing.username;
+            existing.username = rawUsername;
             existing.avatar = data.avatar || existing.avatar;
             existing.carColor = data.carColor || existing.carColor;
             existing.carModel = data.carModel || existing.carModel;
@@ -652,7 +688,7 @@ export function setupMultiplayerServer(
           const playerObj: PlayerConnection = {
             socket,
             id: data.userId || 'guest_' + Date.now(),
-            username: data.username || 'Pembalap 2',
+            username: rawUsername,
             avatar: data.avatar || '🏎️',
             carColor: data.carColor || '#ff2d6b',
             carModel: data.carModel || 'civic_fl5',
@@ -708,7 +744,16 @@ export function setupMultiplayerServer(
           if (!currentRoomCode) return;
           const room = activeRooms.get(currentRoomCode);
           if (!room) return;
-          if (room.countdownTimer) clearInterval(room.countdownTimer);
+          if (room.countdownTimer) {
+            clearTimeout(room.countdownTimer as any);
+            clearInterval(room.countdownTimer as any);
+            room.countdownTimer = undefined;
+          }
+          if (room.recordingTimer) {
+            clearInterval(room.recordingTimer as any);
+            room.recordingTimer = undefined;
+          }
+          room.recordingFrames = [];
           room.status = 'waiting';
           room.winnerId = undefined;
           for (const p of room.players.values()) {
@@ -903,8 +948,18 @@ export function setupMultiplayerServer(
           });
 
           if (room.players.size === 0) {
+            if (room.countdownTimer) {
+              clearTimeout(room.countdownTimer as any);
+              clearInterval(room.countdownTimer as any);
+              room.countdownTimer = undefined;
+            }
+            if (room.recordingTimer) {
+              clearInterval(room.recordingTimer as any);
+              room.recordingTimer = undefined;
+            }
+            room.recordingFrames = [];
+
             if (room.code !== 'NEON-77' && room.code !== 'RACE-01') {
-              if (room.countdownTimer) clearInterval(room.countdownTimer);
               activeRooms.delete(currentRoomCode);
             } else {
               room.status = 'waiting';

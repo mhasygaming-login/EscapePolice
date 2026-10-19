@@ -19,11 +19,9 @@ import {
   Server,
   Wifi,
   CheckCircle2,
-  AlertCircle,
-  Download
+  AlertCircle
 } from 'lucide-react';
 import { LogoutConfirmModal } from './LogoutConfirmModal';
-import { PWAInstallButton } from '../layout/PWAInstallButton';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -363,38 +361,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
 
-            {/* Section: Download & Pasang Aplikasi PWA */}
-            <div className="space-y-3">
-              <div className="text-xs font-display font-bold text-gray-300 uppercase tracking-wider flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Download className="w-4 h-4 text-cyan-400" /> Pasang Aplikasi (PWA)
-                </span>
-                <span className="text-[10px] text-cyan-400 font-mono">Desktop &amp; HP Ready</span>
-              </div>
-
-              <div className="bg-white/5 p-4 rounded-2xl border border-white/5 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src="/cyber_pursuit_logo.jpg"
-                      alt="Logo Escape the Police"
-                      className="w-12 h-12 rounded-xl object-cover border border-cyan-400/50 shadow-md shadow-cyan-500/20 shrink-0"
-                    />
-                    <div>
-                      <div className="text-xs font-display font-extrabold text-white">Escape the Police: Cyber Pursuit</div>
-                      <div className="text-[11px] text-gray-400 mt-0.5">
-                        Download file ZIP portabel atau pasang langsung ke Desktop / HP tanpa browser
-                      </div>
-                    </div>
-                  </div>
-                  <div className="shrink-0">
-                    <PWAInstallButton />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 3: HUD & Display Layout */}
+            {/* Section: HUD & Display Layout */}
             <div className="space-y-3">
               <div className="text-xs font-display font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Monitor className="w-4 h-4 text-cyan-400" /> Tata Letak HUD & Visual Game

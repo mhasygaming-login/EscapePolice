@@ -211,7 +211,7 @@ export const GarageModal: React.FC<GarageModalProps> = ({
 
   return (
     <div
-      className="w-full h-auto lg:h-[calc(100vh-64px)] lg:max-h-[calc(100vh-64px)] bg-[#070814] text-white py-2 sm:py-3 px-3 sm:px-5 lg:px-6 selection:bg-cyan-500 selection:text-black overflow-y-auto lg:overflow-hidden relative flex flex-col justify-start"
+      className="w-full flex-1 min-h-0 bg-[#070814] text-white py-3 sm:py-4 px-3 sm:px-6 lg:px-8 selection:bg-cyan-500 selection:text-black overflow-y-auto lg:overflow-hidden relative flex flex-col justify-start"
       style={{
         backgroundImage: `
           linear-gradient(to right, rgba(0, 240, 255, 0.04) 1px, transparent 1px),
@@ -249,7 +249,7 @@ export const GarageModal: React.FC<GarageModalProps> = ({
             <button
               type="button"
               onClick={handleLaunchToGrid}
-              className="px-4 py-1.5 sm:py-2 rounded-full border border-[#00f0ff] text-[#00f0ff] bg-transparent hover:bg-[#00f0ff]/10 hover:shadow-[0_0_16px_rgba(0,240,255,0.45)] font-display font-bold text-[11px] sm:text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all duration-200 active:scale-95 cursor-pointer whitespace-nowrap shadow-[0_0_10px_rgba(0,240,255,0.2)]"
+              className="px-4 py-2 min-h-[44px] rounded-full border border-[#00f0ff] text-[#00f0ff] bg-transparent hover:bg-[#00f0ff]/10 hover:shadow-[0_0_16px_rgba(0,240,255,0.45)] font-display font-bold text-[11px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-95 cursor-pointer whitespace-nowrap shadow-[0_0_10px_rgba(0,240,255,0.2)]"
               title="Simpan & Siap Balapan"
             >
               <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -261,7 +261,7 @@ export const GarageModal: React.FC<GarageModalProps> = ({
               type="button"
               onClick={handleSyncProfile}
               disabled={isSyncing}
-              className="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-[#ff2d6b] text-[#ff2d6b] bg-transparent hover:bg-[#ff2d6b]/10 hover:shadow-[0_0_16px_rgba(255,45,107,0.45)] font-display font-bold text-[11px] sm:text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all duration-200 active:scale-95 cursor-pointer whitespace-nowrap disabled:opacity-50"
+              className="px-3.5 sm:px-4 py-2 min-h-[44px] rounded-full border border-[#ff2d6b] text-[#ff2d6b] bg-transparent hover:bg-[#ff2d6b]/10 hover:shadow-[0_0_16px_rgba(255,45,107,0.45)] font-display font-bold text-[11px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-95 cursor-pointer whitespace-nowrap disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
               <span>{isSyncing ? 'Menyinkronkan...' : 'Sinkronisasi Profil'}</span>

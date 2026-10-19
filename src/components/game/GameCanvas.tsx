@@ -2588,7 +2588,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative w-full max-w-none h-[calc(100dvh-56px)] max-h-[calc(100dvh-56px)] bg-[#070814] overflow-hidden flex flex-col justify-center items-center select-none m-0 p-0"
+      className="relative w-full max-w-none h-full max-h-full flex-1 bg-[#070814] overflow-hidden flex flex-col justify-center items-center select-none m-0 p-0"
     >
       {/* Scanline CRT overlay (strictly visual, non-blocking) */}
       {user?.layoutSettings.scanlines && (

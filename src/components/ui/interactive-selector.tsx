@@ -450,7 +450,7 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
                     key={opt.id}
                     type="button"
                     onClick={() => setMap(idx)}
-                    className={`flex flex-col items-center justify-center py-1 sm:py-1.5 px-0.5 sm:px-1 rounded-xl border transition-all cursor-pointer min-h-[40px] sm:min-h-[44px] active:scale-95 ${
+                    className={`flex flex-col items-center justify-center py-1 sm:py-1.5 px-0.5 sm:px-1 rounded-xl border transition-all cursor-pointer min-h-[44px] active:scale-95 ${
                       isSelected
                         ? "bg-white/15 shadow-sm text-white"
                         : "bg-white/[0.03] border-white/10 hover:border-white/25 hover:bg-white/[0.08] text-gray-400 hover:text-white"
@@ -596,7 +596,7 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
                     key={opt.id}
                     type="button"
                     onClick={() => setDiff(idx)}
-                    className={`flex flex-col items-center justify-center py-1 sm:py-1.5 px-1 sm:px-1.5 rounded-xl border transition-all cursor-pointer min-h-[40px] sm:min-h-[44px] active:scale-95 ${
+                    className={`flex flex-col items-center justify-center py-1 sm:py-1.5 px-1 sm:px-1.5 rounded-xl border transition-all cursor-pointer min-h-[44px] active:scale-95 ${
                       isSelected
                         ? "bg-white/15 shadow-sm text-white"
                         : "bg-white/[0.03] border-white/10 hover:border-white/25 hover:bg-white/[0.08] text-gray-400 hover:text-white"
@@ -647,7 +647,7 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
               sound.play("click");
               onChangeCar?.();
             }}
-            className="px-3.5 py-1.5 min-h-[34px] sm:min-h-[36px] rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 hover:text-white text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 flex items-center justify-center active:scale-95"
+            className="px-3.5 py-2 min-h-[44px] rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 hover:text-white text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 flex items-center justify-center active:scale-95"
           >
             Ganti Mobil
           </button>
@@ -674,7 +674,7 @@ export const InteractiveSelector: React.FC<InteractiveSelectorProps> = ({
               sound.play("click");
               onOpenFleet?.();
             }}
-            className="px-3.5 py-1.5 min-h-[34px] sm:min-h-[36px] rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-white text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 flex items-center justify-center active:scale-95"
+            className="px-3.5 py-2 min-h-[44px] rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-white text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 flex items-center justify-center active:scale-95"
           >
             Lihat Armada
           </button>

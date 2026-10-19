@@ -92,6 +92,43 @@
 }
 .animate-soft-glow { animation: soft-glow 3s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
 
+/* Multiplayer Arena Design Tokens & Animations */
+@keyframes mp-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.92); }
+}
+.mp-live {
+  animation: mp-pulse 1.8s ease-in-out infinite;
+}
+.font-sora {
+  font-family: 'Sora', sans-serif;
+}
+.font-manrope {
+  font-family: 'Manrope', sans-serif;
+}
+.font-mono-code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Background subtle micro-grid (Elegan & Tidak Berlebihan) */
+.bg-subtle-grid {
+  background-image: 
+    linear-gradient(to right, rgba(34, 211, 238, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 211, 238, 0.02) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+/* Waveform pulse for real-time connection status */
+@keyframes wave-bounce {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+.animate-wave-bar-1 { animation: wave-bounce 1.1s ease-in-out infinite 0.1s; transform-origin: bottom; }
+.animate-wave-bar-2 { animation: wave-bounce 0.9s ease-in-out infinite 0.25s; transform-origin: bottom; }
+.animate-wave-bar-3 { animation: wave-bounce 1.3s ease-in-out infinite 0.4s; transform-origin: bottom; }
+.animate-wave-bar-4 { animation: wave-bounce 0.8s ease-in-out infinite 0.15s; transform-origin: bottom; }
+.animate-wave-bar-5 { animation: wave-bounce 1.2s ease-in-out infinite 0.3s; transform-origin: bottom; }
+
 /* Global Smooth Interactive Motion */
 button, a, input, select {
   transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);

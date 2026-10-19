@@ -3,6 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <script>
+      // Automatically clean up stale ServiceWorker / Workbox caches that intercept dev requests
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          for (var i = 0; i < regs.length; i++) {
+            regs[i].unregister();
+          }
+        }).catch(function() {});
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (var i = 0; i < names.length; i++) {
+            caches.delete(names[i]);
+          }
+        }).catch(function() {});
+      }
+    </script>
     <title>Escape the Police: Cyber Pursuit</title>
     <meta name="description" content="Retro-futuristic police pursuit racing game with real-time multiplayer, global leaderboards, avatar & vehicle customization, cloud sync, and tournament analytics." />
     <meta property="og:title" content="Escape the Police: Cyber Pursuit" />
@@ -15,17 +32,14 @@
     <meta name="apple-mobile-web-app-title" content="CyberPursuit" />
     <meta name="application-name" content="Escape the Police: Cyber Pursuit" />
     <meta name="msapplication-TileColor" content="#070814" />
-    <meta name="msapplication-TileImage" content="/pwa-192x192.png" />
 
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
-    <!-- Google Fonts: Orbitron & Rajdhani -->
+    <!-- Google Fonts: Orbitron, Rajdhani, Sora, Manrope, JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Rajdhani:wght@500;600;700&family=Sora:wght@600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
   </head>
   <body style="background-color: #070814; color: #ffffff; min-height: 100vh; margin: 0;" class="bg-[#070814] text-white overflow-x-hidden selection:bg-[#00f0ff] selection:text-black">
     <div id="root"></div>

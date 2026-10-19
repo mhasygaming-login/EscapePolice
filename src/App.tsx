@@ -306,7 +306,9 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-[100dvh] bg-[#070814] text-white flex flex-col selection:bg-cyan-500 selection:text-black overflow-x-hidden ${
+      className={`min-h-[100dvh] ${
+        activeTab === 'game' || activeTab === 'maps' ? 'h-[100dvh] max-h-[100dvh]' : ''
+      } bg-[#070814] text-white flex flex-col selection:bg-cyan-500 selection:text-black overflow-x-hidden ${
         currentUser?.layoutSettings?.scanlines ? 'crt-scanlines' : ''
       }`}
     >
@@ -356,12 +358,12 @@ export default function App() {
         onToggleSound={handleToggleSound}
       />
 
-      {/* Main Screen Container - Full-width and responsive below navbar */}
+      {/* Main Screen Container - Full-width and responsive flex-1 */}
       <main
-        className={`w-full max-w-none flex-1 flex flex-col items-stretch justify-start relative p-0 m-0 overflow-hidden ${
+        className={`w-full max-w-none flex-1 flex flex-col items-stretch justify-start relative p-0 m-0 min-h-0 ${
           activeTab === 'game' || activeTab === 'maps'
-            ? 'h-[calc(100dvh-56px)] max-h-[calc(100dvh-56px)]'
-            : 'min-h-[calc(100dvh-56px)]'
+            ? 'h-full max-h-full overflow-hidden'
+            : 'min-h-full overflow-y-auto'
         }`}
       >
         <ErrorBoundary>

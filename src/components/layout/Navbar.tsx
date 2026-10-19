@@ -15,7 +15,6 @@ import {
   Share2,
   RotateCw
 } from 'lucide-react';
-import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavbarProps {
   user: UserProfile | null;
@@ -70,8 +69,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isSyncing = propIsSyncing !== undefined ? propIsSyncing : cloudStatus === 'syncing';
 
   return (
-    <header className="w-full h-14 shrink-0 bg-[#070a0f]/95 backdrop-blur-md border-b border-[#00E5FF]/20 px-3 sm:px-6 sticky top-0 z-40 shadow-[0_4px_25px_rgba(0,229,255,0.08)] flex items-center">
-      <div className="w-full max-w-[98vw] 2xl:max-w-[1720px] mx-auto flex items-center justify-between gap-3 h-full">
+    <header className="w-full shrink-0 bg-[#070a0f]/95 backdrop-blur-md border-b border-[#00E5FF]/20 sticky top-0 z-40 shadow-[0_4px_25px_rgba(0,229,255,0.08)] flex flex-col justify-center">
+      <div className="w-full h-14 max-w-[98vw] 2xl:max-w-[1720px] mx-auto flex items-center justify-between gap-2.5 sm:gap-4 px-3 sm:px-6">
         {/* Logo Kiri: ESCAPE POLICE */}
         <div className="flex items-center gap-2">
           <button
@@ -236,9 +235,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </button>
 
-          {/* PWA Install Button */}
-          <PWAInstallButton />
-
           {/* Tombol [BAGIKAN] (Outline Cyan, border neon glowing, teks bold) */}
           {onOpenShare && (
             <button
@@ -293,33 +289,35 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Tablet & Mobile Nav Bar (Professional Responsive Auto-Layout) */}
-      <div className="flex lg:hidden items-center justify-start sm:justify-center gap-1.5 sm:gap-2 mt-2 pt-2 border-t border-[#00E5FF]/20 overflow-x-auto scrollbar-none text-[11px] font-bold uppercase px-0.5">
-        {[
-          { id: 'game', label: 'Solo', icon: Gamepad2 },
-          { id: 'maps', label: 'Peta', icon: Compass },
-          { id: 'multiplayer', label: 'Multiplayer', icon: Users },
-          { id: 'leaderboard', label: 'Peringkat', icon: Trophy },
-          { id: 'garage', label: 'Garasi', icon: Car },
-          { id: 'tournaments', label: 'Turnamen', icon: Calendar },
-          { id: 'analytics', label: 'Analitik', icon: BarChart3 },
-        ].map(item => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => changeTab(item.id as any)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-xl transition-all whitespace-nowrap cursor-pointer shrink-0 active:scale-95 ${
-                isActive
-                  ? 'text-black bg-[#00E5FF] font-black shadow-[0_0_12px_rgba(0,229,255,0.5)]'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
+      <div className="flex lg:hidden items-center justify-start gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 border-t border-white/10 bg-black/50 backdrop-blur-md overflow-x-auto scrollbar-none text-[11px] font-bold uppercase">
+        <div className="flex items-center gap-1.5 sm:gap-2 mx-auto">
+          {[
+            { id: 'game', label: 'Solo', icon: Gamepad2 },
+            { id: 'maps', label: 'Peta', icon: Compass },
+            { id: 'multiplayer', label: 'Multiplayer', icon: Users },
+            { id: 'leaderboard', label: 'Peringkat', icon: Trophy },
+            { id: 'garage', label: 'Garasi', icon: Car },
+            { id: 'tournaments', label: 'Turnamen', icon: Calendar },
+            { id: 'analytics', label: 'Analitik', icon: BarChart3 },
+          ].map(item => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => changeTab(item.id as any)}
+                className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl transition-all whitespace-nowrap cursor-pointer shrink-0 active:scale-95 ${
+                  isActive
+                    ? 'text-black bg-[#00E5FF] font-black shadow-[0_0_12px_rgba(0,229,255,0.5)]'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </header>
   );

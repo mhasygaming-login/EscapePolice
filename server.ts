@@ -37,6 +37,48 @@ app.get('/favicon.ico', (_req, res) => {
   res.status(204).end();
 });
 
+// Media & Upload Resource handler: prevents 404 for AI Studio uploaded assets and image resources
+app.get(['/upload', '/upload/*', '/uploads', '/uploads/*'], (req, res) => {
+  const reqPath = (req.params && ((req.params as any)[0] || req.params.toString())) || '';
+  const possiblePaths = [
+    path.join(process.cwd(), 'public', reqPath),
+    path.join(process.cwd(), 'public', path.basename(reqPath)),
+    path.join(process.cwd(), 'public', 'assets', path.basename(reqPath)),
+    path.join(process.cwd(), '.aistudio', 'artifacts', reqPath),
+    path.join(process.cwd(), '.aistudio', 'artifacts', path.basename(reqPath)),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+      return res.sendFile(p);
+    }
+  }
+  const defaultLogo = path.join(process.cwd(), 'public', 'cyber_pursuit_logo.jpg');
+  if (fs.existsSync(defaultLogo)) {
+    res.setHeader('Content-Type', 'image/jpeg');
+    return res.sendFile(defaultLogo);
+  }
+  res.status(204).end();
+});
+
+// Self-unregister any stale Service Workers across environments to ensure app runs as standard web app
+app.get(['/sw.js', '/service-worker.js'], (_req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.send(`
+    self.addEventListener('install', () => self.skipWaiting());
+    self.addEventListener('activate', (event) => {
+      event.waitUntil(
+        self.registration.unregister().then(() => {
+          return self.clients.matchAll();
+        }).then((clients) => {
+          clients.forEach(client => client.navigate(client.url));
+        })
+      );
+    });
+  `.trim());
+});
+
+
 // Ensure data directory exists
 const DATA_DIR = path.join(process.cwd(), 'data');
 if (!fs.existsSync(DATA_DIR)) {
@@ -1729,10 +1771,34 @@ async function setupVite() {
 
     // Fallback for SPA routing in development: transform root index.html with Vite
     app.use('*', async (req, res, next) => {
-      const url = req.originalUrl;
-      if (url.startsWith('/api') || url.startsWith('/socket.io')) {
+      if (req.method !== 'GET') {
         return next();
       }
+      const url = req.originalUrl;
+      if (
+        url.startsWith('/api') ||
+        url.startsWith('/socket.io') ||
+        url.startsWith('/@vite') ||
+        url.startsWith('/@fs') ||
+        url.startsWith('/@id') ||
+        url.startsWith('/src') ||
+        url.startsWith('/node_modules') ||
+        url.startsWith('/upload')
+      ) {
+        return next();
+      }
+
+      // Do not return HTML for static files with extensions (scripts, styles, images)
+      const ext = path.extname(req.path);
+      if (ext && ext !== '.html') {
+        return next();
+      }
+
+      const accept = req.headers.accept || '';
+      if (!accept.includes('text/html') && !accept.includes('*/*') && req.path !== '/') {
+        return next();
+      }
+
       try {
         const indexHtmlPath = path.resolve(process.cwd(), 'index.html');
         if (!fs.existsSync(indexHtmlPath)) {
@@ -1754,6 +1820,10 @@ async function setupVite() {
     app.get('*', (req, res, next) => {
       if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/socket.io')) {
         return next();
+      }
+      const ext = path.extname(req.path);
+      if (ext && ext !== '.html') {
+        return res.status(404).end();
       }
       const indexPath = path.join(distPath, 'index.html');
       if (fs.existsSync(indexPath)) {

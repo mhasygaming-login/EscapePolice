@@ -82,7 +82,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user, onOpen
                 sound.play('click');
                 onBackToGame();
               }}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-display font-black uppercase tracking-wider shadow-md shadow-cyan-500/25 active:scale-95 cursor-pointer transition-transform whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-display font-black uppercase tracking-wider shadow-md shadow-cyan-500/25 active:scale-95 cursor-pointer transition-transform whitespace-nowrap"
             >
               <Gamepad2 className="w-3.5 h-3.5" />
               <span>Main Balapan (Solo)</span>
@@ -95,7 +95,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user, onOpen
               fetchLeaderboard();
             }}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-amber-400' : ''}`} />
             <span>Segarkan</span>
@@ -220,7 +220,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ user, onOpen
                     <tr
                       key={entry.id || idx}
                       className={`hover:bg-white/5 transition-colors ${
-                        isMe ? 'bg-cyan-500/10 border-l-2 border-cyan-400' : ''
+                        isMe ? 'bg-cyan-500/15 text-cyan-200' : ''
                       }`}
                     >
                       {/* Rank Number / Badge */}

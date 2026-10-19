@@ -60,7 +60,7 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({ user, onBackToGa
                 sound.play('click');
                 onBackToGame();
               }}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-display font-black uppercase tracking-wider shadow-md shadow-cyan-500/25 active:scale-95 cursor-pointer transition-transform whitespace-nowrap"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-display font-black uppercase tracking-wider shadow-md shadow-cyan-500/25 active:scale-95 cursor-pointer transition-transform whitespace-nowrap"
             >
               <Gamepad2 className="w-4 h-4" />
               <span>Main Balapan (Solo)</span>

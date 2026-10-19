@@ -114,37 +114,6 @@ export const TournamentsModal: React.FC<TournamentsModalProps> = ({ user, onBack
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${details}&location=Escape+The+Police+Cyber+Arena`;
   };
 
-  // Generate and download .ics iCalendar file
-  const downloadIcs = (t: Tournament) => {
-    sound.play('click');
-    const start = new Date(t.startTime).toISOString().replace(/-|:|\.\d+/g, '');
-    const end = new Date(t.endTime).toISOString().replace(/-|:|\.\d+/g, '');
-    const icsData = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//Escape the Police//Tournament//ID',
-      'BEGIN:VEVENT',
-      `UID:${t.id}@escapethepolice.game`,
-      `DTSTAMP:${start}`,
-      `DTSTART:${start}`,
-      `DTEND:${end}`,
-      `SUMMARY:Escape the Police: ${t.title}`,
-      `DESCRIPTION:${t.description} Hadiah: ${t.prizeBounty} Bounty`,
-      'STATUS:CONFIRMED',
-      'END:VEVENT',
-      'END:VCALENDAR',
-    ].join('\r\n');
-
-    const blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${t.id}_schedule.ics`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const getRemainingTime = (isoDate: string) => {
     const diff = new Date(isoDate).getTime() - Date.now();
     if (diff <= 0) return '00:00:00';
@@ -638,7 +607,7 @@ export const TournamentsModal: React.FC<TournamentsModalProps> = ({ user, onBack
                         <button
                           onClick={() => handleRegister(t)}
                           disabled={t.isRegistered || registeringId === t.id || isEnded}
-                          className={`w-full py-2.5 rounded-xl font-display font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+                          className={`w-full py-2.5 min-h-[44px] rounded-xl font-display font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
                             isEnded
                               ? 'bg-gray-800 text-gray-500 border border-white/5 cursor-not-allowed'
                               : t.isRegistered
@@ -659,36 +628,29 @@ export const TournamentsModal: React.FC<TournamentsModalProps> = ({ user, onBack
                       )}
 
                       {/* Calendar Sync & Share */}
-                      <div className="grid grid-cols-3 gap-1.5 pt-1">
+                      <div className="grid grid-cols-2 gap-2 pt-1">
                         <a
                           href={getGoogleCalendarUrl(t)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="py-1.5 px-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-bold text-center border border-white/10 flex items-center justify-center gap-1 transition-colors"
+                          className="py-2 px-2 min-h-[44px] rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-bold text-center border border-white/10 flex items-center justify-center gap-1.5 transition-colors"
                           title="Tambah Jadwal ke Google Calendar"
                         >
-                          Google <ExternalLink className="w-2.5 h-2.5" />
+                          <span>Google Cal</span>
+                          <ExternalLink className="w-3 h-3" />
                         </a>
 
                         <button
-                          onClick={() => downloadIcs(t)}
-                          className="py-1.5 px-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-bold border border-white/10 text-center transition-colors cursor-pointer"
-                          title="Unduh File Kalender .ICS"
-                        >
-                          .ICS File
-                        </button>
-
-                        <button
                           onClick={() => handleShare(t)}
-                          className="py-1.5 px-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-bold border border-white/10 flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                          className="py-2 px-2 min-h-[44px] rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-bold border border-white/10 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                           title="Bagi Tautan Turnamen"
                         >
                           {sharedId === t.id ? (
-                            <Check className="w-3 h-3 text-emerald-400" />
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
                           ) : (
-                            <Share2 className="w-3 h-3" />
+                            <Share2 className="w-3.5 h-3.5" />
                           )}
-                          Bagi
+                          <span>Bagi</span>
                         </button>
                       </div>
                     </div>
