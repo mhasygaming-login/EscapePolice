@@ -9,13 +9,27 @@ const app = express();
 const server = http.createServer(app);
 const PORT = 3000;
 
-// Security headers, CORS & body parsing
+// Security headers, CSP with worker-src, CORS & body parsing
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // CSP: explicitly configure worker-src and child-src to allow same-origin, blob: and data: Web Workers
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https:; " +
+    "worker-src 'self' blob: data:; " +
+    "child-src 'self' blob: data:; " +
+    "connect-src 'self' http: https: ws: wss: blob: data:; " +
+    "img-src 'self' data: blob: https: http:; " +
+    "style-src 'self' 'unsafe-inline' https:; " +
+    "font-src 'self' data: https:;"
+  );
+
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -60,12 +74,27 @@ app.get(['/upload', '/upload/*', '/uploads', '/uploads/*'], (req, res) => {
   res.status(204).end();
 });
 
+// Web Worker endpoint: prevents 404 when browser or extensions spawn /worker.js
+app.get(['/worker.js', '/worker.bundle.js'], (_req, res) => {
+  const workerFile = path.join(process.cwd(), 'public', 'worker.js');
+  if (fs.existsSync(workerFile)) {
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    return res.sendFile(workerFile);
+  }
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.send(`
+    self.addEventListener('message', function(e) {
+      if (e.data === 'ping') self.postMessage('pong');
+    });
+  `.trim());
+});
+
 // Self-unregister any stale Service Workers across environments to ensure app runs as standard web app
-app.get(['/sw.js', '/service-worker.js'], (_req, res) => {
-  res.setHeader('Content-Type', 'application/javascript');
+app.get(['/sw.js', '/service-worker.js', '/workbox-*.js'], (_req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.send(`
-    self.addEventListener('install', () => self.skipWaiting());
+    self.addEventListener('install', () => self.skipWaiting && self.skipWaiting());
     self.addEventListener('activate', (event) => {
       event.waitUntil(
         self.registration.unregister().then(() => {
@@ -76,6 +105,29 @@ app.get(['/sw.js', '/service-worker.js'], (_req, res) => {
       );
     });
   `.trim());
+});
+
+// Web App Manifest endpoint: prevents 404 for manifest requests
+app.get(['/manifest.json', '/manifest.webmanifest'], (_req, res) => {
+  const manifestFile = path.join(process.cwd(), 'public', 'manifest.json');
+  if (fs.existsSync(manifestFile)) {
+    res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+    return res.sendFile(manifestFile);
+  }
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.json({
+    name: "Escape the Police: Cyber Pursuit",
+    short_name: "CyberPursuit",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#070814",
+    theme_color: "#070814"
+  });
+});
+
+app.get('/robots.txt', (_req, res) => {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send("User-agent: *\nAllow: /\n");
 });
 
 

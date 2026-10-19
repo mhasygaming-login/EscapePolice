@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https:; worker-src 'self' blob: data:; child-src 'self' blob: data:; connect-src 'self' http: https: ws: wss: blob: data:; img-src 'self' data: blob: https: http:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:;" />
     <script>
       // Automatically clean up stale ServiceWorker / Workbox caches that intercept dev requests
       if ('serviceWorker' in navigator) {
@@ -19,6 +20,18 @@
           }
         }).catch(function() {});
       }
+
+      // Safe defensive guard against Chrome experimental AI Origin Trials (writer / rewriter) warnings
+      try {
+        if (typeof window !== 'undefined' && 'ai' in window && window.ai) {
+          if (!('writer' in window.ai)) {
+            Object.defineProperty(window.ai, 'writer', { value: null, writable: true, configurable: true });
+          }
+          if (!('rewriter' in window.ai)) {
+            Object.defineProperty(window.ai, 'rewriter', { value: null, writable: true, configurable: true });
+          }
+        }
+      } catch (e) {}
     </script>
     <title>Escape the Police: Cyber Pursuit</title>
     <meta name="description" content="Retro-futuristic police pursuit racing game with real-time multiplayer, global leaderboards, avatar & vehicle customization, cloud sync, and tournament analytics." />
