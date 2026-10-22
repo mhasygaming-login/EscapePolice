@@ -62,9 +62,16 @@ Proyek ini disusun menggunakan prinsip **Modular Domain-Driven Design (DDD)** da
 │   │   │   ├── TournamentsModal.tsx # Modal turnamen berkala berhadiah koin
 │   │   │   └── index.ts             # Barrel export domain modals
 │   │   │
+│   │   ├── auth/               # Modul autentikasi hero & mode switch
+│   │   │   ├── RaceAuthHero.tsx     # Komponen display hero grafis autentikasi
+│   │   │   ├── RaceAuthModeSwitch.tsx # Switcher mode login/register interaktif
+│   │   │   └── index.ts             # Barrel export domain auth
+│   │   │
 │   │   ├── ui/                 # Komponen UI primitive & reusable widgets
-│   │   │   ├── interactive-selector.tsx # Selektor AutoLayout transparan 2 kotak
-│   │   │   ├── card-stack.tsx       # Animasi card-stack bertumpuk 3D
+│   │   │   ├── CardStack.tsx        # Animasi card-stack bertumpuk 3D pemilihan map
+│   │   │   ├── InteractiveSelector.tsx # Selektor AutoLayout transparan tingkat kesulitan
+│   │   │   ├── ModernAnimatedAuth.tsx # Form autentikasi animasi bertahap & orbit tech
+│   │   │   ├── LoadingScreen.tsx    # Cinematic loading screen dengan engine rev synth
 │   │   │   └── index.ts             # Barrel export domain UI
 │   │   │
 │   │   └── index.ts            # Central barrel export seluruh komponen

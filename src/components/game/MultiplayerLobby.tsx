@@ -566,7 +566,8 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
               {playerList.map((p, idx) => (
                 <div
                   key={p.id || idx}
-                  className="p-5 rounded-[14px] bg-[#11141f] border border-[#1d2233] hover:border-[#22d3ee]/40 flex flex-col items-center text-center relative overflow-hidden transition-all duration-300 hover:shadow-[0_0_18px_rgba(34,211,238,0.08)]"
+                  style={{ animationDelay: `${idx * 80}ms` }}
+                  className="animate-card-slide-up p-5 rounded-[14px] bg-[#11141f] border border-[#1d2233] hover:border-[#22d3ee]/40 flex flex-col items-center text-center relative overflow-hidden transition-all duration-300 hover:shadow-[0_0_18px_rgba(34,211,238,0.08)]"
                 >
                   {p.isHost && (
                     <div className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 text-[9px] font-bold uppercase tracking-wider">
@@ -606,6 +607,21 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
                       {p.status === 'ready' ? '✓ SIAP BALAPAN' : 'MENUNGGU...'}
                     </span>
                   </div>
+                </div>
+              ))}
+
+              {/* Slot Kosong hingga total 4 pemain */}
+              {Array.from({ length: Math.max(0, 4 - playerList.length) }).map((_, slotIdx) => (
+                <div
+                  key={`empty-slot-${slotIdx}`}
+                  style={{ animationDelay: `${(playerList.length + slotIdx) * 80}ms` }}
+                  className="animate-card-slide-up p-5 rounded-[14px] bg-[#0c0e18]/60 border border-dashed border-[#1f2538] flex flex-col items-center justify-center text-center min-h-[210px] transition-all"
+                >
+                  <div className="w-13 h-13 rounded-[14px] border border-dashed border-white/10 flex items-center justify-center text-[#58627a] mb-3">
+                    <Users className="w-5 h-5 opacity-40 animate-pulse" />
+                  </div>
+                  <div className="text-[13px] font-sora font-bold text-[#626e85]">Slot Kosong</div>
+                  <div className="text-[11px] text-[#475166] mt-1 font-mono-code">Menunggu pembalap...</div>
                 </div>
               ))}
             </div>
@@ -957,13 +973,14 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
 
                   {/* List Items */}
                   <div className="flex flex-col gap-2.5">
-                    {displayLobbies.map(lobby => {
+                    {displayLobbies.map((lobby, lobbyIdx) => {
                       const tier = getTierInfo(lobby.tier);
                       const TierIcon = tier.icon;
                       return (
                         <div
                           key={lobby.code}
-                          className={`flex flex-wrap items-center gap-3.5 p-3.5 sm:p-[14px_16px] rounded-[12px] bg-[#11141f] border border-[#1d2233] transition-all duration-300 ${tier.cardHoverStyle}`}
+                          style={{ animationDelay: `${lobbyIdx * 60}ms` }}
+                          className={`animate-card-slide-up flex flex-wrap items-center gap-3.5 p-3.5 sm:p-[14px_16px] rounded-[12px] bg-[#11141f] border border-[#1d2233] transition-all duration-300 ${tier.cardHoverStyle}`}
                         >
                           <span
                             className="mp-live w-1.75 h-1.75 rounded-full bg-[#34d399] shrink-0 shadow-[0_0_6px_#34d399]"

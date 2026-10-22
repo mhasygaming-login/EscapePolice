@@ -25,11 +25,15 @@ import {
   ShareModal,
   OfflineIndicator,
   ReplayViewer,
+  LoadingScreen,
 } from './components';
 
 export default function App() {
   // Navigation
   const [activeTab, setActiveTab] = useState<ActiveTab>('game');
+
+  // Initial Boot Loading Screen State
+  const [isAppLoading, setIsAppLoading] = useState(true);
 
   // User State & Auth Flow
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -330,6 +334,16 @@ export default function App() {
         currentUser?.layoutSettings?.scanlines ? 'crt-scanlines' : ''
       }`}
     >
+      {/* 0. Initial Cinematic Loading Screen with Staggered Shimmer Text & Sports Car Progress Bar */}
+      {isAppLoading && (
+        <LoadingScreen
+          onFinish={() => setIsAppLoading(false)}
+          isReady={!isAuthChecking}
+          minDurationMs={2200}
+          carModel={currentUser?.carModel || 'civic_fl5'}
+        />
+      )}
+
       {/* Offline/Online Network & Cloud Status Banner */}
       <OfflineIndicator
         onSyncSuccess={(updatedUser) => {

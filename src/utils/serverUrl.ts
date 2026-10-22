@@ -62,7 +62,14 @@ export function getServerBaseUrl(): string {
 
   // 3. Current origin (works for localhost, Cloud Run, custom domain proxy, etc.)
   if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin;
+    const origin = window.location.origin;
+    if (
+      window.location.protocol !== 'file:' &&
+      origin !== 'null' &&
+      (origin.startsWith('http://') || origin.startsWith('https://'))
+    ) {
+      return origin;
+    }
   }
 
   return DEFAULT_CLOUD_BACKEND_URL;

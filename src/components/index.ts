@@ -16,5 +16,8 @@ export * from './modals';
 // 4. Vehicle Garage Customization
 export * from './garage';
 
-// 5. Reusable UI Primitives
+// 5. Authentication Components
+export * from './auth';
+
+// 6. Reusable UI Primitives
 export * from './ui';

@@ -604,6 +604,121 @@ export class SoundEngine {
     }, 400);
   }
 
+  // Dynamic Retro-Futuristic Synthwave Engine Rev for Loading Screen & High-Impact Events
+  public playRetroSynthEngineRev(carModel: string = 'civic_fl5') {
+    if (this.muted) return;
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const profile = CAR_ACOUSTIC_PROFILES[carModel] || CAR_ACOUSTIC_PROFILES.civic_fl5;
+
+    try {
+      // 1. Deep Sub-Bass Synth Thrust (55Hz ramp to 155Hz and settle to 68Hz)
+      const subOsc = ctx.createOscillator();
+      const subGain = ctx.createGain();
+      subOsc.type = 'triangle';
+      subOsc.frequency.setValueAtTime(55, now);
+      subOsc.frequency.exponentialRampToValueAtTime(155, now + 0.32);
+      subOsc.frequency.exponentialRampToValueAtTime(68, now + 0.85);
+
+      subGain.gain.setValueAtTime(0.001, now);
+      subGain.gain.linearRampToValueAtTime(0.36, now + 0.28);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+
+      subOsc.connect(subGain);
+      subGain.connect(ctx.destination);
+      subOsc.start(now);
+      subOsc.stop(now + 0.95);
+
+      // 2. Dual Detuned Sawtooth Synthwave Lead (Analog Chorus Warmth)
+      const leadOsc1 = ctx.createOscillator();
+      const leadOsc2 = ctx.createOscillator();
+      const leadGain = ctx.createGain();
+      const synthFilter = ctx.createBiquadFilter();
+
+      leadOsc1.type = 'sawtooth';
+      leadOsc2.type = 'sawtooth';
+
+      // Detune for 80s analog synth lush chorus
+      leadOsc1.detune.setValueAtTime(-10, now);
+      leadOsc2.detune.setValueAtTime(10, now);
+
+      const basePitch = (profile.idleRpm / 60) * (profile.pulseMultiplier / 2) * 2.2;
+      const peakPitch = (profile.redlineRpm / 60) * (profile.pulseMultiplier / 2) * 2.1;
+
+      leadOsc1.frequency.setValueAtTime(basePitch, now);
+      leadOsc1.frequency.exponentialRampToValueAtTime(peakPitch, now + 0.32);
+      leadOsc1.frequency.exponentialRampToValueAtTime(basePitch * 1.1, now + 0.85);
+
+      leadOsc2.frequency.setValueAtTime(basePitch * 1.008, now);
+      leadOsc2.frequency.exponentialRampToValueAtTime(peakPitch * 1.008, now + 0.32);
+      leadOsc2.frequency.exponentialRampToValueAtTime(basePitch * 1.108, now + 0.85);
+
+      // 3. Resonant Lowpass Filter Sweep (Iconic Synthwave Cutoff Sweep)
+      synthFilter.type = 'lowpass';
+      synthFilter.Q.setValueAtTime(4.8, now);
+      synthFilter.frequency.setValueAtTime(420, now);
+      synthFilter.frequency.exponentialRampToValueAtTime(4200, now + 0.3);
+      synthFilter.frequency.exponentialRampToValueAtTime(750, now + 0.85);
+
+      leadGain.gain.setValueAtTime(0.01, now);
+      leadGain.gain.linearRampToValueAtTime(0.28, now + 0.3);
+      leadGain.gain.exponentialRampToValueAtTime(0.001, now + 0.88);
+
+      leadOsc1.connect(synthFilter);
+      leadOsc2.connect(synthFilter);
+      synthFilter.connect(leadGain);
+      leadGain.connect(ctx.destination);
+
+      leadOsc1.start(now);
+      leadOsc2.start(now);
+      leadOsc1.stop(now + 0.9);
+      leadOsc2.stop(now + 0.9);
+
+      // 4. Turbo Synth Spool & Blow-off Hiss on Deceleration
+      setTimeout(() => {
+        if (this.muted) return;
+        const blowCtx = this.ensureContext();
+        if (!blowCtx) return;
+        const tNow = blowCtx.currentTime;
+
+        try {
+          const bufferSize = Math.floor(blowCtx.sampleRate * 0.28);
+          const noiseBuffer = blowCtx.createBuffer(1, bufferSize, blowCtx.sampleRate);
+          const output = noiseBuffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1;
+          }
+
+          const whiteNoise = blowCtx.createBufferSource();
+          whiteNoise.buffer = noiseBuffer;
+
+          const noiseFilter = blowCtx.createBiquadFilter();
+          noiseFilter.type = 'bandpass';
+          noiseFilter.frequency.setValueAtTime(2400, tNow);
+          noiseFilter.Q.setValueAtTime(3.2, tNow);
+          noiseFilter.frequency.exponentialRampToValueAtTime(900, tNow + 0.25);
+
+          const noiseGain = blowCtx.createGain();
+          noiseGain.gain.setValueAtTime(0.18, tNow);
+          noiseGain.gain.exponentialRampToValueAtTime(0.001, tNow + 0.26);
+
+          whiteNoise.connect(noiseFilter);
+          noiseFilter.connect(noiseGain);
+          noiseGain.connect(blowCtx.destination);
+
+          whiteNoise.start(tNow);
+          whiteNoise.stop(tNow + 0.28);
+        } catch {}
+
+        // Deceleration exhaust pop
+        this.triggerExhaustPop(profile);
+      }, 320);
+    } catch {
+      // Audio fallback gracefully handled
+    }
+  }
+
   public stopEngine() {
     if (!this.engineActive || !this.ctx) return;
     try {

@@ -17,13 +17,14 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  // CSP: explicitly configure worker-src and child-src to allow same-origin, blob: and data: Web Workers
+  // CSP: explicitly configure worker-src and child-src to allow same-origin, blob:, data:, and https: Web Workers
   res.setHeader(
     'Content-Security-Policy',
     "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; " +
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https:; " +
-    "worker-src 'self' blob: data:; " +
-    "child-src 'self' blob: data:; " +
+    "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https:; " +
+    "worker-src 'self' blob: data: https:; " +
+    "child-src 'self' blob: data: https:; " +
     "connect-src 'self' http: https: ws: wss: blob: data:; " +
     "img-src 'self' data: blob: https: http:; " +
     "style-src 'self' 'unsafe-inline' https:; " +
@@ -52,36 +53,44 @@ app.get('/favicon.ico', (_req, res) => {
 });
 
 // Media & Upload Resource handler: prevents 404 for AI Studio uploaded assets and image resources
-app.get(['/upload', '/upload/*', '/uploads', '/uploads/*'], (req, res) => {
-  const reqPath = (req.params && ((req.params as any)[0] || req.params.toString())) || '';
-  const possiblePaths = [
-    path.join(process.cwd(), 'public', reqPath),
-    path.join(process.cwd(), 'public', path.basename(reqPath)),
-    path.join(process.cwd(), 'public', 'assets', path.basename(reqPath)),
-    path.join(process.cwd(), '.aistudio', 'artifacts', reqPath),
-    path.join(process.cwd(), '.aistudio', 'artifacts', path.basename(reqPath)),
-  ];
-  for (const p of possiblePaths) {
-    if (fs.existsSync(p) && fs.statSync(p).isFile()) {
-      return res.sendFile(p);
+app.all(
+  ['/_/upload', '/_/upload/*', '/_/upload/', '/upload', '/upload/*', '/uploads', '/uploads/*'],
+  (req, res) => {
+    if (req.method === 'POST') {
+      return res.status(200).json({ status: 'ok', success: true });
     }
+    const reqPath = (req.params && ((req.params as any)[0] || req.params.toString())) || '';
+    const possiblePaths = [
+      path.join(process.cwd(), 'public', reqPath),
+      path.join(process.cwd(), 'public', path.basename(reqPath)),
+      path.join(process.cwd(), 'public', 'assets', path.basename(reqPath)),
+      path.join(process.cwd(), '.aistudio', 'artifacts', reqPath),
+      path.join(process.cwd(), '.aistudio', 'artifacts', path.basename(reqPath)),
+    ];
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        return res.sendFile(p);
+      }
+    }
+    const defaultLogo = path.join(process.cwd(), 'public', 'cyber_pursuit_logo.jpg');
+    if (fs.existsSync(defaultLogo)) {
+      res.setHeader('Content-Type', 'image/jpeg');
+      return res.sendFile(defaultLogo);
+    }
+    res.status(204).end();
   }
-  const defaultLogo = path.join(process.cwd(), 'public', 'cyber_pursuit_logo.jpg');
-  if (fs.existsSync(defaultLogo)) {
-    res.setHeader('Content-Type', 'image/jpeg');
-    return res.sendFile(defaultLogo);
-  }
-  res.status(204).end();
-});
+);
 
 // Web Worker endpoint: prevents 404 when browser or extensions spawn /worker.js
 app.get(['/worker.js', '/worker.bundle.js'], (_req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
   const workerFile = path.join(process.cwd(), 'public', 'worker.js');
   if (fs.existsSync(workerFile)) {
-    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     return res.sendFile(workerFile);
   }
-  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   res.send(`
     self.addEventListener('message', function(e) {
       if (e.data === 'ping') self.postMessage('pong');
@@ -1835,7 +1844,8 @@ async function setupVite() {
         url.startsWith('/@id') ||
         url.startsWith('/src') ||
         url.startsWith('/node_modules') ||
-        url.startsWith('/upload')
+        url.startsWith('/upload') ||
+        url.startsWith('/_/upload')
       ) {
         return next();
       }

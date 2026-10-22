@@ -1,20 +1,77 @@
 {
+  "id": "/",
   "name": "Escape the Police: Cyber Pursuit",
   "short_name": "CyberPursuit",
-  "start_url": "/",
+  "description": "Retro-futuristic police pursuit racing game with real-time multiplayer, global leaderboards, avatar & vehicle customization, cloud sync, and tournament analytics.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#070814",
+  "orientation": "any",
   "theme_color": "#070814",
+  "background_color": "#070814",
+  "lang": "id",
+  "dir": "ltr",
+  "categories": [
+    "games",
+    "arcade",
+    "sports"
+  ],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/apple-touch-icon.png",
       "sizes": "180x180",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mulai Balapan",
+      "short_name": "Balap",
+      "description": "Langsung terjun ke arena balapan menghindari kejaran polisi",
+      "url": "/?action=race",
+      "icons": [
+        {
+          "src": "/pwa-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Garasi Mobil",
+      "short_name": "Garasi",
+      "description": "Buka garasi dan kustomisasi mobil supercar Anda",
+      "url": "/?action=garage",
+      "icons": [
+        {
+          "src": "/pwa-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

@@ -22,6 +22,7 @@ import {
   TitleBadgeList,
   DEFAULT_TITLES,
   ShowroomStage,
+  CarPerformanceComparison,
 } from '../garage';
 
 export interface GarageModalProps {
@@ -299,10 +300,10 @@ export const GarageModal: React.FC<GarageModalProps> = ({
                     ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/60 shadow-[0_0_10px_rgba(0,240,255,0.3)]'
                     : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'
                 }`}
-                title="Performance Telemetry"
+                title="Performa & Komparasi Mesin"
               >
                 <Activity className="w-3 h-3 text-cyan-400 shrink-0" />
-                <span className="truncate">Telemetri</span>
+                <span className="truncate">Spek & Komparasi</span>
               </button>
 
               <button
@@ -360,27 +361,39 @@ export const GarageModal: React.FC<GarageModalProps> = ({
             {/* Scrollable Container for Customization Panels */}
             <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
               {/* ------------------------------------------------------------------- */}
-              {/* PANEL 1: PERFORMANCE TELEMETRY                                      */}
+              {/* PANEL 1: PERFORMANCE TELEMETRY & ENGINE COMPARISON                  */}
               {/* ------------------------------------------------------------------- */}
               {(activeSidebarTab === 'telemetry' || activeSidebarTab === 'all') && (
-                <div className="rounded-[12px] bg-[rgba(10,10,25,0.6)] backdrop-blur-md border border-cyan-500/30 p-3 sm:p-3.5 shadow-[0_0_16px_rgba(0,240,255,0.12)] transition-all">
-                  <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-white/10">
-                    <div className="flex items-center gap-1.5">
-                      <Activity className="w-3.5 h-3.5 text-cyan-400" />
-                      <h3 className="font-display font-black text-[11px] uppercase tracking-widest text-cyan-300">
-                        PERFORMANCE TELEMETRY
-                      </h3>
-                    </div>
-                    <span className="text-[9px] font-mono text-gray-400 uppercase">
-                      {currentCar.brand}
-                    </span>
-                  </div>
-
-                  <RadarChart
-                    stats={telemetryStats}
-                    size={200}
+                <div className="flex flex-col gap-2.5">
+                  {/* Vehicle Engine Performance Stats & Comparison Visualization */}
+                  <CarPerformanceComparison
+                    currentCar={currentCar}
+                    equippedCar={user?.carModel ? getCarModel(user.carModel) : undefined}
+                    allCars={carsList}
+                    onSelectCar={handleSelectCar}
                     accentColor="#00f0ff"
                   />
+
+                  {/* Supplemental 5-Point Radar Telemetry Chart */}
+                  <div className="rounded-[12px] bg-[rgba(10,10,25,0.6)] backdrop-blur-md border border-cyan-500/25 p-3 sm:p-3.5 shadow-[0_0_16px_rgba(0,240,255,0.08)] transition-all">
+                    <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-white/10">
+                      <div className="flex items-center gap-1.5">
+                        <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                        <h4 className="font-display font-black text-[10.5px] uppercase tracking-widest text-cyan-300">
+                          RADAR TELEMETRI 5-DIMENSI
+                        </h4>
+                      </div>
+                      <span className="text-[9px] font-mono text-gray-400 uppercase">
+                        {currentCar.brand} · {currentCar.shortName}
+                      </span>
+                    </div>
+
+                    <RadarChart
+                      stats={telemetryStats}
+                      size={200}
+                      accentColor="#00f0ff"
+                    />
+                  </div>
                 </div>
               )}
 

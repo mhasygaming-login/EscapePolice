@@ -100,6 +100,139 @@
 .mp-live {
   animation: mp-pulse 1.8s ease-in-out infinite;
 }
+
+/* Card Entrance Animation: Fade-in & Slide-up */
+@keyframes card-fade-slide-up {
+  0% {
+    opacity: 0;
+    transform: translateY(22px) scale(0.96);
+    filter: blur(4px);
+  }
+  60% {
+    opacity: 0.95;
+    transform: translateY(-2px) scale(1.01);
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+.animate-card-slide-up {
+  animation: card-fade-slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+/* Loading Screen: Text Gradient Shimmer & Car Silhouette Dynamics */
+@keyframes text-gradient-shimmer {
+  0% {
+    background-position: 0% 50%;
+    transform: translateY(0);
+    filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.5));
+  }
+  50% {
+    background-position: 100% 50%;
+    transform: translateY(-5px);
+    filter: drop-shadow(0 0 20px rgba(225, 42, 251, 0.85));
+  }
+  100% {
+    background-position: 200% 50%;
+    transform: translateY(0);
+    filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.5));
+  }
+}
+
+.animate-shimmer-letter {
+  background: linear-gradient(
+    90deg,
+    #00f0ff 0%,
+    #67e8f9 20%,
+    #ffffff 40%,
+    #e12afb 65%,
+    #f472b6 85%,
+    #00f0ff 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-gradient-shimmer 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  display: inline-block;
+}
+
+@keyframes car-suspension-bounce {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-1.5px) rotate(-0.4deg); }
+  50% { transform: translateY(0.8px) rotate(0.3deg); }
+  75% { transform: translateY(-1px) rotate(-0.2deg); }
+}
+
+.animate-car-bounce {
+  animation: car-suspension-bounce 0.35s ease-in-out infinite;
+}
+
+@keyframes exhaust-flame {
+  0%, 100% { opacity: 0.9; transform: scaleX(1); }
+  50% { opacity: 0.35; transform: scaleX(0.65); }
+}
+
+.animate-exhaust {
+  animation: exhaust-flame 0.12s ease-in-out infinite alternate;
+}
+
+@keyframes speed-streak {
+  0% { transform: translateX(120%); opacity: 0; }
+  30% { opacity: 0.75; }
+  100% { transform: translateX(-120%); opacity: 0; }
+}
+
+.animate-speed-streak {
+  animation: speed-streak 1.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* Progress Bar Scale Pulse & Neon Glow Burst */
+@keyframes neon-scale-pulse-burst {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.25), inset 0 1px 4px rgba(0, 0, 0, 0.8);
+  }
+  30% {
+    transform: scale(1.035) scaleY(1.35);
+    box-shadow: 0 0 35px rgba(0, 240, 255, 1), 0 0 65px rgba(225, 42, 251, 0.85), inset 0 0 15px rgba(0, 240, 255, 0.6);
+  }
+  65% {
+    transform: scale(1.015) scaleY(1.15);
+    box-shadow: 0 0 25px rgba(0, 240, 255, 0.8), 0 0 45px rgba(225, 42, 251, 0.5);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.25), inset 0 1px 4px rgba(0, 0, 0, 0.8);
+  }
+}
+
+.animate-neon-pulse-burst {
+  animation: neon-scale-pulse-burst 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, box-shadow;
+}
+
+@keyframes shockwave-burst {
+  0% {
+    transform: scale(0.98);
+    opacity: 0.95;
+    border-color: #00f0ff;
+  }
+  100% {
+    transform: scale(1.08, 2.6);
+    opacity: 0;
+    border-color: #e12afb;
+  }
+}
+
+.animate-shockwave-burst {
+  animation: shockwave-burst 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .font-sora {
   font-family: 'Sora', sans-serif;
 }
@@ -141,7 +274,14 @@ button, a, input, select {
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in-top,
   .animate-soft-pulse,
-  .animate-soft-glow {
+  .animate-soft-glow,
+  .animate-card-slide-up,
+  .animate-shimmer-letter,
+  .animate-car-bounce,
+  .animate-exhaust,
+  .animate-speed-streak,
+  .animate-neon-pulse-burst,
+  .animate-shockwave-burst {
     animation: none;
   }
   * {

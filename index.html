@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https:; worker-src 'self' blob: data:; child-src 'self' blob: data:; connect-src 'self' http: https: ws: wss: blob: data:; img-src 'self' data: blob: https: http:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https:; script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https:; worker-src 'self' blob: data: https:; child-src 'self' blob: data: https:; connect-src 'self' http: https: ws: wss: blob: data:; img-src 'self' data: blob: https: http:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:;" />
     <script>
       // Automatically clean up stale ServiceWorker / Workbox caches that intercept dev requests
       if ('serviceWorker' in navigator) {
@@ -48,6 +48,22 @@
 
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <script>
+      // Register Progressive Web App Service Worker
+      if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(function(reg) {
+              console.log('[PWA] Service Worker active:', reg.scope);
+            })
+            .catch(function(err) {
+              console.warn('[PWA] Service Worker registration skipped:', err);
+            });
+        });
+      }
+    </script>
 
     <!-- Google Fonts: Orbitron, Rajdhani, Sora, Manrope, JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

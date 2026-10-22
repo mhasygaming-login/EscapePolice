@@ -1,14 +1,18 @@
 /**
- * UI Primitives Barrel Export
+ * UI Primitives & Interactive Elements Barrel Export
  * Escape the Police: Cyber Pursuit
+ * Standardized PascalCase Architecture
  */
 
-export { CardStack } from './card-stack';
-export type { CardStackItem, CardStackProps } from './card-stack';
+// 1. Card Stacking & Map Carousel
+export { CardStack } from './CardStack';
+export type { CardStackItem, CardStackProps } from './CardStack';
 
-export { InteractiveSelector } from './interactive-selector';
-export type { DifficultyId, SelectorOption, InteractiveSelectorProps } from './interactive-selector';
+// 2. Interactive Difficulty & Map Selector
+export { InteractiveSelector } from './InteractiveSelector';
+export type { DifficultyId, SelectorOption, InteractiveSelectorProps } from './InteractiveSelector';
 
+// 3. Modern Animated Authentication Primitives
 export {
   Input,
   BoxReveal,
@@ -19,5 +23,8 @@ export {
   AuthTabs,
   Label,
   BottomGradient,
-} from './modern-animated-auth';
-export type { AnimatedFormProps, Field, IconConfig } from './modern-animated-auth';
+} from './ModernAnimatedAuth';
+export type { AnimatedFormProps, Field, IconConfig } from './ModernAnimatedAuth';
+
+// 4. Cinematic Initial Boot Loading Screen
+export { LoadingScreen } from './LoadingScreen';

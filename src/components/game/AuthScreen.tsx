@@ -9,7 +9,7 @@ import {
   Gamepad2,
   WifiOff
 } from 'lucide-react';
-import { AuthTabs } from '../ui/modern-animated-auth';
+import { AuthTabs } from '../ui';
 import { RaceAuthHero, RaceAuthHeroCompact } from '../auth/RaceAuthHero';
 import { RaceAuthModeSwitch, type AuthMode } from '../auth/RaceAuthModeSwitch';
 

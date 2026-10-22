@@ -33,9 +33,9 @@ function createMainWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
-      preload: fs.existsSync(path.join(__dirname, 'preload.js'))
-        ? path.join(__dirname, 'preload.js')
-        : undefined,
+      preload: fs.existsSync(path.join(__dirname, 'preload.cjs'))
+        ? path.join(__dirname, 'preload.cjs')
+        : (fs.existsSync(path.join(__dirname, 'preload.js')) ? path.join(__dirname, 'preload.js') : undefined),
     },
   });
 
@@ -136,10 +136,20 @@ if (!gotTheLock) {
   app.whenReady().then(() => {
     createMainWindow();
 
-    // Register F11 shortcut to toggle full screen
+    // Register F11 & Alt+Enter shortcut to toggle full screen
     globalShortcut.register('F11', () => {
       if (mainWindow) {
         mainWindow.setFullScreen(!mainWindow.isFullScreen());
+      }
+    });
+    globalShortcut.register('Alt+Enter', () => {
+      if (mainWindow) {
+        mainWindow.setFullScreen(!mainWindow.isFullScreen());
+      }
+    });
+    globalShortcut.register('Escape', () => {
+      if (mainWindow && mainWindow.isFullScreen()) {
+        mainWindow.setFullScreen(false);
       }
     });
 

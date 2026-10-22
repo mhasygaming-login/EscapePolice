@@ -1,5 +1,5 @@
 import { Car, Crosshair, Gauge, MapPin, Navigation, Radio, ShieldAlert, Siren } from "lucide-react";
-import { Ripple, TechOrbitDisplay, type IconConfig } from "../ui/modern-animated-auth";
+import { Ripple, TechOrbitDisplay, type IconConfig } from "../ui";
 
 // Ikon bertema kejar-kejaran polisi menggantikan tech stack
 const policeIcons: IconConfig[] = [

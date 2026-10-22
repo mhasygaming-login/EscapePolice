@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Escape Police</string>
+    <string name="game_title">Escape the Police: Cyber Pursuit</string>
+    <string name="loading_text">Menghubungkan ke Cyber City Network…</string>
+    <string name="offline_title">Koneksi Terputus</string>
+    <string name="offline_message">Tidak dapat terhubung ke server game. Periksa jaringan internet Anda.</string>
+    <string name="retry_button">Coba Lagi</string>
+    <string name="exit_confirm_title">Keluar Game?</string>
+    <string name="exit_confirm_message">Apakah Anda yakin ingin keluar dari Escape Police?</string>
+    <string name="yes_text">Ya, Keluar</string>
+    <string name="cancel_text">Batal</string>
+</resources>

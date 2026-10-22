@@ -1,24 +1,30 @@
 {
-  "name": "react-example",
+  "name": "escape-police",
+  "productName": "Escape Police - Cyber Pursuit",
+  "version": "1.0.0",
+  "description": "Retro-futuristic police pursuit racing game standalone desktop edition",
+  "author": "Escape Police Team <mhasy.gaming@gmail.com>",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "main": "main.js",
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "build:web": "vite build",
+    "build:electron": "ELECTRON_BUILD=true vite build",
+    "electron:dev": "electron .",
+    "electron:build": "ELECTRON_BUILD=true vite build && electron-builder --win nsis",
+    "electron:pack": "ELECTRON_BUILD=true vite build && electron-builder --win --dir",
     "deploy:vercel": "vercel --prod",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit",
-    "electron:dev": "electron .",
-    "electron:build": "electron-builder"
+    "clean": "rm -rf dist dist-electron server.js",
+    "lint": "tsc --noEmit"
   },
   "build": {
-    "appId": "com.escapepolice.game",
-    "productName": "Escape Police",
+    "appId": "com.escapepolice.cyberpursuit",
+    "productName": "Escape Police - Cyber Pursuit",
+    "copyright": "Copyright © 2026 Escape Police",
     "directories": {
       "output": "dist-electron"
     },
@@ -26,6 +32,8 @@
       "dist/**/*",
       "public/**/*",
       "main.js",
+      "preload.js",
+      "preload.cjs",
       "package.json"
     ],
     "win": {
@@ -37,14 +45,18 @@
           ]
         }
       ],
-      "icon": "public/favicon.ico"
+      "icon": "public/favicon.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "Escape Police"
+      "shortcutName": "Escape Police",
+      "uninstallDisplayName": "Escape Police - Cyber Pursuit",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
     }
   },
   "dependencies": {

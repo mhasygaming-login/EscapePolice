@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="cyber_dark">#070814</color>
+    <color name="cyber_surface">#0d1124</color>
+    <color name="cyber_cyan">#00f0ff</color>
+    <color name="cyber_magenta">#e12afb</color>
+    <color name="cyber_text">#ffffff</color>
+    <color name="cyber_muted">#8291a5</color>
+</resources>

@@ -1,46 +1,66 @@
-# Implementation Plan: Peningkatan Visual & Animasi Keren Multiplayer Arena
+# Implementation Plan - Cinematic Cyberpunk Initial Loading Screen
 
-Menambahkan sentuhan visual modern, animasi interaktif halus, dan telemetri koneksi gelombang real-time pada halaman Multiplayer Arena dengan tetap mempertahankan keselarasan presisi terhadap tema `#07080f`, `#0c0e18`, dan `#22d3ee`.
+Pembuatan layar pemuatan (*Cinematic Loading Screen*) futuristik yang muncul saat pertama kali aplikasi game dibuka. Fitur ini dirancang khusus dengan tipografi `LOADING` beranimasi *gradient shimmer stagger* per huruf, siluet mobil balap retro-cyber yang melaju di atas *progress bar* neon dinamis, dan efek partikel/kecepatan lintasan.
 
 ---
 
 ## User Review Required
 
 > [!IMPORTANT]
-> Berdasarkan jawaban Anda:
-> 1. **Latar Belakang**: Minimalis elegan ("jangan terlalu lebay") — menggunakan mikro cyber-grid 3% opacity dengan radial vignette yang tenang, tanpa partikel melayang yang mengganggu.
-> 2. **Animasi & Interaksi**: Efek glow dinamis saat hover kartu dan transisi halus pada tombol/elemen input.
-> 3. **Elemen Pelengkap**: Grafik gelombang sinyal koneksi real-time (live waveform bars) yang terintegrasi di badge status Cloud Server Aktif.
+> - **Waktu Tampil**: Loading screen akan muncul saat inisialisasi awal aplikasi (`isAppInitializing`), mensimulasikan pemuatan aset (audio FX, sprite kendaraan, data cache pengguna, dan koneksi server) sekitar 1.8–2.5 detik untuk memastikan transisi mulus dan visual dinamis.
+> - **Tombol Lewati (*Skip*) & Accessibility**: Disertakan opsi lewati (*Skip*) instan jika pengguna ingin langsung masuk ke game, serta dukungan penuh untuk `prefers-reduced-motion`.
 
 ---
 
 ## Proposed Changes
 
-### 1. Visual Latar Belakang Tenang & Berkelas
-- Memperkaya background `#07080f` dengan pola mikro cyber-grid linear (opacity 3%) dan gradien radial ambient terpusat.
-- Menjamin keterbacaan teks dan kontras tetap tajam tanpa gangguan elemen visual yang berlebihan.
+### 1. Komponen Baru: `src/components/ui/LoadingScreen.tsx`
+- **Teks `LOADING` Beranimasi Stagger Per Huruf:**
+  - Setiap huruf (`L`, `O`, `A`, `D`, `I`, `N`, `G`) dipisah menjadi elemen independen dengan font `Orbitron` berukuran besar (`text-4xl sm:text-6xl tracking-[0.2em]`).
+  - Animasi teks berupa gelombang gradien cyan ke magenta (`#00f0ff` ke `#e12afb`) dengan pantulan kilau neon (*shimmer light streak*) yang bergeser dari kiri ke kanan secara halus (*staggered delay* $60\text{ms}$ per huruf).
+  - Titik tiga dinamis (`...`) dengan animasi ketukan berkedip halus (*rhythmic pulse*).
 
-### 2. Live Signal Waveform (Status Server Real-Time)
-- Menambahkan visualisasi gelombang frekuensi sinyal server di dalam panel **Link Publik Game** di samping badge `CLOUD SERVER AKTIF`.
-- Menggunakan bar gelombang dinamis dengan animasi tinggi berirama lembut (representing live ping/packet heartbeats) beserta label latensi (misal `~28ms · Sinyal Prima`).
+- **Siluet Mobil Balap Melaju di Atas Progress Bar:**
+  - Siluet mobil sport cyberpunk (desain aerodinamis dengan sayap belakang dan lampu belakang neon merah/cyan menyala).
+  - Posisi mobil terikat secara dinamis dengan persentase pemuatan ($0\%$ s.d. $100\%$), seolah mobil meluncur di atas rel lintasan *progress bar*.
+  - Efek partikel jejak plasma (*light exhaust trail / speed streaks*) di belakang roda belakang mobil saat bergerak maju.
 
-### 3. Efek Glow Dinamis & Transisi Kartu
-- Menambahkan transisi kartu hover dengan efek pencahayaan tepi (*subtle perimeter aura*):
-  - Kartu **Gabung via Kode Room** & **Buat Arena Baru**: `hover:border-[#22d3ee]/45` dengan shadow `0 0 25px rgba(34,211,238,0.10)`.
-  - Item **Lobby Publik Aktif**: glow adaptif sesuai tingkat kesulitan:
-    - Normal: Cyan glow halus (`rgba(34,211,238,0.12)`)
-    - Hard: Amber/Orange glow halus (`rgba(245,176,65,0.12)`)
-    - Maxxx: Purple/Magenta glow halus (`rgba(232,121,249,0.12)`)
-- Tombol aksi utama ("⚡ Buat & Buka Lobby", "Gabung", "Masuk") memiliki efek transisi elevasi lembut dan glow hover yang responsif saat disentuh/diklik.
+- **Progress Bar & Status Sistem:**
+  - *Progress track* berdesain cyber-glass dengan garis aksen bercahaya.
+  - Teks status pemuatan yang berganti secara dinamis:
+    * `0% - 25%`: `"INITIALIZING CYBER ENGINE & AUDIO DRIVERS..."`
+    * `25% - 55%`: `"CACHING NEON TRACKS & VEHICLE ASSETS..."`
+    * `55% - 85%`: `"SYNCING DRIVER PROFILE & CLOUD NETWORK..."`
+    * `85% - 100%`: `"SYSTEM READY. LAUNCHING CYBER PURSUIT..."`
+  - Angka persentase digital dengan font `JetBrains Mono` (`font-mono-code`).
+
+---
+
+### 2. Efek & Utility CSS di `src/index.css`
+- Menambahkan keyframe `@keyframes text-gradient-shimmer`:
+  - Pergeseran posisi background gradien (`background-position: 0% -> 200%`) dengan kurva halus.
+- Menambahkan keyframe `@keyframes car-suspension-bounce`:
+  - Efek getaran suspensi mobil halus saat melaju di kecepatan tinggi.
+- Menambahkan keyframe `@keyframes exhaust-flame`:
+  - Semburan api/plasma knalpot mobil yang menyala redup-terang secara berulang.
+- Dukungan `prefers-reduced-motion` untuk performa mulus di semua perangkat.
+
+---
+
+### 3. Integrasi ke `src/App.tsx` & Inisialisasi
+- Mengaitkan state `isInitialLoading` di `src/App.tsx`.
+- Loading screen berjalan saat startup aplikasi hingga proses sinkronisasi profil, verifikasi offline/online, dan pemanasan audio selesai.
+- Setelah selesai $100\%$, loading screen menghilang dengan transisi *fade-out* dramatis selama $400\text{ms}$ menuju menu utama / lobi arena balapan.
 
 ---
 
 ## Verification Plan
 
-### Automated Tests
-- Menjalankan `lint_applet` untuk memastikan tidak ada kesalahan sintaks atau import.
-- Menjalankan `compile_applet` untuk memastikan kompilasi bundle Vite & backend TypeScript berhasil 100%.
+### Automated Checks
+- `npm run lint` (`tsc --noEmit`): Memastikan semua tipe props dan event handler TypeScript valid.
+- `compile_applet`: Memastikan aplikasi ter-bundle tanpa kendala impor atau sintaks.
 
 ### Manual Verification
-- Memeriksa tampilan di berbagai ukuran layar (mobile, tablet, desktop) untuk memastikan layout tetap presisi dan proporsional.
-- Memastikan transisi hover kartu dan animasi gelombang berjalan mulus tanpa lag frame rate.
+- Uji buka awal aplikasi di browser: Memastikan animasi huruf `L-O-A-D-I-N-G` berjalan berurutan dengan gradien shimmer.
+- Memastikan pergerakan siluet mobil tepat mengikuti persentase *progress bar* dari 0% ke 100%.
+- Memastikan transisi *fade-out* ke tampilan utama mulus tanpa *flicker* atau pergeseran tata letak.
